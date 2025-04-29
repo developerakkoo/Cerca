@@ -1,6 +1,9 @@
 <app-header [showNotificationDot]="true" ></app-header>
 
+
 <ion-content [fullscreen]="true">
   <capacitor-google-map id="map"></capacitor-google-map>
+  
+  
   <app-modal [pickupInput]="pickupAddress" [isKeyboardOpen]="isKeyboardOpen" [isLocationFetched]="isLocationFetched"></app-modal>
 </ion-content>

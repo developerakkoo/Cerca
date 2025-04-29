@@ -1,13 +1,50 @@
-<ion-header [translucent]="true">
+<ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
-    <ion-title>gift</ion-title>
+    <ion-title>Gift Box</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">gift</ion-title>
+      <ion-title size="large">Gift Box</ion-title>
     </ion-toolbar>
   </ion-header>
+
+  <div class="gift-container">
+    <ion-grid>
+      <ion-row>
+        <ion-col size="12" size-md="6" size-lg="4" *ngFor="let coupon of coupons">
+          <div class="coupon-card" [id]="'coupon-' + coupon.id" (click)="unlockCoupon(coupon)">
+            <div class="confetti"></div>
+            
+            <div class="coupon-content" [class.unlocked]="coupon.isUnlocked">
+              <div class="gift-box" *ngIf="!coupon.isUnlocked">
+                <ion-icon name="gift-outline"></ion-icon>
+                <p>Tap to unlock</p>
+              </div>
+
+              <div class="coupon-details" *ngIf="coupon.isUnlocked">
+                <div class="discount-badge">
+                  {{ coupon.discount }}
+                </div>
+                <h2>{{ coupon.title }}</h2>
+                <p>{{ coupon.description }}</p>
+                <div class="coupon-code">
+                  <span>{{ coupon.code }}</span>
+                  <ion-button fill="clear" (click)="copyCode(coupon.code); $event.stopPropagation()">
+                    <ion-icon name="copy-outline"></ion-icon>
+                  </ion-button>
+                </div>
+                <div class="expiry-date">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>Valid until {{ coupon.expiryDate | date }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+  </div>
 </ion-content>

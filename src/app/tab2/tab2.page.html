@@ -1,17 +1,121 @@
-<ion-header [translucent]="true">
+<ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>
-      Tab 2
+      My Bookings
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
+<ion-content [fullscreen]="false" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">Tab 2</ion-title>
+      <ion-title size="large">My Bookings</ion-title>
     </ion-toolbar>
   </ion-header>
 
-  <app-explore-container name="Tab 2 page"></app-explore-container>
+  <div class="segment-container">
+    <ion-segment color="primary" value="active" (ionChange)="segmentChanged($event)" class="scrollable-segment">
+      <ion-segment-button value="active" content-id="active">
+        <ion-label>Active Now</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="past">
+        <ion-label>Past Bookings</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </div>
+
+  <ion-segment-view id="active" *ngIf="isActive">
+    <ion-list >
+      <!-- active-booking-card.component.html -->
+      <ion-card *ngFor="let booking of activeBookings">
+        <ion-card-header>
+          <ion-card-title>
+            Active Booking #{{ booking.id }}
+          </ion-card-title>
+        </ion-card-header>
+      
+        <ion-card-content>
+          <ion-grid>
+            <ion-row>
+              <ion-col size="6">
+                <ion-label>Driver:</ion-label>
+                <ion-text>{{ booking.driverName }}</ion-text>
+              </ion-col>
+              <ion-col size="6">
+                <ion-label>Car:</ion-label>
+                <ion-text>{{ booking.carType }}</ion-text>
+              </ion-col>
+            </ion-row>
+      
+            <ion-row>
+              <ion-col size="6">
+                <ion-label>Pickup:</ion-label>
+                <ion-text>{{ booking.pickupLocation }}</ion-text>
+              </ion-col>
+              <ion-col size="6">
+                <ion-label>Drop:</ion-label>
+                <ion-text>{{ booking.dropLocation }}</ion-text>
+              </ion-col>
+            </ion-row>
+      
+            <ion-row>
+              <ion-col size="6">
+                <ion-label>ETA:</ion-label>
+                <ion-text>{{ booking.estimatedArrivalTime }}</ion-text>
+              </ion-col>
+              <ion-col size="6">
+                <ion-label>Status:</ion-label>
+                <ion-text [color]="booking.status === 'Active' ? 'success' : 'danger'">{{ booking.status }}</ion-text>
+              </ion-col>
+            </ion-row>
+      
+            <ion-row>
+              <ion-col size="6">
+                <ion-button expand="block" mode="ios" [routerLink]="['/booking-details', booking.id]" class="view-details-btn">
+                  <ion-icon name="information-circle-outline" slot="start"></ion-icon>
+                  View
+                </ion-button>
+              </ion-col>
+              <ion-col size="6">
+                <ion-button expand="block" mode="ios" (click)="callDriver()" class="call-driver-btn">
+                  <ion-icon name="call-outline" slot="start"></ion-icon>
+                  Call Driver
+                </ion-button>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </ion-card-content>
+      </ion-card>
+    </ion-list>
+
+
+  </ion-segment-view>
+
+  <ion-segment-view id="past" *ngIf="!isActive">
+    <ion-list >
+      <ion-card *ngFor="let booking of pastBookings">
+        <ion-card-header>
+          <ion-card-title color="light">
+            Past Booking #{{ booking.id }}
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-grid>
+            <ion-row>
+              <ion-col size="6">
+                <ion-label>Driver:</ion-label>
+                <ion-text>{{ booking.driverName }}</ion-text>
+              </ion-col>
+              <ion-col size="6">
+                <ion-label>Car:</ion-label>
+                <ion-text>{{ booking.carType }}</ion-text>
+              </ion-col>
+              .
+            </ion-row>
+          </ion-grid>
+          .
+        </ion-card-content>
+      </ion-card>
+    </ion-list>
+  </ion-segment-view>
 </ion-content>

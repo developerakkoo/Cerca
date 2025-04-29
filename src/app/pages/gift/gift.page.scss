@@ -1,0 +1,209 @@
+.gift-container {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.coupon-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  }
+}
+
+.coupon-content {
+  padding: 24px;
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.gift-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transition: opacity 0.3s ease;
+
+  ion-icon {
+    font-size: 64px;
+    color: var(--ion-color-primary);
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 1.1rem;
+    margin: 0;
+  }
+}
+
+.coupon-details {
+  width: 100%;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.5s ease;
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 24px;
+  background: white;
+
+  &.unlocked {
+    opacity: 1;
+    transform: scale(1);
+    position: relative;
+  }
+}
+
+.discount-badge {
+  background: var(--ion-color-primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1.2rem;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+h2 {
+  color: var(--ion-color-dark);
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+p {
+  color: var(--ion-color-medium);
+  font-size: 1rem;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.coupon-code {
+  background: var(--ion-color-light);
+  padding: 12px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+
+  span {
+    font-family: monospace;
+    font-size: 1.2rem;
+    color: var(--ion-color-dark);
+    font-weight: 600;
+  }
+
+  ion-button {
+    --padding-start: 8px;
+    --padding-end: 8px;
+    margin: 0;
+  }
+}
+
+.expiry-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ion-color-medium);
+  font-size: 0.9rem;
+
+  ion-icon {
+    font-size: 1.2rem;
+  }
+}
+
+.confetti {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  background: linear-gradient(90deg,rgba(131, 58, 180, 1) 0%, rgba(253, 29, 29, 1) 50%, rgba(252, 176, 69, 1) 100%);
+  background-size: 200% 200%;
+  animation: confetti 1.5s ease-out;
+}
+
+@keyframes confetti {
+  0% {
+    opacity: 0;
+    background-position: 0% 0%;
+  }
+  50% {
+    opacity: 1;
+    background-position: 100% 100%;
+  }
+  100% {
+    opacity: 0;
+    background-position: 0% 0%;
+  }
+}
+
+// Custom toast styles
+::ng-deep .custom-toast {
+  --min-width: 100%;
+  --min-height: 44px;
+  --border-radius: 0;
+  --box-shadow: none;
+  --background: var(--ion-color-tertiary);
+  --color: white;
+  --button-color: white;
+  --max-width: 100%;
+  --start: 0;
+  --end: 0;
+  --bottom: 0;
+  --top: auto;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --font-size: 16px;
+  --font-weight: 500;
+  --letter-spacing: 0.5px;
+  --text-align: center;
+  --z-index: 9999;
+}
+
+// ::ng-deep .custom-toast .toast-wrapper {
+//   padding: 0;
+//   margin: 0;
+//   width: 100%;
+//   max-width: 100%;
+//   border-radius: 0;
+// }
+
+// ::ng-deep .custom-toast .toast-message {
+//   padding: 0;
+//   margin: 0;
+//   font-size: 16px;
+//   font-weight: 500;
+//   letter-spacing: 0.5px;
+//   text-align: center;
+// }
+
+// ::ng-deep .custom-toast .toast-button {
+//   margin: 0;
+//   padding: 0 16px;
+//   font-size: 16px;
+//   font-weight: 500;
+//   letter-spacing: 0.5px;
+//   text-transform: none;
+// }
