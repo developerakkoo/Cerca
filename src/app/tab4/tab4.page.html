@@ -1,13 +1,41 @@
-<ion-header [translucent]="true">
+<ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
-    <ion-title>tab4</ion-title>
+    <ion-title>
+      Book a Service
+    </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">tab4</ion-title>
+      <ion-title size="large">Book a Service</ion-title>
     </ion-toolbar>
   </ion-header>
+
+  <!-- Service Selection -->
+  <div class="services-grid">
+    <ion-card *ngFor="let service of services" 
+              [id]="'service-' + service.id"
+              class="service-card"
+              [class.selected]="selectedService?.id === service.id"
+              (click)="selectService(service)">
+      <ion-card-content>
+        <div class="service-content">
+          <ion-icon [name]="service.icon" class="service-icon"></ion-icon>
+          <div class="service-info">
+            <h2>{{ service.name }}</h2>
+            <p>{{ service.description }}</p>
+            <div class="service-details">
+              <span class="price">₹{{ service.price }}</span>
+              <span class="duration">{{ service.duration }}</span>
+            </div>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- Booking Details -->
+  
 </ion-content>

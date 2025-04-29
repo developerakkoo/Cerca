@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, ViewChild, OnDestroy } from '@angular/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { GoogleMap, MapType, Marker } from '@capacitor/google-maps';
 import { environment } from 'src/environments/environment';
@@ -10,13 +10,20 @@ interface LatLng {
   lng: number;
 }
 
+interface CabMarker {
+  id: string;
+  marker: any;
+  position: LatLng;
+  previousPosition: LatLng;
+}
+
 @Component({
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
   standalone: false,
 })
-export class Tab1Page {
+export class Tab1Page implements OnDestroy {
   @ViewChild('map')
   mapRef!: ElementRef<HTMLElement>;
   newMap!: GoogleMap;
@@ -32,6 +39,10 @@ export class Tab1Page {
     lng: 0
   };
 
+  // Cab markers array
+  private cabMarkers: CabMarker[] = [];
+  private updateInterval: any;
+
   constructor(
     private notification: NotificationService,
     private geocodingService: GeocodingService
@@ -42,9 +53,30 @@ export class Tab1Page {
   }
 
   ionViewWillLeave() {
+    this.cleanupMap();
+  }
+
+  ngOnDestroy() {
+    this.cleanupMap();
+  }
+
+  private async cleanupMap() {
     if (this.newMap) {
-      this.newMap.destroy();
+      // Clear cab markers
+      await this.clearCabMarkers();
+      // Clear update interval
+      if (this.updateInterval) {
+        clearInterval(this.updateInterval);
+      }
+      await this.newMap.destroy();
     }
+  }
+
+  private async clearCabMarkers() {
+    for (const cab of this.cabMarkers) {
+      await this.newMap.removeMarker(cab.marker);
+    }
+    this.cabMarkers = [];
   }
 
   async createMap(lat: number, lng: number) {
@@ -68,57 +100,106 @@ export class Tab1Page {
 
     await this.newMap.setMapType(MapType.Normal);
     await this.newMap.enableClustering();
-    await this.newMap.enableCurrentLocation(true);
+    await this.newMap.enableCurrentLocation(false);
 
-    // Create a fixed center marker
-    const marker = await this.newMap.addMarker({
+    // Create a custom current location marker
+    const currentLocationMarker = await this.newMap.addMarker({
       coordinate: {
         lat: lat,
         lng: lng,
       },
-      title: 'Selected Location',
-      snippet: 'This is your selected location',
-      // iconUrl: 'assets/marker-2.gif', // Make sure to add a custom marker image
-    });
-    // this.centerMarker = marker;
-
-    // Add map click listener
-    this.newMap.setOnMapClickListener(async (event) => {
-      if (!this.isDragging) {
-        const newCenter: LatLng = {
-          lat: event.latitude,
-          lng: event.longitude
-        };
-        
-        // Update center marker position
-        // await this.newMap.removeMarker(this.centerMarker);
-        // const newMarker = await this.newMap.addMarker({
-        //   coordinate: newCenter,
-        //   title: 'Selected Location',
-        //   snippet: 'This is your selected location',
-        //   iconUrl: 'assets/marker.png',
-        // });
-        // this.centerMarker = newMarker;
-
-        // Get address for the new location
-        // try {
-        //   const address = await this.geocodingService.getAddressFromLatLng(
-        //     event.latitude,
-        //     event.longitude
-        //   );
-        //   this.pickupAddress = address;
-        //   this.notification.scheduleNotification({
-        //     title: 'Location Selected',
-        //     body: address,
-        //     extra: { type: 'location' }
-        //   });
-        // } catch (error) {
-        //   console.error('Error getting address:', error);
-        // }
-      }
+      title: 'Your Location',
+      snippet: 'You are here',
+      iconUrl: 'assets/current-location.svg',
+      iconSize: { width: 48, height: 48 },
+      iconAnchor: { x: 24, y: 24 }
     });
 
-    this.newMap.initScrolling();
+    
+    // Start updating cab positions
+    // this.startCabUpdates();
+  }
+
+  private async startCabUpdates() {
+    // Initial cab markers
+    await this.updateCabMarkers();
+
+    // Update cab positions every 5 seconds
+    this.updateInterval = setInterval(async () => {
+      await this.updateCabMarkers();
+    }, 5000);
+  }
+
+  private async updateCabMarkers() {
+    // Clear existing markers
+    await this.clearCabMarkers();
+
+    // Generate random cab positions around current location
+    const numCabs = 5; // Number of cabs to show
+    for (let i = 0; i < numCabs; i++) {
+      const cabPosition = this.generateRandomCabPosition();
+      const previousPosition = this.cabMarkers.find(cab => cab.id === `cab-${i}`)?.position || cabPosition;
+      
+      // Calculate direction for the cab icon
+      const direction = this.calculateDirection(previousPosition, cabPosition);
+      
+      // Use different icons based on direction
+      const iconUrl = this.getDirectionalCabIcon(direction);
+
+      const cabMarker = await this.newMap.addMarker({
+        coordinate: cabPosition,
+        title: `Cab ${i + 1}`,
+        snippet: 'Available',
+        iconUrl: iconUrl
+      });
+
+      this.cabMarkers.push({
+        id: `cab-${i}`,
+        marker: cabMarker,
+        position: cabPosition,
+        previousPosition: previousPosition
+      });
+    }
+  }
+
+  private calculateDirection(previous: LatLng, current: LatLng): string {
+    const dx = current.lng - previous.lng;
+    const dy = current.lat - previous.lat;
+    
+    // Calculate the angle
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    
+    // Convert angle to cardinal direction
+    if (angle >= -22.5 && angle < 22.5) return 'east';
+    if (angle >= 22.5 && angle < 67.5) return 'northeast';
+    if (angle >= 67.5 && angle < 112.5) return 'north';
+    if (angle >= 112.5 && angle < 157.5) return 'northwest';
+    if (angle >= 157.5 || angle < -157.5) return 'west';
+    if (angle >= -157.5 && angle < -112.5) return 'southwest';
+    if (angle >= -112.5 && angle < -67.5) return 'south';
+    return 'southeast';
+  }
+
+  private getDirectionalCabIcon(direction: string): string {
+    // Return different icon URLs based on direction
+    // You'll need to create these icons in your assets folder
+    return `assets/cab-${direction}.png`;
+  }
+
+  private generateRandomCabPosition(): LatLng {
+    // Generate random position within 1km radius
+    const radius = 0.01; // Approximately 1km
+    const angle = Math.random() * 2 * Math.PI;
+    const distance = Math.random() * radius;
+    
+    // Add some movement to make it more realistic
+    const movementFactor = 0.0001; // Small movement factor
+    const movementAngle = Math.random() * 2 * Math.PI;
+    
+    return {
+      lat: this.currentLocation.lat + distance * Math.cos(angle) + movementFactor * Math.cos(movementAngle),
+      lng: this.currentLocation.lng + distance * Math.sin(angle) + movementFactor * Math.sin(movementAngle)
+    };
   }
 
   async getCurrentPosition() {
@@ -165,15 +246,16 @@ export class Tab1Page {
         lng: longitude
       };
 
-      // Update center marker position
-      //  await this.newMap.removeMarker(this.centerMarker);
-      const newMarker = await this.newMap.addMarker({
+      // Update current location marker
+      await this.newMap.addMarker({
         coordinate: newCenter,
-        title: 'Selected Location',
-        snippet: 'This is your selected location',
-        iconUrl: 'assets/marker.png',
+        title: 'Your Location',
+        snippet: 'You are here',
+        iconUrl: 'assets/current-location.svg',
+        iconSize: { width: 48, height: 48 },
+        iconAnchor: { x: 24, y: 24 }
       });
-      // this.centerMarker = newMarker;
+
       this.currentLocation = { lat: latitude, lng: longitude };
     } catch (error) {
       console.error('Error recentering map:', error);

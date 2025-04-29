@@ -1,17 +1,58 @@
-<ion-header [translucent]="true">
+<ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>
-      Tab 3
+      My Wallet
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">Tab 3</ion-title>
+      <ion-title size="large">My Wallet</ion-title>
     </ion-toolbar>
   </ion-header>
 
-  <app-explore-container name="Tab 3 page"></app-explore-container>
+  <!-- Balance Card -->
+  <ion-card class="balance-card">
+    <ion-card-content>
+      <div class="balance-container">
+        <h2 class="balance-label">Available Balance</h2>
+        <h1 class="balance-amount">₹{{ balance.toFixed(2) }}</h1>
+        <div class="action-buttons">
+          <ion-button expand="block" fill="solid" (click)="addMoney()">
+            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+            Add Money
+          </ion-button>
+          <ion-button expand="block" fill="outline" (click)="useMoney()">
+            <ion-icon name="wallet-outline" slot="start"></ion-icon>
+            Use Money
+          </ion-button>
+        </div>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Recent Transactions -->
+  <div class="transactions-section">
+    <h2 class="section-title">Recent Transactions</h2>
+    <ion-list>
+      <ion-item *ngFor="let transaction of transactions" class="transaction-item">
+        <ion-icon [name]="transaction.type === 'credit' ? 'arrow-down-circle' : 'arrow-up-circle'"
+                 [color]="transaction.type === 'credit' ? 'success' : 'danger'"
+                 slot="start">
+        </ion-icon>
+        <ion-label>
+          <h3>{{ transaction.description }}</h3>
+          <p>{{ transaction.date | date:'mediumDate' }}</p>
+        </ion-label>
+        <ion-note slot="end" [color]="transaction.type === 'credit' ? 'success' : 'danger'">
+          {{ transaction.type === 'credit' ? '+' : '-' }}₹{{ transaction.amount.toFixed(2) }}
+        </ion-note>
+        <ion-badge slot="end" [color]="getStatusColor(transaction.status)">
+          {{ transaction.status }}
+        </ion-badge>
+      </ion-item>
+    </ion-list>
+  </div>
 </ion-content>

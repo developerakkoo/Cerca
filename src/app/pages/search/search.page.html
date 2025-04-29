@@ -1,13 +1,47 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>search</ion-title>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Set Location</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">search</ion-title>
-    </ion-toolbar>
-  </ion-header>
+  <!-- Map Container -->
+  <div class="map-container">
+    <capacitor-google-map #map id="map2"></capacitor-google-map>
+    
+    <!-- Center Marker -->
+    <div class="center-marker">
+      <ion-icon name="location"></ion-icon>
+    </div>
+  </div>
+
+  <!-- Address Card -->
+  <div class="address-card">
+    <div class="card-content">
+      <div class="location-icon">
+        <ion-icon name="location-outline"></ion-icon>
+      </div>
+      <div class="address-details">
+        <h2>{{selectedAddress || 'Select Location'}}</h2>
+        <p *ngIf="selectedAddress">{{selectedAddressDetails}}</p>
+      </div>
+      <ion-button fill="clear" (click)="confirmLocation()">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <ion-searchbar
+      placeholder="Search for a location"
+      [(ngModel)]="searchQuery"
+      (ionChange)="searchLocation()"
+      animated
+      clearIcon="close-circle"
+    ></ion-searchbar>
+  </div>
 </ion-content>

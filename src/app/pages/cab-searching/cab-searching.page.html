@@ -1,0 +1,33 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Finding Nearby Cabs</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="searching-container">
+    <div class="animation-container" #animationContainer>
+      <!-- Outer pulsing circles -->
+      <div class="pulse-circle circle-1"></div>
+      <div class="pulse-circle circle-2"></div>
+      <div class="pulse-circle circle-3"></div>
+      
+      <!-- Rotating circles -->
+      <div class="rotating-circle circle-4"></div>
+      <div class="rotating-circle circle-5"></div>
+      
+      <!-- Center profile picture -->
+      <div class="profile-container">
+        <img src="assets/user.png" alt="Profile" class="profile-image">
+      </div>
+    </div>
+
+    <div class="status-container">
+      <h2>Finding Nearby Cabs</h2>
+      <p #statusText class="typewriter-text"></p>
+    </div>
+  </div>
+</ion-content>

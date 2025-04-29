@@ -1,10 +1,33 @@
+/* Dark mode variables */
+:root {
+  --card-bg: white;
+  --card-shadow: rgba(0, 0, 0, 0.06);
+  --card-hover-shadow: rgba(0, 0, 0, 0.1);
+  --text-primary: var(--ion-color-dark);
+  --text-secondary: var(--ion-color-medium);
+  --segment-bg: var(--ion-color-light);
+  --segment-shadow: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-bg: var(--ion-color-dark);
+    --card-shadow: rgba(0, 0, 0, 0.2);
+    --card-hover-shadow: rgba(0, 0, 0, 0.3);
+    --text-primary: var(--ion-color-light);
+    --text-secondary: var(--ion-color-medium);
+    --segment-bg: var(--ion-color-dark);
+    --segment-shadow: rgba(0, 0, 0, 0.2);
+  }
+}
+
 /* active-booking-card.component.scss */
 ion-card {
   margin: 16px;
   border-radius: 20px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 20px var(--card-shadow);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: white;
+  background: var(--card-bg);
   overflow: hidden;
   position: relative;
 
@@ -23,7 +46,7 @@ ion-card {
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 12px 28px var(--card-hover-shadow);
 
     &::before {
       transform: scaleX(1);
@@ -88,7 +111,7 @@ ion-card {
     ion-label {
       display: block;
       font-size: 0.85rem;
-      color: var(--ion-color-medium);
+      color: var(--text-secondary);
       margin-bottom: 4px;
       font-weight: 500;
       text-transform: uppercase;
@@ -97,7 +120,7 @@ ion-card {
 
     ion-text {
       font-size: 1rem;
-      color: var(--ion-color-dark);
+      color: var(--text-primary);
       font-weight: 500;
       transition: color 0.2s ease;
     }
@@ -105,7 +128,7 @@ ion-card {
     ion-button {
       margin-top: 20px;
       --border-radius: 12px;
-      --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --box-shadow: 0 4px 12px var(--card-shadow);
       height: 48px;
       font-weight: 500;
       letter-spacing: 0.5px;
@@ -132,12 +155,12 @@ ion-card {
 
       &:hover {
         transform: translateY(-2px);
-        --box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        --box-shadow: 0 6px 16px var(--card-hover-shadow);
       }
 
       &:active {
         transform: translateY(0);
-        --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        --box-shadow: 0 2px 8px var(--card-shadow);
       }
     }
   }
@@ -197,14 +220,14 @@ ion-list{
   position: relative;
   margin: 16px 0;
   overflow: hidden;
-  background: var(--ion-color-light);
+  background: var(--segment-bg);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px var(--segment-shadow);
 }
 
 .scrollable-segment {
   --background: transparent;
-  --color: var(--ion-color-medium);
+  --color: var(--text-secondary);
   --color-checked: var(--ion-color-primary);
   --indicator-color: var(--ion-color-primary);
   --indicator-height: 3px;
@@ -226,7 +249,7 @@ ion-list{
   ion-segment-button {
     --padding-start: 24px;
     --padding-end: 24px;
-    --color: var(--ion-color-medium);
+    --color: var(--text-secondary);
     --color-checked: var(--ion-color-primary);
     --indicator-color: var(--ion-color-primary);
     --indicator-height: 3px;

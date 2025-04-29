@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <!-- Outer pulse circle -->
+  <circle cx="24" cy="24" r="20" fill="none" stroke="#2196F3" stroke-width="2" opacity="0.3" style="transform-origin: center;">
+    <animate attributeName="r" values="20;30;20" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Middle pulse circle -->
+  <circle cx="24" cy="24" r="16" fill="none" stroke="#2196F3" stroke-width="2" opacity="0.2" style="transform-origin: center;">
+    <animate attributeName="r" values="16;26;16" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+    <animate attributeName="opacity" values="0.2;0;0.2" dur="2s" repeatCount="indefinite" begin="0.5s"/>
+  </circle>
+  
+  <!-- Inner solid circle -->
+  <circle cx="24" cy="24" r="8" fill="#2196F3" style="transform-origin: center;"/>
+</svg> 

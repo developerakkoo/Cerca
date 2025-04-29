@@ -1,13 +1,92 @@
-<ion-header [translucent]="true">
+<ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
-    <ion-title>tab5</ion-title>
+    <ion-title>
+      Account Settings
+    </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">tab5</ion-title>
+      <ion-title size="large">Account Settings</ion-title>
     </ion-toolbar>
   </ion-header>
+
+  <!-- Profile Section -->
+  <ion-card class="profile-card">
+    <ion-card-content>
+      <div class="profile-header">
+        <ion-avatar>
+          <img src="assets/user.png" alt="Profile Picture">
+        </ion-avatar>
+        <div class="profile-info">
+          <h2>Akshay Jadhav</h2>
+          <p>akshay.jadhav&#64;gmail.com</p>
+        </div>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Settings List -->
+  <ion-list class="settings-list">
+    <!-- Edit Profile -->
+    <ion-item class="settings-item" (click)="editProfile()">
+      <ion-icon name="person-outline" slot="start"></ion-icon>
+      <ion-label>Edit Profile</ion-label>
+      <ion-icon name="chevron-forward" slot="end"></ion-icon>
+    </ion-item>
+
+    <!-- Notifications -->
+    <ion-item class="settings-item">
+      <ion-icon name="notifications-outline" slot="start"></ion-icon>
+      <ion-label>Notifications</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="notificationsEnabled" (ionChange)="toggleNotifications()"></ion-toggle>
+    </ion-item>
+
+    <!-- Theme Mode -->
+    <ion-item class="settings-item">
+      <ion-icon name="moon-outline" slot="start"></ion-icon>
+      <ion-label>Dark Mode</ion-label>
+      <ion-toggle slot="end" [(ngModel)]="isDarkMode" (ionChange)="toggleTheme()"></ion-toggle>
+    </ion-item>
+
+    <!-- Language -->
+    <ion-item class="settings-item">
+      <ion-icon name="language-outline" slot="start"></ion-icon>
+      <ion-label>Language</ion-label>
+      <ion-select slot="end" [(ngModel)]="selectedLanguage" (ionChange)="changeLanguage($event.detail.value)">
+        <ion-select-option *ngFor="let lang of languages" [value]="lang.code">
+          {{ lang.flag }} {{ lang.name }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <!-- Address -->
+    <ion-item class="settings-item" (click)="manageAddress()">
+      <ion-icon name="location-outline" slot="start"></ion-icon>
+      <ion-label>Manage Address</ion-label>
+      <ion-icon name="chevron-forward" slot="end"></ion-icon>
+    </ion-item>
+
+    <!-- Support -->
+    <ion-item class="settings-item" (click)="openSupport()">
+      <ion-icon name="help-circle-outline" slot="start"></ion-icon>
+      <ion-label>Support</ion-label>
+      <ion-icon name="chevron-forward" slot="end"></ion-icon>
+    </ion-item>
+
+    <!-- FAQ -->
+    <ion-item class="settings-item" (click)="openFAQ()">
+      <ion-icon name="information-circle-outline" slot="start"></ion-icon>
+      <ion-label>FAQ</ion-label>
+      <ion-icon name="chevron-forward" slot="end"></ion-icon>
+    </ion-item>
+
+    <!-- Logout -->
+    <ion-item class="settings-item logout-item" (click)="logout()">
+      <ion-icon name="log-out-outline" slot="start" color="danger"></ion-icon>
+      <ion-label color="danger">Logout</ion-label>
+    </ion-item>
+  </ion-list>
 </ion-content>

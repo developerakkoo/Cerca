@@ -1,0 +1,154 @@
+/* Dark mode variables */
+:root {
+  --card-bg: white;
+  --card-shadow: rgba(0, 0, 0, 0.06);
+  --text-primary: var(--ion-color-dark);
+  --text-secondary: var(--ion-color-medium);
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --card-bg: var(--ion-color-dark);
+    --card-shadow: rgba(0, 0, 0, 0.2);
+    --text-primary: var(--ion-color-light);
+    --text-secondary: var(--ion-color-medium);
+    --border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.balance-card {
+  margin: 16px 0;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px var(--card-shadow);
+  background: var(--card-bg);
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px var(--card-shadow);
+  }
+
+  .balance-container {
+    padding: 20px;
+    text-align: center;
+
+    .balance-label {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .balance-amount {
+      color: var(--text-primary);
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+
+      ion-button {
+        margin: 0;
+        --border-radius: 12px;
+        --box-shadow: 0 4px 12px var(--card-shadow);
+        height: 48px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          --box-shadow: 0 6px 16px var(--card-shadow);
+        }
+
+        &:active {
+          transform: translateY(0);
+          --box-shadow: 0 2px 8px var(--card-shadow);
+        }
+
+        ion-icon {
+          font-size: 1.2rem;
+          margin-right: 8px;
+        }
+      }
+    }
+  }
+}
+
+.transactions-section {
+  margin-top: 24px;
+
+  .section-title {
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding: 0 16px;
+  }
+
+  .transaction-item {
+    --background: var(--card-bg);
+    --border-color: var(--border-color);
+    margin: 8px 0;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateX(4px);
+    }
+
+    ion-icon {
+      font-size: 1.5rem;
+      margin-right: 12px;
+    }
+
+    ion-label {
+      h3 {
+        color: var(--text-primary);
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+
+      p {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+      }
+    }
+
+    ion-note {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    ion-badge {
+      margin-left: 8px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transaction-item {
+  animation: fadeIn 0.3s ease-out forwards;
+  animation-delay: calc(var(--index) * 0.1s);
+}
