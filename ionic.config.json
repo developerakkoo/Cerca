@@ -1,0 +1,7 @@
+{
+  "name": "Cerca",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
