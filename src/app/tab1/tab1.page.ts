@@ -2,6 +2,7 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { environment } from 'src/environments/environment';
+import { NotificationService } from '../services/notification.service';
 @Component({
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
@@ -13,10 +14,15 @@ export class Tab1Page {
   mapRef!: ElementRef<HTMLElement>;
   newMap!: GoogleMap;
 
-  constructor() {
+  constructor(private notification:NotificationService) {
   }
 
   ionViewDidEnter() {
+    this.notification.scheduleNotification({
+      title: 'Hello',
+      body: 'This is a test notification',
+      schedule: { at: new Date(Date.now() + 5000) },
+    });
     this.getCurrentPosition();
 
   }
