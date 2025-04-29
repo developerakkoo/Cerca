@@ -20,12 +20,13 @@
     "importHelpers": true,
     "target": "es2022",
     "module": "es2020",
-     "types": [ "google.maps" ] ,
+    "types": [ "google.maps" ],
     "lib": [
       "es2018", 
       "dom"
     ],
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "allowSyntheticDefaultImports": true
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { AnimationController, ToastController, Platform } from '@ionic/angular';
+import confetti from 'canvas-confetti';
 
 interface Coupon {
   id: number;
@@ -28,7 +30,7 @@ export class GiftPage implements OnInit {
       expiryDate: '2024-12-31',
       isUnlocked: false,
       code: 'WELCOME20',
-      image: 'assets/gift-box.png'
+      image: 'assets/icon/favicon.png'
     },
     {
       id: 2,
@@ -78,25 +80,11 @@ export class GiftPage implements OnInit {
         { offset: 1, transform: 'scale(1) rotate(0deg)' }
       ]);
 
-    // Create confetti animation
-    const confettiElement = element.querySelector('.confetti');
-    if (confettiElement) {
-      const confettiAnimation = this.animationCtrl.create()
-        .addElement(confettiElement)
-        .duration(1500)
-        .easing('cubic-bezier(0.4, 0, 0.2, 1)')
-        .keyframes([
-          { offset: 0, opacity: '0', transform: 'translateY(0)' },
-          { offset: 0.5, opacity: '1', transform: 'translateY(-20px)' },
-          { offset: 1, opacity: '0', transform: 'translateY(-40px)' }
-        ]);
+    // Play gift box animation
+    await giftBoxAnimation.play();
 
-      // Play animations
-      await giftBoxAnimation.play();
-      await confettiAnimation.play();
-    } else {
-      await giftBoxAnimation.play();
-    }
+    // Trigger confetti animation
+    this.triggerConfetti();
 
     // Update coupon status
     coupon.isUnlocked = true;
@@ -108,6 +96,38 @@ export class GiftPage implements OnInit {
         detailsElement.classList.add('unlocked');
       }
     }, 100);
+  }
+
+  private triggerConfetti() {
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+    function randomInRange(min: number, max: number) {
+      return Math.random() * (max - min) + min;
+    }
+
+    const interval: any = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      Haptics.impact({ style: ImpactStyle.Light });
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      
+      // since particles fall down, start a bit higher than random
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+      });
+    }, 250);
   }
 
   async copyCode(code: string) {
@@ -144,5 +164,33 @@ export class GiftPage implements OnInit {
     }
 
     await toast.present();
+  }
+
+  launchConfetti() {
+    const duration = 2 * 1000; // 2 seconds
+    const end = Date.now() + duration;
+
+    const colors = ['#C7356F', '#D735F4', '#35F485', '#359EF4'];
+
+    (function frame() {
+      confetti({
+        particleCount: 4,
+        angle: 90,
+        spread: 55,
+        origin: { x: 0 },
+        colors: colors,
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: colors,
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    })();
   }
 }
