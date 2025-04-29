@@ -1,0 +1,21 @@
+<ion-header [translucent]="false" class="ion-no-border">
+  <ion-toolbar>
+    <div class="header-content">
+      <div class="right-buttons">
+        <div class="button circular" (click)="handleButtonClick(0)">
+          <ion-icon name="search-outline"></ion-icon>
+        </div>
+        <div class="button circular" (click)="handleButtonClick(1)">
+          <ion-icon name="gift-outline"></ion-icon>
+        </div>
+        <div class="button circular notification-button" (click)="handleButtonClick(2)" *ngIf="showNotificationDot">
+          <ion-icon name="notifications-outline"></ion-icon>
+          <div class="notification-dot"></div>
+        </div>
+        <div class="button circular" (click)="handleButtonClick(2)" *ngIf="!showNotificationDot">
+          <ion-icon name="notifications-outline"></ion-icon>
+        </div>
+      </div>
+    </div>
+  </ion-toolbar>
+</ion-header>

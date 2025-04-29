@@ -7,13 +7,15 @@ import { ExploreContainerComponentModule } from '../explore-container/explore-co
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { SharedModule } from '../module/shared/shared.module';
 @NgModule({
   imports: [
     IonicModule,
     CommonModule,
     FormsModule,
     ExploreContainerComponentModule,
-    Tab1PageRoutingModule
+    Tab1PageRoutingModule,
+    SharedModule
   ],
   declarations: [Tab1Page],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]

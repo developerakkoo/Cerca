@@ -1,0 +1,55 @@
+<div class="modal-wrapper" [class.keyboard-open]="isKeyboardOpen">
+  <div class="handle"></div>
+  <div class="modal-content">
+    <div class="input-group">
+      <div class="input-wrapper">
+        <ion-searchbar 
+          class="animated-input"
+          placeholder="Where are you?"
+          [(ngModel)]="pickupInput"
+          (ionFocus)="onFocus($event, 'pickup')"
+          (ionBlur)="onBlur($event)"
+          (ionClear)="clearInput('pickup')"
+          showCancelButton="never"
+          cancelButtonText="Clear">
+        </ion-searchbar>
+        <div *ngIf="!pickupInput" class="icon-wrapper" (click)="clearInput('pickup')">
+          <ion-icon 
+            [color]="isLocationFetched ? 'success' : 'medium'"
+            name="location-outline"
+            class="location-icon">
+          </ion-icon>
+        </div>
+      </div>
+      <div class="input-wrapper">
+        <ion-searchbar 
+          class="animated-input"
+          placeholder="Where to?"
+          [(ngModel)]="destinationInput"
+          (ionFocus)="onFocus($event, 'destination')"
+          (ionBlur)="onBlur($event)"
+          (ionClear)="clearInput('destination')"
+          showCancelButton="never"
+          cancelButtonText="Clear">
+        </ion-searchbar>
+        <div *ngIf="!destinationInput" class="icon-wrapper" (click)="clearInput('destination')">
+          <ion-icon 
+            name="location-outline"
+            class="location-icon">
+          </ion-icon>
+        </div>
+      </div>
+    </div>
+
+    <div class="address-chips">
+      <div 
+        *ngFor="let address of addresses" 
+        class="chip"
+        [class.selected]="address.isSelected"
+        (click)="toggleAddress(address)">
+        <span class="chip-type">{{address.type}}</span>
+        <span class="chip-address">{{address.address}}</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -13,16 +13,16 @@ export class Tab1Page {
   @ViewChild('map')
   mapRef!: ElementRef<HTMLElement>;
   newMap!: GoogleMap;
+  isKeyboardOpen = false;
+  pickupAddress = 'Pune, Maharashtra, India';
+  destinationAddress = 'Mumbai, Maharashtra, India';
+  isLocationFetched = false;
 
   constructor(private notification:NotificationService) {
   }
 
   ionViewDidEnter() {
-    this.notification.scheduleNotification({
-      title: 'Hello',
-      body: 'This is a test notification',
-      schedule: { at: new Date(Date.now() + 5000) },
-    });
+   
     this.getCurrentPosition();
 
   }
@@ -30,7 +30,7 @@ export class Tab1Page {
   ionViewWillLeave() {
     console.log('ionViewWillLeave');
     
-    this.newMap.destroy();
+    // this.newMap.destroy();
   }
   async createMap(lat: number, lng: number) {
     this.newMap = await GoogleMap.create({
@@ -61,6 +61,12 @@ export class Tab1Page {
       snippet: 'This is a snippet',
       iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
     });
+
+    this.newMap.setOnMapClickListener((event) => {
+      console.log('Map clicked', event);
+      this.isKeyboardOpen = false;
+      // this.pickupAddress = event.latitude + ',' + event.longitude;
+    });
   }
 
 
@@ -79,10 +85,12 @@ export class Tab1Page {
 
       const { latitude, longitude } = coordinates.coords;
       console.log('Current position:', latitude, longitude);
+      this.isLocationFetched = true;
       // You can add additional logic here to handle the coordinates
       this.createMap(latitude, longitude);
     } catch (error) {
       console.error('Error getting location:', error);
+      this.isLocationFetched = false;
     }
   }
 }

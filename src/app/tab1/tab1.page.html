@@ -1,11 +1,6 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>
-      Tab 1
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
+<app-header [showNotificationDot]="true" ></app-header>
 
 <ion-content [fullscreen]="true">
   <capacitor-google-map id="map"></capacitor-google-map>
+  <app-modal [pickupInput]="pickupAddress" [isKeyboardOpen]="isKeyboardOpen" [isLocationFetched]="isLocationFetched"></app-modal>
 </ion-content>
