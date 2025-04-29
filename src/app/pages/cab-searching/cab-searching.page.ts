@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { AnimationController } from '@ionic/angular';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-cab-searching',
@@ -10,12 +11,20 @@ import { AnimationController } from '@ionic/angular';
 export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('animationContainer') animationContainer!: ElementRef;
   @ViewChild('statusText') statusText!: ElementRef;
+  @ViewChild('slideButton') slideButton!: ElementRef;
   private animations: any[] = [];
   private typewriterText = 'Searching for nearby cabs...';
   private currentText = '';
   private typewriterInterval: any;
+  private isSliding = false;
+  private startX = 0;
+  private currentX = 0;
+  private slideThreshold = 200; // Distance needed to trigger cancel
 
-  constructor(private animationCtrl: AnimationController) {}
+  constructor(
+    private animationCtrl: AnimationController,
+    private router: Router
+  ) {}
 
   ngOnInit() {
     // We'll create animations in ngAfterViewInit instead
@@ -26,6 +35,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
     setTimeout(() => {
       this.createAnimations();
       this.startTypewriterEffect();
+      this.setupSlideToCancel();
     }, 100);
   }
 
@@ -35,6 +45,99 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.typewriterInterval) {
       clearInterval(this.typewriterInterval);
     }
+  }
+
+  private setupSlideToCancel() {
+    if (!this.slideButton?.nativeElement) {
+      console.error('Slide button element not found');
+      return;
+    }
+
+    const button = this.slideButton.nativeElement;
+
+    // Touch events
+    button.addEventListener('touchstart', (e: TouchEvent) => {
+      this.startX = e.touches[0].clientX;
+      this.isSliding = true;
+    });
+
+    button.addEventListener('touchmove', (e: TouchEvent) => {
+      if (!this.isSliding) return;
+      
+      this.currentX = e.touches[0].clientX;
+      const diff = this.currentX - this.startX;
+      
+      if (diff > 0) {
+        button.style.transform = `translateX(${Math.min(diff, this.slideThreshold)}px)`;
+      }
+    });
+
+    button.addEventListener('touchend', () => {
+      if (!this.isSliding) return;
+      
+      const diff = this.currentX - this.startX;
+      if (diff >= this.slideThreshold) {
+        // Trigger cancel action
+        this.cancelSearch();
+      } else {
+        // Reset position
+        button.style.transform = 'translateX(0)';
+      }
+      
+      this.isSliding = false;
+    });
+
+    // Mouse events for desktop
+    button.addEventListener('mousedown', (e: MouseEvent) => {
+      this.startX = e.clientX;
+      this.isSliding = true;
+    });
+
+    button.addEventListener('mousemove', (e: MouseEvent) => {
+      if (!this.isSliding) return;
+      
+      this.currentX = e.clientX;
+      const diff = this.currentX - this.startX;
+      
+      if (diff > 0) {
+        button.style.transform = `translateX(${Math.min(diff, this.slideThreshold)}px)`;
+      }
+    });
+
+    button.addEventListener('mouseup', () => {
+      if (!this.isSliding) return;
+      
+      const diff = this.currentX - this.startX;
+      if (diff >= this.slideThreshold) {
+        // Trigger cancel action
+        this.cancelSearch();
+      } else {
+        // Reset position
+        button.style.transform = 'translateX(0)';
+      }
+      
+      this.isSliding = false;
+    });
+
+    // Prevent default drag behavior
+    button.addEventListener('dragstart', (e: DragEvent) => {
+      e.preventDefault();
+    });
+  }
+
+  private cancelSearch() {
+    // Add a smooth animation for the cancel action
+    const animation = this.animationCtrl.create()
+      .addElement(this.slideButton.nativeElement)
+      .duration(300)
+      .easing('ease-out')
+      .fromTo('transform', 'translateX(0)', 'translateX(100%)')
+      .fromTo('opacity', '1', '0');
+
+    animation.play().then(() => {
+      // Navigate back after animation completes
+      this.router.navigate(['/']);
+    });
   }
 
   private startTypewriterEffect() {
