@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { AnimationController, Platform } from '@ionic/angular';
-
+import { Router } from '@angular/router';
 interface Service {
   id: number;
   name: string;
@@ -60,7 +60,8 @@ export class Tab4Page implements OnInit {
 
   constructor(
     private animationCtrl: AnimationController,
-    private platform: Platform
+    private platform: Platform,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -85,6 +86,9 @@ export class Tab4Page implements OnInit {
   selectService(service: Service) {
     this.selectedService = service;
     this.animateSelection(service.id);
+    if (service.id === 3) {
+      this.router.navigate(['/tabs/tabs/tab4/date-wise']);
+    }
   }
 
   private animateSelection(serviceId: number) {

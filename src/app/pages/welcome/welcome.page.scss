@@ -1,0 +1,129 @@
+.welcome-content {
+  --background: #1c2433;
+  background: #1c2433;
+}
+
+.welcome-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0;
+  position: relative;
+}
+
+// Image Container
+.image-container {
+  width: 100%;
+  height: 60%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  overflow: hidden;
+  position: relative;
+}
+
+.welcome-image {
+  width: 140%;
+  height: auto;
+  max-width: none;
+  transform: translateX(15%) translateY(-15%) rotate(-15deg);
+  opacity: 0.9;
+}
+
+// Text Container
+.text-container {
+  text-align: left;
+  padding: 32px;
+  z-index: 2;
+}
+
+.welcome-title {
+  font-size: 3rem;
+  font-weight: 400;
+  color: #ffffff;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+
+  .wave {
+    font-size: 32px;
+    margin-left: 8px;
+    display: inline-block;
+    animation: wave 2s infinite;
+  }
+
+  .brand {
+    font-size: 3.4rem;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  margin-top: 16px;
+  font-weight: 400;
+  max-width: 280px;
+}
+
+// Wave Animation
+@keyframes wave {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+  60% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+// Animations
+@keyframes slideIn {
+  from {
+    transform: translateX(90%) rotate(-5deg);
+  }
+  to {
+    transform: translateX(10%) rotate(-5deg);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+// Dark theme support
+@media (prefers-color-scheme: dark) {
+  .welcome-content {
+    --background: var(--ion-color-primary-shade);
+  }
+
+  .welcome-title {
+    color: var(--ion-color-light);
+  }
+
+  .welcome-subtitle {
+    color: var(--ion-color-light-shade);
+  }
+}

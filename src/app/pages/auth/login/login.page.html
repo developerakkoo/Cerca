@@ -1,0 +1,47 @@
+
+<ion-content [fullscreen]="true" class="login-content">
+  <div class="login-container">
+    <!-- Header Section -->
+    <div class="header-section">
+      <h1 class="title">Let's get you in! 👋</h1>
+      <p class="subtitle">Sign in to continue your journey</p>
+    </div>
+
+    <!-- Social Login Section -->
+    <div class="social-buttons">
+      <button class="social-button google">
+        <ion-icon name="logo-google"></ion-icon>
+        <span>Continue with Google</span>
+      </button>
+      
+      <button class="social-button facebook">
+        <ion-icon name="logo-facebook"></ion-icon>
+        <span>Continue with Facebook</span>
+      </button>
+      
+      <button class="social-button apple">
+        <ion-icon name="logo-apple"></ion-icon>
+        <span>Continue with Apple</span>
+      </button>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider">
+      <span class="line"></span>
+      <span class="text">or</span>
+      <span class="line"></span>
+    </div>
+
+    <!-- Mobile Login Button -->
+    <button class="mobile-button" (click)="goToMobileLogin()">
+      <ion-icon name="phone-portrait-outline"></ion-icon>
+      <span>Sign in with Mobile Number</span>
+    </button>
+
+    <!-- Register Link -->
+    <div class="register-link">
+      <span>Don't have an account? </span>
+      <a href="/register">Sign up here</a>
+    </div>
+  </div>
+</ion-content>

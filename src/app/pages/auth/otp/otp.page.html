@@ -1,0 +1,72 @@
+
+
+<ion-content [fullscreen]="true" class="otp-content">
+  <div class="otp-container">
+    <!-- Back Button -->
+    <div class="back-button" (click)="goBack()">
+      <ion-icon name="arrow-back-outline"></ion-icon>
+    </div>
+
+    <!-- Header Section -->
+    <div class="header-section">
+      <h1 class="title">Enter verification code</h1>
+      <p class="subtitle">We've sent a code to +91 {{maskedMobile}}</p>
+    </div>
+
+    <!-- OTP Input Section -->
+    <div class="otp-input-section">
+      <div class="otp-inputs">
+        <input
+          #otpInput1
+          type="text"
+          maxlength="1"
+          [formControl]="digit1Control"
+          (keyup)="onOtpInput($event, 1)"
+          (paste)="onPaste($event)"
+          inputmode="numeric"
+          pattern="[0-9]*"
+        >
+        <input
+          #otpInput2
+          type="text"
+          maxlength="1"
+          [formControl]="digit2Control"
+          (keyup)="onOtpInput($event, 2)"
+          inputmode="numeric"
+          pattern="[0-9]*"
+        >
+        <input
+          #otpInput3
+          type="text"
+          maxlength="1"
+          [formControl]="digit3Control"
+          (keyup)="onOtpInput($event, 3)"
+          inputmode="numeric"
+          pattern="[0-9]*"
+        >
+        <input
+          #otpInput4
+          type="text"
+          maxlength="1"
+          [formControl]="digit4Control"
+          (keyup)="onOtpInput($event, 4)"
+          inputmode="numeric"
+          pattern="[0-9]*"
+        >
+      </div>
+
+      <!-- Verification Status -->
+      <div class="verification-status" *ngIf="isVerifying">
+        <div class="loading-spinner"></div>
+        <span>Verifying OTP...</span>
+      </div>
+
+      <!-- Timer Section -->
+      <div class="timer-section" *ngIf="!isVerifying">
+        <p>Didn't receive the code? <span class="resend" [class.active]="canResend" (click)="resendOTP()">
+          {{ canResend ? 'Resend' : `Resend in ${timeLeft}s` }}
+        </span></p>
+      </div>
+    </div>
+  </div>
+</ion-content>

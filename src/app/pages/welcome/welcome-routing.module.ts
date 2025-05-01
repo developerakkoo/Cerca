@@ -1,16 +1,12 @@
 import { NgModule } from '@angular/core';
 import { Routes, RouterModule } from '@angular/router';
 
-import { Tab4Page } from './tab4.page';
+import { WelcomePage } from './welcome.page';
 
 const routes: Routes = [
   {
     path: '',
-    component: Tab4Page
-  },
-  {
-    path: 'date-wise',
-    loadChildren: () => import('./date-wise/date-wise.module').then( m => m.DateWisePageModule)
+    component: WelcomePage
   }
 ];
 
@@ -18,4 +14,4 @@ const routes: Routes = [
   imports: [RouterModule.forChild(routes)],
   exports: [RouterModule],
 })
-export class Tab4PageRoutingModule {}
+export class WelcomePageRoutingModule {}

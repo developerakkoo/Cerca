@@ -1,0 +1,132 @@
+.splash-content {
+  --background: var(--ion-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.splash-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 24px;
+}
+
+// Logo Container
+.logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: fadeIn 1s ease-out;
+}
+
+.logo {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+  animation: scaleIn 1.2s ease-out;
+}
+
+.logo-text {
+  margin-top: 16px;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--ion-color-primary);
+  letter-spacing: 2px;
+  animation: fadeIn 1s ease-out 0.3s both;
+}
+
+// Made in India Text
+.made-in-india {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  color: var(--ion-color-medium);
+  animation: fadeIn 1s ease-out 0.6s both;
+
+  .heart-icon {
+    color: #ff3b30;
+    font-size: 20px;
+    animation: heartBeat 1.5s ease-in-out infinite;
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.3);
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.3);
+  }
+  70% {
+    transform: scale(1);
+  }
+}
+
+// Dark theme support
+@media (prefers-color-scheme: dark) {
+  .splash-content {
+    --background: var(--ion-color-dark);
+  }
+
+  .logo-text {
+    color: var(--ion-color-light);
+  }
+
+  .made-in-india {
+    color: var(--ion-color-light-shade);
+  }
+}
+
+// Transition Overlay
+.transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--ion-color-primary);
+  opacity: 0;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+  z-index: 1000;
+
+  &.active {
+    opacity: 1;
+    transform: scale(2);
+  }
+}

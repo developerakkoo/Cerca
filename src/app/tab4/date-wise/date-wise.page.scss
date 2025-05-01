@@ -1,0 +1,438 @@
+:root {
+  --page-bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --border-color: #e0e0e0;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --highlight-bg: rgba(var(--ion-color-primary-rgb), 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #121212;
+    --card-bg: #1e1e1e;
+    --text-primary: #ffffff;
+    --text-secondary: #b0b0b0;
+    --border-color: #2d2d2d;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --highlight-bg: rgba(var(--ion-color-primary-rgb), 0.15);
+  }
+}
+
+.booking-content {
+  --background: var(--page-bg);
+  
+  .page-header {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: slideDown 0.5s ease-out;
+
+    .back-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--highlight-bg);
+      box-shadow: 0 2px 8px var(--shadow-color);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--ion-color-primary);
+        border-radius: 50%;
+        opacity: 0;
+        transform: scale(0.8);
+        transition: all 0.3s ease;
+        z-index: 0;
+      }
+
+      ion-icon {
+        font-size: 1.2rem;
+        color: var(--ion-color-primary);
+        z-index: 1;
+        transition: all 0.3s ease;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px var(--shadow-color);
+
+        &::before {
+          opacity: 0.1;
+          transform: scale(1);
+        }
+
+        ion-icon {
+          transform: scale(1.1);
+        }
+      }
+
+      &:active {
+        transform: scale(0.95);
+        box-shadow: 0 2px 4px var(--shadow-color);
+      }
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+  }
+
+  .booking-container {
+    padding: 20px;
+    animation: fadeIn 0.5s ease-out;
+
+    .booking-type {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 12px;
+        background: var(--card-bg);
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 2px 8px var(--shadow-color);
+        transition: all 0.3s ease;
+        cursor: pointer;
+
+        ion-icon {
+          font-size: 1.2rem;
+        }
+
+        &.active {
+          background: var(--highlight-bg);
+          color: var(--ion-color-primary);
+        }
+
+        &:active {
+          transform: scale(0.98);
+        }
+      }
+    }
+
+    h3 {
+      color: var(--text-primary);
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0 0 16px;
+    }
+
+    .time-slots {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+
+      .time-slot {
+        padding: 12px;
+        text-align: center;
+        background: var(--card-bg);
+        border-radius: 10px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px var(--shadow-color);
+
+        &.selected {
+          background: var(--highlight-bg);
+          color: var(--ion-color-primary);
+          transform: scale(1.05);
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+      }
+    }
+
+    .selected-dates {
+      margin-bottom: 24px;
+
+      .date-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+
+        .date-chip {
+          background: var(--highlight-bg);
+          color: var(--ion-color-primary);
+          padding: 8px 12px;
+          border-radius: 20px;
+          font-size: 0.9rem;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          animation: scaleIn 0.3s ease-out;
+
+          ion-icon {
+            cursor: pointer;
+            font-size: 1.1rem;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+
+            &:hover {
+              opacity: 1;
+            }
+          }
+        }
+      }
+    }
+
+    .location-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 24px;
+
+      .input-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--card-bg);
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px var(--shadow-color);
+
+        ion-icon {
+          font-size: 1.3rem;
+        }
+
+        input {
+          flex: 1;
+          border: none;
+          background: transparent;
+          color: var(--text-primary);
+          font-size: 1rem;
+          outline: none;
+
+          &::placeholder {
+            color: var(--text-secondary);
+          }
+        }
+      }
+    }
+
+    .book-button {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      background: var(--ion-color-primary);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      opacity: 0.7;
+
+      &.enabled {
+        opacity: 1;
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      ion-icon {
+        font-size: 1.2rem;
+      }
+    }
+  }
+}
+
+.date-section {
+  margin-bottom: 24px;
+
+  .date-picker {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 2px 8px var(--shadow-color);
+    --background: var(--card-bg);
+    --background-rgb: var(--card-bg-rgb);
+    margin: 0;
+    padding: 16px;
+
+    &::part(calendar-days) {
+      color: var(--text-primary);
+    }
+
+    &::part(calendar-day) {
+      color: var(--text-secondary);
+      border-radius: 50%;
+      padding: 0;
+      height: 32px;
+      width: 32px;
+      margin: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      font-size: 0.9rem;
+
+      &:hover:not(.calendar-day-active) {
+        background: var(--highlight-bg);
+        color: var(--ion-color-primary);
+        transform: scale(1.05);
+      }
+    }
+
+    &::part(calendar-day-active) {
+      background: var(--ion-color-primary) !important;
+      color: white !important;
+      font-weight: 600;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+    }
+
+    &::part(calendar-day-today) {
+      color: var(--ion-color-primary);
+      font-weight: 600;
+      border: 2px solid var(--ion-color-primary);
+      background: transparent;
+    }
+
+    &::part(calendar-month),
+    &::part(calendar-year) {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    &::part(calendar-day-selected) {
+      color: white !important;
+      background: var(--ion-color-primary) !important;
+    }
+  }
+}
+
+.time-section {
+  margin-bottom: 24px;
+
+  .time-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 12px;
+    padding: 4px;
+
+    .time-slot {
+      position: relative;
+      padding: 12px 8px;
+      text-align: center;
+      background: var(--card-bg);
+      border-radius: 12px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 2px solid transparent;
+      box-shadow: 0 2px 8px var(--shadow-color);
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--ion-color-primary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 0;
+      }
+
+      span {
+        position: relative;
+        z-index: 1;
+      }
+
+      &:hover:not(.selected) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px var(--shadow-color);
+        border-color: var(--ion-color-primary);
+        color: var(--ion-color-primary);
+      }
+
+      &.selected {
+        background: var(--ion-color-primary);
+        color: white;
+        transform: scale(1.05);
+        box-shadow: 0 4px 16px rgba(var(--ion-color-primary-rgb), 0.3);
+        border-color: var(--ion-color-primary);
+
+        &::before {
+          opacity: 0.1;
+        }
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+  }
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

@@ -1,0 +1,204 @@
+.otp-content {
+  --background: var(--ion-color-light);
+
+  @media (prefers-color-scheme: dark) {
+    --background: #1c2433;
+  }
+}
+
+.otp-container {
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+// Back Button
+.back-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--ion-color-light-shade);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: fadeIn 0.3s ease-out;
+
+  @media (prefers-color-scheme: dark) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  ion-icon {
+    font-size: 24px;
+    color: var(--ion-color-dark);
+
+    @media (prefers-color-scheme: dark) {
+      color: #ffffff;
+    }
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// Header Section
+.header-section {
+  margin-top: 20px;
+  animation: fadeInUp 0.5s ease-out;
+
+  .title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--ion-color-dark);
+    margin: 0;
+    margin-bottom: 8px;
+
+    @media (prefers-color-scheme: dark) {
+      color: #ffffff;
+    }
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    color: var(--ion-color-medium);
+    margin: 0;
+
+    @media (prefers-color-scheme: dark) {
+      color: rgba(255, 255, 255, 0.7);
+    }
+  }
+}
+
+// OTP Input Section
+.otp-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeInUp 0.5s ease-out 0.1s backwards;
+}
+
+.otp-inputs {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+
+  input {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    border: 2px solid var(--ion-color-light-shade);
+    background: var(--ion-color-light);
+    font-size: 24px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--ion-color-dark);
+    transition: all 0.3s ease;
+    animation: scaleIn 0.3s ease-out backwards;
+
+    @media (prefers-color-scheme: dark) {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: transparent;
+      color: #ffffff;
+    }
+
+    &:focus {
+      border-color: var(--ion-color-primary);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--ion-color-primary-tint);
+    }
+
+    &:not(:placeholder-shown) {
+      border-color: var(--ion-color-success);
+      
+      @media (prefers-color-scheme: dark) {
+        border-color: var(--ion-color-success-shade);
+      }
+    }
+  }
+}
+
+// Verification Status
+.verification-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--ion-color-medium);
+  animation: fadeIn 0.3s ease-out;
+
+  @media (prefers-color-scheme: dark) {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--ion-color-primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+}
+
+// Timer Section
+.timer-section {
+  text-align: center;
+  color: var(--ion-color-medium);
+  font-size: 0.9rem;
+
+  @media (prefers-color-scheme: dark) {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .resend {
+    color: var(--ion-color-medium);
+    cursor: not-allowed;
+
+    &.active {
+      color: var(--ion-color-primary);
+      cursor: pointer;
+    }
+  }
+}
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

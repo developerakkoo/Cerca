@@ -1,0 +1,89 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Schedule Ride</ion-title>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tabs/tab4"></ion-back-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+<ion-content [fullscreen]="true" class="booking-content">
+
+  <!-- Booking Form -->
+  <div class="booking-container">
+    <!-- Booking Type Toggle -->
+    <div class="booking-type">
+      <button 
+        [class.active]="bookingType === 'single'"
+        (click)="setBookingType('single')">
+        <ion-icon name="calendar-outline"></ion-icon>
+        Single Date
+      </button>
+      <button 
+        [class.active]="bookingType === 'multiple'"
+        (click)="setBookingType('multiple')">
+        <ion-icon name="calendar-number-outline"></ion-icon>
+        Multiple Dates
+      </button>
+    </div>
+
+    <!-- Date Selection -->
+    <div class="date-section">
+      <h3>Select Date{{ bookingType === 'multiple' ? 's' : '' }}</h3>
+      <ion-datetime 
+        presentation="date" 
+        [multiple]="bookingType === 'multiple'"
+        [value]="selectedDates"
+        (ionChange)="onDateSelect($event)"
+        [min]="minDate"
+        class="date-picker">
+      </ion-datetime>
+    </div>
+
+    <!-- Time Selection -->
+    <div class="time-section">
+      <h3>Select Time</h3>
+      <div class="time-slots">
+        <div 
+          *ngFor="let slot of timeSlots" 
+          class="time-slot"
+          [class.selected]="selectedTime === slot"
+          (click)="selectTime(slot)">
+          <span>{{ slot }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selected Dates Summary (for multiple dates) -->
+    <div class="selected-dates" *ngIf="bookingType === 'multiple' && selectedDates.length > 0">
+      <h3>Selected Dates</h3>
+      <div class="date-chips">
+        <div class="date-chip" *ngFor="let date of selectedDates">
+          {{ formatDate(date) }}
+          <ion-icon name="close-circle" (click)="removeDate(date)"></ion-icon>
+        </div>
+      </div>
+    </div>
+
+    <!-- Location Input -->
+    <div class="location-inputs">
+      <div class="input-group">
+        <ion-icon name="location-outline" color="primary"></ion-icon>
+        <input type="text" placeholder="Pickup Location" [(ngModel)]="pickupLocation">
+      </div>
+      <div class="input-group">
+        <ion-icon name="navigate-outline" color="primary"></ion-icon>
+        <input type="text" placeholder="Drop Location" [(ngModel)]="dropLocation">
+      </div>
+    </div>
+
+    <!-- Book Button -->
+    <button 
+      class="book-button" 
+      [class.enabled]="isFormValid()"
+      [disabled]="!isFormValid()"
+      (click)="bookRide()">
+      Book Ride
+      <ion-icon name="arrow-forward-outline"></ion-icon>
+    </button>
+  </div>
+</ion-content>

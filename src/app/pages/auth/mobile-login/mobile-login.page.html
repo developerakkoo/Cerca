@@ -1,0 +1,46 @@
+
+<ion-content [fullscreen]="true" class="mobile-login-content">
+  <div class="mobile-login-container">
+    <!-- Back Button -->
+    <div class="back-button" (click)="goBack()">
+      <ion-icon name="arrow-back-outline"></ion-icon>
+    </div>
+
+    <!-- Header Section -->
+    <div class="header-section">
+      <h1 class="title">Enter your mobile number</h1>
+      <p class="subtitle">We'll send you a verification code</p>
+    </div>
+
+    <!-- Form Section -->
+    <form [formGroup]="mobileForm" class="mobile-form" (ngSubmit)="onSubmit()">
+      <div class="input-container" [class.focused]="isInputFocused">
+        <div class="country-code">
+          <span>+91</span>
+        </div>
+        <input 
+          type="tel" 
+          formControlName="mobileNumber"
+          maxlength="10"
+          placeholder="Enter mobile number"
+          (focus)="isInputFocused = true"
+          (blur)="isInputFocused = false"
+        >
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-message" *ngIf="mobileForm.get('mobileNumber')?.invalid && mobileForm.get('mobileNumber')?.touched">
+        Please enter a valid 10-digit mobile number
+      </div>
+
+      <!-- Submit Button -->
+      <button 
+        class="submit-button" 
+        [disabled]="!mobileForm.valid"
+        [class.enabled]="mobileForm.valid"
+        type="submit">
+        Get OTP
+      </button>
+    </form>
+  </div>
+</ion-content>

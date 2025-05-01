@@ -22,6 +22,6 @@ export class CancelOrderPage implements OnInit {
 
   closeAlert() {
     this.showAlert = false;
-    this.router.navigate(['/tabs/tab1']);
+    this.router.navigate(['/tabs/tabs/tab1']);
   }
 }

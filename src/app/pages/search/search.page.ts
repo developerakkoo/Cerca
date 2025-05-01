@@ -164,7 +164,7 @@ export class SearchPage implements OnInit {
         this.userService.setPickup(this.selectedAddress);
         console.log("Confirming Destination Address");
         this.userService.setDestination(this.selectedAddress);
-        this.router.navigate(['tabs','tab1']);
+        this.router.navigate(['tabs','tabs','tab1']);
   }
 
   clearSearch() {
