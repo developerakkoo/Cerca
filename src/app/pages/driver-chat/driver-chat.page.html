@@ -1,0 +1,64 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/driver-details" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Chat with Driver</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="chat-content">
+  <div class="chat-container">
+    <!-- Date Separator -->
+    <div class="date-separator">
+      <span>Today</span>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" #messageContainer>
+      <!-- Driver Messages -->
+      <div class="message driver-message" *ngFor="let message of messages" [ngClass]="{'with-image': message.image}">
+        <div class="message-avatar">
+          <img src="assets/user.png" alt="Driver">
+        </div>
+        <div class="message-content">
+          <div class="message-bubble" [ngClass]="{'image-bubble': message.image}">
+            <img *ngIf="message.image" [src]="message.image" alt="Shared image" (click)="openImage(message.image)">
+            <p>{{ message.text }}</p>
+          </div>
+          <span class="message-time">{{ message.time }}</span>
+        </div>
+      </div>
+
+      <!-- User Messages -->
+      <div class="message user-message" *ngFor="let message of userMessages" [ngClass]="{'with-image': message.image}">
+        <div class="message-content">
+          <div class="message-bubble" [ngClass]="{'image-bubble': message.image}">
+            <img *ngIf="message.image" [src]="message.image" alt="Shared image" (click)="openImage(message.image)">
+            <p>{{ message.text }}</p>
+          </div>
+          <span class="message-time">{{ message.time }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="chat-input">
+    <div class="input-container">
+      <ion-button fill="clear" class="attach-btn" (click)="openImagePicker()">
+        <ion-icon name="image-outline"></ion-icon>
+      </ion-button>
+      <ion-input 
+        type="text" 
+        placeholder="Type a message..." 
+        [(ngModel)]="newMessage"
+        (keyup.enter)="sendMessage()"
+        class="message-input">
+      </ion-input>
+      <ion-button fill="clear" class="send-btn" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+        <ion-icon name="send"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

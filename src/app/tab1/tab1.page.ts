@@ -1,10 +1,17 @@
-import { Component, ElementRef, ViewChild, OnDestroy } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  ViewChild,
+  OnDestroy,
+  NgZone,
+  OnInit
+} from '@angular/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { GoogleMap, MapType, Marker } from '@capacitor/google-maps';
+import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { environment } from 'src/environments/environment';
 import { NotificationService } from '../services/notification.service';
 import { GeocodingService } from '../services/geocoding.service';
-
+import { UserService } from '../services/user.service';
 interface LatLng {
   lat: number;
   lng: number;
@@ -23,29 +30,25 @@ interface CabMarker {
   styleUrls: ['tab1.page.scss'],
   standalone: false,
 })
-export class Tab1Page implements OnDestroy {
-  @ViewChild('map')
-  mapRef!: ElementRef<HTMLElement>;
+export class Tab1Page implements OnInit, OnDestroy {
+  @ViewChild('map') mapRef!: ElementRef<HTMLElement>;
   newMap!: GoogleMap;
   isKeyboardOpen = false;
   pickupAddress = 'Pune, Maharashtra, India';
   destinationAddress = 'Mumbai, Maharashtra, India';
   isLocationFetched = false;
-  marker!: any;
   isDragging = false;
-  centerMarker!: string;
-  currentLocation: LatLng = {
-    lat: 0,
-    lng: 0
-  };
-
-  // Cab markers array
+  isMapReady = false;
+  currentLocation: LatLng = { lat: 0, lng: 0 };
   private cabMarkers: CabMarker[] = [];
   private updateInterval: any;
+  private currentLocationMarker: string | undefined;
 
   constructor(
     private notification: NotificationService,
-    private geocodingService: GeocodingService
+    private geocodingService: GeocodingService,
+    private userService: UserService,
+    private zone: NgZone
   ) {}
 
   ionViewDidEnter() {
@@ -53,22 +56,27 @@ export class Tab1Page implements OnDestroy {
   }
 
   ionViewWillLeave() {
-    this.cleanupMap();
+    // this.cleanupMap();
   }
 
   ngOnDestroy() {
-    this.cleanupMap();
+    // this.cleanupMap();
+  }
+
+  ngOnInit() {
+    this.getCurrentPosition();
+    this.getPickUpAddress();
+    this.getDestinationAddress();
   }
 
   private async cleanupMap() {
     if (this.newMap) {
-      // Clear cab markers
       await this.clearCabMarkers();
-      // Clear update interval
       if (this.updateInterval) {
         clearInterval(this.updateInterval);
       }
       await this.newMap.destroy();
+      this.newMap = undefined as any;
     }
   }
 
@@ -79,71 +87,85 @@ export class Tab1Page implements OnDestroy {
     this.cabMarkers = [];
   }
 
-  async createMap(lat: number, lng: number) {
-    this.currentLocation = { lat, lng };
-    
-    this.newMap = await GoogleMap.create({
-      id: 'map',
-      element: document.getElementById('map')!,
-      apiKey: environment.apiKey,
-      forceCreate: true,
-      config: {
-        mapId: environment.mapId,
-        center: {
-          lat: lat,
-          lng: lng,
-        },
-        zoom: 18,
-        androidLiteMode: false,
-      },
+  getPickUpAddress() {
+    this.userService.pickup$.subscribe(pickup => {
+      this.pickupAddress = pickup;
+      console.log("Pickup Address");
+      console.log(this.pickupAddress);
     });
+  }
 
-    await this.newMap.setMapType(MapType.Normal);
-    await this.newMap.enableClustering();
-    await this.newMap.enableCurrentLocation(false);
+  getDestinationAddress() {
+    this.userService.destination$.subscribe(destination => {
+      this.destinationAddress = destination;
+    });
+    console.log("Destination Address");
+    console.log(this.destinationAddress);
+  }
+  async createMap(lat: number, lng: number) {
+    try {
+      const newMap = await GoogleMap.create({
+        id: 'my-map',
+        element: document.getElementById('map') as HTMLElement,
+        apiKey: environment.apiKey,
+        config: {
+          center: {
+            lat: lat,
+            lng: lng,
+          },
+          mapId: environment.mapId,
+          zoom: 18,
+        },
+      });
 
-    // Create a custom current location marker
-    const currentLocationMarker = await this.newMap.addMarker({
-      coordinate: {
-        lat: lat,
-        lng: lng,
-      },
+      this.zone.run(() => {
+        this.newMap = newMap;
+        this.isMapReady = true;
+      });
+
+      await this.newMap.setMapType(MapType.Normal);
+      await this.newMap.enableClustering();
+      await this.newMap.enableCurrentLocation(true);
+
+      await this.setCurrentLocationMarker(lat, lng);
+
+    } catch (error) {
+      console.error('Error creating map:', error);
+      this.zone.run(() => {
+        this.isMapReady = true; // Set to true even on error to not block the UI
+      });
+    }
+  }
+
+  private async setCurrentLocationMarker(lat: number, lng: number) {
+    if (this.currentLocationMarker) {
+      await this.newMap.removeMarker(this.currentLocationMarker);
+    }
+    const marker = await this.newMap.addMarker({
+      coordinate: { lat, lng },
       title: 'Your Location',
       snippet: 'You are here',
-      iconUrl: 'assets/current-location.svg',
+      iconUrl: 'assets/current-location.png',
       iconSize: { width: 48, height: 48 },
       iconAnchor: { x: 24, y: 24 }
     });
-
-    
-    // Start updating cab positions
-    // this.startCabUpdates();
+    this.currentLocationMarker = marker;
   }
 
   private async startCabUpdates() {
-    // Initial cab markers
     await this.updateCabMarkers();
-
-    // Update cab positions every 5 seconds
-    this.updateInterval = setInterval(async () => {
-      await this.updateCabMarkers();
+    this.updateInterval = setInterval(() => {
+      this.zone.run(() => this.updateCabMarkers());
     }, 5000);
   }
 
   private async updateCabMarkers() {
-    // Clear existing markers
     await this.clearCabMarkers();
-
-    // Generate random cab positions around current location
-    const numCabs = 5; // Number of cabs to show
+    const numCabs = 5;
     for (let i = 0; i < numCabs; i++) {
       const cabPosition = this.generateRandomCabPosition();
       const previousPosition = this.cabMarkers.find(cab => cab.id === `cab-${i}`)?.position || cabPosition;
-      
-      // Calculate direction for the cab icon
       const direction = this.calculateDirection(previousPosition, cabPosition);
-      
-      // Use different icons based on direction
       const iconUrl = this.getDirectionalCabIcon(direction);
 
       const cabMarker = await this.newMap.addMarker({
@@ -165,11 +187,7 @@ export class Tab1Page implements OnDestroy {
   private calculateDirection(previous: LatLng, current: LatLng): string {
     const dx = current.lng - previous.lng;
     const dy = current.lat - previous.lat;
-    
-    // Calculate the angle
     const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-    
-    // Convert angle to cardinal direction
     if (angle >= -22.5 && angle < 22.5) return 'east';
     if (angle >= 22.5 && angle < 67.5) return 'northeast';
     if (angle >= 67.5 && angle < 112.5) return 'north';
@@ -181,21 +199,15 @@ export class Tab1Page implements OnDestroy {
   }
 
   private getDirectionalCabIcon(direction: string): string {
-    // Return different icon URLs based on direction
-    // You'll need to create these icons in your assets folder
     return `assets/cab-${direction}.png`;
   }
 
   private generateRandomCabPosition(): LatLng {
-    // Generate random position within 1km radius
-    const radius = 0.01; // Approximately 1km
+    const radius = 0.01;
     const angle = Math.random() * 2 * Math.PI;
     const distance = Math.random() * radius;
-    
-    // Add some movement to make it more realistic
-    const movementFactor = 0.0001; // Small movement factor
+    const movementFactor = 0.0001;
     const movementAngle = Math.random() * 2 * Math.PI;
-    
     return {
       lat: this.currentLocation.lat + distance * Math.cos(angle) + movementFactor * Math.cos(movementAngle),
       lng: this.currentLocation.lng + distance * Math.sin(angle) + movementFactor * Math.sin(movementAngle)
@@ -204,11 +216,26 @@ export class Tab1Page implements OnDestroy {
 
   async getCurrentPosition() {
     try {
-      console.log('Getting current position...');
-      const permission = await Geolocation.checkPermissions();
-      if (permission.location !== 'granted') {
-        await Geolocation.requestPermissions();
+      if (!navigator.onLine) {
+        this.notification.scheduleNotification({
+          title: 'No Internet',
+          body: 'Please check your internet connection.',
+          extra: { type: 'error' }
+        });
+        return;
       }
+
+      const permission = await Geolocation.checkPermissions();
+      if (permission.location === 'denied') {
+        await Geolocation.requestPermissions();
+        this.notification.scheduleNotification({
+          title: 'Permission Denied',
+          body: 'Location access denied. Please enable it from settings.',
+          extra: { type: 'error' }
+        });
+        return;
+      }
+
       const coordinates = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
@@ -216,22 +243,23 @@ export class Tab1Page implements OnDestroy {
       });
 
       const { latitude, longitude } = coordinates.coords;
-      console.log('Current position:', latitude, longitude);
-      this.isLocationFetched = true;
-      this.createMap(latitude, longitude);
-      this.pickupAddress = await this.geocodingService.getAddressFromLatLng(latitude, longitude);
+      this.zone.run(async () => {
+        this.isLocationFetched = true;
+        this.createMap(latitude, longitude);
+        this.pickupAddress = await this.geocodingService.getAddressFromLatLng(latitude, longitude);
+        this.userService.setCurrentLocation({ lat: latitude, lng: longitude });
+      });
     } catch (error) {
       console.error('Error getting location:', error);
       this.isLocationFetched = false;
       this.notification.scheduleNotification({
         title: 'Location Error',
-        body: 'Unable to get your current location. Please check your location settings.',
+        body: 'Unable to get your current location. Please check location settings.',
         extra: { type: 'error' }
       });
     }
   }
 
-  // Method to recenter map to current location
   async recenterToCurrentLocation() {
     try {
       const coordinates = await Geolocation.getCurrentPosition({
@@ -241,27 +269,13 @@ export class Tab1Page implements OnDestroy {
       });
 
       const { latitude, longitude } = coordinates.coords;
-      const newCenter: LatLng = {
-        lat: latitude,
-        lng: longitude
-      };
-
-      // Update current location marker
-      await this.newMap.addMarker({
-        coordinate: newCenter,
-        title: 'Your Location',
-        snippet: 'You are here',
-        iconUrl: 'assets/current-location.svg',
-        iconSize: { width: 48, height: 48 },
-        iconAnchor: { x: 24, y: 24 }
-      });
-
+      await this.setCurrentLocationMarker(latitude, longitude);
       this.currentLocation = { lat: latitude, lng: longitude };
     } catch (error) {
       console.error('Error recentering map:', error);
       this.notification.scheduleNotification({
         title: 'Location Error',
-        body: 'Unable to get your current location. Please check your location settings.',
+        body: 'Unable to recenter. Please check your location settings.',
         extra: { type: 'error' }
       });
     }

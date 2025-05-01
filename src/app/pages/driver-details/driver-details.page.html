@@ -1,0 +1,80 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Driver Details</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <!-- Driver Profile Section -->
+  <div class="profile-section">
+    <ion-avatar class="driver-avatar">
+      <img src="assets/user.png" alt="Driver Photo">
+    </ion-avatar>
+    <h1 class="driver-name">Rajesh Kumar</h1>
+    <div class="rating">
+      <ion-icon name="star"></ion-icon>
+      <span>4.8</span>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <ion-icon name="star-outline"></ion-icon>
+      <span class="stat-value">4.8</span>
+      <span class="stat-label">Rating</span>
+    </div>
+    <div class="stat-card">
+      <ion-icon name="car-outline"></ion-icon>
+      <span class="stat-value">1.2k</span>
+      <span class="stat-label">Trips</span>
+    </div>
+    <div class="stat-card">
+      <ion-icon name="time-outline"></ion-icon>
+      <span class="stat-value">3</span>
+      <span class="stat-label">Years</span>
+    </div>
+  </div>
+
+  <!-- Car Details Card -->
+  <ion-card class="car-details-card">
+    <ion-card-content>
+      <div class="car-info">
+        <div class="info-row">
+          <ion-icon name="calendar-outline"></ion-icon>
+          <div class="info-content">
+            <span class="info-label">Member Since</span>
+            <span class="info-value">Jan 2021</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <ion-icon name="car-sport-outline"></ion-icon>
+          <div class="info-content">
+            <span class="info-label">Car Model</span>
+            <span class="info-value">Toyota Etios</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <ion-icon name="card-outline"></ion-icon>
+          <div class="info-content">
+            <span class="info-label">Car Number</span>
+            <span class="info-value">MH 12 AB 1234</span>
+          </div>
+        </div>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Action Buttons -->
+  <div class="action-buttons">
+    <div class="action-btn" (click)="callDriver()">
+      <ion-icon name="call-outline"></ion-icon>
+    </div>
+    <div class="action-btn" (click)="chatWithDriver()">
+      <ion-icon name="chatbubble-outline"></ion-icon>
+    </div>
+  </div>
+</ion-content>

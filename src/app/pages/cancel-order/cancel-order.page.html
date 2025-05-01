@@ -1,0 +1,51 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Cancel Cab</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Cancel Cab</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-list>
+    <ion-list-header>
+      <ion-label>Please select the reason for cancelling the cab</ion-label>
+    </ion-list-header>
+    <ion-item lines="none">
+      <ion-checkbox color="success" labelPlacement="end">Waiting for too long</ion-checkbox>
+    </ion-item>
+    <ion-item lines="none">
+      <ion-checkbox color="success" labelPlacement="end">Unable to find the cab</ion-checkbox>
+    </ion-item>
+    <ion-item lines="none">
+      <ion-checkbox color="success" labelPlacement="end">Other</ion-checkbox>
+    </ion-item>
+  </ion-list>
+
+  <ion-list>
+    <ion-item lines="none">
+      <ion-label position="floating">
+        Reason 
+      </ion-label>
+      <ion-textarea rows="5" placeholder="Enter your reason" class="textarea-custom"></ion-textarea>
+    </ion-item>
+  </ion-list>
+
+  <ion-button expand="block" color="primary" mode="ios" (click)="submit()">Submit</ion-button>
+  
+  <!-- Cancellation Alert -->
+  <div class="cancellation-alert" *ngIf="showAlert" [class.show]="showAlert">
+    <div class="alert-content">
+      <div class="emoji">😢</div>
+      <h2>We're so sad about your cancellation</h2>
+      <p>We will continue to improve our service and satisfy you on the next trip</p>
+      <ion-button expand="block" class="okay-btn" (click)="closeAlert()">
+        Okay!
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

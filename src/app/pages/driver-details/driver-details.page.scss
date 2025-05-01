@@ -1,0 +1,229 @@
+// Profile Section
+.profile-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+  margin-bottom: 24px;
+
+  .driver-avatar {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 16px;
+    border: 3px solid var(--ion-color-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .driver-name {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+  }
+
+  .rating {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--ion-color-warning);
+
+    ion-icon {
+      font-size: 20px;
+    }
+
+    span {
+      font-size: 16px;
+      font-weight: 500;
+    }
+  }
+}
+
+// Stats Grid
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--ion-color-light);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  ion-icon {
+    font-size: 24px;
+    color: var(--ion-color-primary);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    display: block;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 14px;
+    color: var(--ion-color-medium);
+  }
+}
+
+// Car Details Card
+.car-details-card {
+  margin: 0 0 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: var(--ion-color-light);
+
+  ion-card-content {
+    padding: 20px;
+  }
+}
+
+.car-info {
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.2);
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    &:first-child {
+      padding-top: 0;
+    }
+
+    ion-icon {
+      font-size: 24px;
+      color: var(--ion-color-primary);
+    }
+
+    .info-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info-label {
+      font-size: 14px;
+      color: var(--ion-color-medium);
+      margin-bottom: 2px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--ion-color-dark);
+    }
+  }
+}
+
+// Action Buttons
+.action-buttons {
+  position: fixed;
+  bottom: 24px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 24px;
+  z-index: 100;
+}
+
+.action-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ion-color-tertiary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: scale(0);
+    transition: transform 0.3s ease;
+  }
+
+  &:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+
+    &::before {
+      transform: scale(1);
+    }
+
+    ion-icon {
+      transform: scale(1.1);
+    }
+  }
+
+  &:active {
+    transform: translateY(-1px) scale(0.98);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  ion-icon {
+    font-size: 24px;
+    color: var(--ion-color-tertiary-contrast);
+    transition: transform 0.3s ease;
+  }
+}
+
+// Dark theme support
+@media (prefers-color-scheme: dark) {
+  .stat-card,
+  .car-details-card {
+    background: var(--ion-color-dark);
+  }
+
+  .driver-name,
+  .stat-value,
+  .info-value {
+    color: var(--ion-color-light);
+  }
+
+  .info-label {
+    color: var(--ion-color-light-shade);
+  }
+
+  .car-info .info-row {
+    border-bottom-color: rgba(var(--ion-color-light-rgb), 0.1);
+  }
+
+  .action-btn {
+    background: var(--ion-color-tertiary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+    &:hover {
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+  }
+}

@@ -21,6 +21,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   private currentX = 0;
   private slideThreshold = 200; // Distance needed to trigger cancel
 
+  timeOut: any;
   constructor(
     private animationCtrl: AnimationController,
     private router: Router
@@ -32,11 +33,15 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
 
   ngAfterViewInit() {
     // Wait for the next tick to ensure elements are rendered
-    setTimeout(() => {
+    this.timeOut = setTimeout(() => {
       this.createAnimations();
       this.startTypewriterEffect();
       this.setupSlideToCancel();
     }, 100);
+
+    this.timeOut = setTimeout(() => {
+      this.router.navigate(['/active-ordere']);
+    }, 5000);
   }
 
   ngOnDestroy() {
@@ -126,6 +131,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private cancelSearch() {
+    clearTimeout(this.timeOut);
     // Add a smooth animation for the cancel action
     const animation = this.animationCtrl.create()
       .addElement(this.slideButton.nativeElement)
@@ -136,7 +142,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
 
     animation.play().then(() => {
       // Navigate back after animation completes
-      this.router.navigate(['/']);
+      this.router.navigate(['/cancel-order']);
     });
   }
 

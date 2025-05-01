@@ -2,7 +2,22 @@
 
 
 <ion-content [fullscreen]="true">
-  <capacitor-google-map id="map"></capacitor-google-map>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="!isMapReady">
+    <div class="loading-container">
+      <div class="loading-animation">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+      </div>
+      <div class="loading-text">
+        <h2>Loading Map</h2>
+        <p class="typewriter-text">Initializing your location...</p>
+      </div>
+    </div>
+  </div>
+
+  <capacitor-google-map #map id="map"></capacitor-google-map>
   
   
   <app-modal [pickupInput]="pickupAddress" [isKeyboardOpen]="isKeyboardOpen" [isLocationFetched]="isLocationFetched"></app-modal>

@@ -34,6 +34,19 @@ export class UserService {
   private userSubject = new BehaviorSubject<User>(initialUserState);
   public user$ = this.userSubject.asObservable();
 
+  private currentLocationSubject = new BehaviorSubject<{ lat: number, lng: number }>({ lat: 0, lng: 0 });
+  public currentLocation$ = this.currentLocationSubject.asObservable();
+
+  // Pickup and Destination
+  private isPickupSubject = new BehaviorSubject<boolean>(false);
+  public isPickup$ = this.isPickupSubject.asObservable();
+
+  private pickupSubject = new BehaviorSubject<string>('');
+  public pickup$ = this.pickupSubject.asObservable();
+
+  private destinationSubject = new BehaviorSubject<string>('');
+  public destination$ = this.destinationSubject.asObservable(); 
+
   constructor() {
     // Load user data from storage on service initialization
     this.loadUserFromStorage();
@@ -95,7 +108,7 @@ export class UserService {
       ...currentUser.preferences,
       ...preferences
     };
-    this.updateUser({ preferences: updatedPreferences });
+    this.updateUser({ preferences: updatedPreferences as User['preferences'] });
   }
 
   // Login user
@@ -143,5 +156,34 @@ export class UserService {
   clearUserData(): void {
     this.userSubject.next(initialUserState);
     localStorage.removeItem('user');
+  }
+
+  // Pickup and Destination
+  setPickup(pickup: any): void {
+    this.pickupSubject.next(pickup);
+  }
+
+  setDestination(destination: any): void {
+    this.destinationSubject.next(destination);
+  }
+
+  setCurrentLocation(location: { lat: number, lng: number }): void {
+    this.currentLocationSubject.next(location);
+  }
+
+  setIsPickup(isPickup: boolean): void {
+    this.isPickupSubject.next(isPickup);
+  }
+
+  getPickup(): string {
+    return this.pickupSubject.value;
+  }
+
+  getDestination(): string {
+    return this.destinationSubject.value;
+  }
+
+  getCurrentLocation(): { lat: number, lng: number } {
+    return this.currentLocationSubject.value;
   }
 }
