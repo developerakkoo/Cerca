@@ -1,5 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Storage } from '@ionic/storage-angular';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { environment } from 'src/environments/environment';
 
 export interface User {
   id?: string;
@@ -31,7 +34,7 @@ const initialUserState: User = {
   providedIn: 'root'
 })
 export class UserService {
-  private userSubject = new BehaviorSubject<User>(initialUserState);
+  private userSubject = new BehaviorSubject<any>(initialUserState);
   public user$ = this.userSubject.asObservable();
 
   private currentLocationSubject = new BehaviorSubject<{ lat: number, lng: number }>({ lat: 0, lng: 0 });
@@ -47,50 +50,63 @@ export class UserService {
   private destinationSubject = new BehaviorSubject<string>('');
   public destination$ = this.destinationSubject.asObservable(); 
 
-  constructor() {
+  constructor(private http: HttpClient,
+    private storage: Storage
+              
+  ) {
+    this.storage.create();
     // Load user data from storage on service initialization
     this.loadUserFromStorage();
   }
 
-  private loadUserFromStorage(): void {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        this.userSubject.next(parsedUser);
-      } catch (error) {
-        console.error('Error parsing stored user data:', error);
-        this.userSubject.next(initialUserState);
+   loadUserFromStorage() {
+    this.storage.get('user').then((storedUser) => {
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          this.userSubject.next(parsedUser);
+        } catch (error) {
+          console.error('Error parsing stored user data:', error);
+          this.userSubject.next(initialUserState);
+        }
       }
-    }
+    }).catch((error) => {
+      console.error('Error loading user from storage:', error);
+      this.userSubject.next(initialUserState);
+    });
   }
 
-  private saveUserToStorage(user: User): void {
-    localStorage.setItem('user', JSON.stringify(user));
+   async saveUserToStorage(user: any) {
+    await this.storage.set('user', JSON.stringify(user));
   }
 
   // Get current user data
-  getCurrentUser(): User {
+  getCurrentUser(): any {
     return this.userSubject.value;
   }
 
   // Get user as observable
-  getUser(): Observable<User> {
+  getUser(): Observable<any> {
     return this.user$;
   }
 
   // Set complete user data
-  setUser(user: User): void {
-    const updatedUser = {
-      ...user,
-      updatedAt: new Date()
-    };
-    this.userSubject.next(updatedUser);
-    this.saveUserToStorage(updatedUser);
+  setUser(user: any) {
+    return this.http.post(`${environment.apiUrl}/users`, user).pipe(
+      tap((response: any) => {
+        const updatedUser = {
+          ...response,
+          isLoggedIn: true,
+          updatedAt: new Date()
+        };
+        this.userSubject.next(updatedUser);
+        this.saveUserToStorage(updatedUser);
+      })
+    );
   }
 
   // Update specific user fields
-  updateUser(updates: Partial<User>): void {
+  updateUser(updates: Partial<any>) {
     const currentUser = this.userSubject.value;
     const updatedUser = {
       ...currentUser,
@@ -102,32 +118,32 @@ export class UserService {
   }
 
   // Update user preferences
-  updatePreferences(preferences: Partial<User['preferences']>): void {
+  updatePreferences(preferences: Partial<any['preferences']>) {
     const currentUser = this.userSubject.value;
     const updatedPreferences = {
       ...currentUser.preferences,
       ...preferences
     };
-    this.updateUser({ preferences: updatedPreferences as User['preferences'] });
+    this.updateUser({ preferences: updatedPreferences as any['preferences'] });
   }
 
   // Login user
-  login(userData: Partial<User>): void {
-    const updatedUser = {
-      ...this.userSubject.value,
-      ...userData,
-      isLoggedIn: true,
-      lastLogin: new Date(),
-      updatedAt: new Date()
-    };
-    this.userSubject.next(updatedUser);
-    this.saveUserToStorage(updatedUser);
+  login(userData:any) {
+    // const updatedUser = {
+    //   ...this.userSubject.value,
+    //   ...userData,
+    //   isLoggedIn: true,
+    //   lastLogin: new Date(),
+    //   updatedAt: new Date()
+    // };
+    // this.userSubject.next(updatedUser);
+    // this.saveUserToStorage(updatedUser);
+      return this.http.post(`${environment.apiUrl}/users/login`, userData);
   }
 
   // Logout user
-  logout(): void {
+  logout() {
     this.userSubject.next(initialUserState);
-    localStorage.removeItem('user');
   }
 
   // Check if user is logged in
@@ -136,15 +152,15 @@ export class UserService {
   }
 
   // Get user preferences
-  getUserPreferences(): User['preferences'] {
+  getUserPreferences(): any['preferences'] {
     return this.userSubject.value.preferences;
   }
 
   // Update specific preference
-  updatePreference<K extends keyof User['preferences']>(
+  updatePreference<K extends keyof any['preferences']>(
     key: K,
-    value: User['preferences'][K]
-  ): void {
+    value: any['preferences'][K]
+  ) {
     const currentPreferences = this.userSubject.value.preferences;
     this.updatePreferences({
       ...currentPreferences,
@@ -153,25 +169,25 @@ export class UserService {
   }
 
   // Clear user data
-  clearUserData(): void {
+  clearUserData() {
     this.userSubject.next(initialUserState);
-    localStorage.removeItem('user');
+    this.storage.remove('user');
   }
 
   // Pickup and Destination
-  setPickup(pickup: any): void {
+  setPickup(pickup: any) {
     this.pickupSubject.next(pickup);
   }
 
-  setDestination(destination: any): void {
+  setDestination(destination: any) {
     this.destinationSubject.next(destination);
   }
 
-  setCurrentLocation(location: { lat: number, lng: number }): void {
+  setCurrentLocation(location: { lat: number, lng: number }) {
     this.currentLocationSubject.next(location);
   }
 
-  setIsPickup(isPickup: boolean): void {
+  setIsPickup(isPickup: boolean) {
     this.isPickupSubject.next(isPickup);
   }
 

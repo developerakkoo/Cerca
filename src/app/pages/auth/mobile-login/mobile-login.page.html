@@ -20,7 +20,7 @@
         </div>
         <input 
           type="tel" 
-          formControlName="mobileNumber"
+          formControlName="phoneNumber"
           maxlength="10"
           placeholder="Enter mobile number"
           (focus)="isInputFocused = true"
@@ -29,7 +29,7 @@
       </div>
 
       <!-- Error Message -->
-      <div class="error-message" *ngIf="mobileForm.get('mobileNumber')?.invalid && mobileForm.get('mobileNumber')?.touched">
+      <div class="error-message" *ngIf="mobileForm.get('phoneNumber')?.invalid && mobileForm.get('phoneNumber')?.touched">
         Please enter a valid 10-digit mobile number
       </div>
 

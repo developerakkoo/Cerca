@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChildren, QueryList, ElementRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 
 @Component({
@@ -21,12 +21,15 @@ export class OtpPage implements OnInit, OnDestroy {
   timeLeft = 30;
   canResend = false;
   timerInterval: any;
-  maskedMobile = '******1234'; // Replace with actual masked number
-
+  maskedMobile = ''; // Replace with actual masked number
+  phoneNumber = '';
   constructor(
     private router: Router,
-    private formBuilder: FormBuilder
+    private formBuilder: FormBuilder,
+    private route: ActivatedRoute
   ) {
+this.phoneNumber = this.route.snapshot.paramMap.get('phoneNumber') || '';
+this.maskedMobile = this.maskPhoneNumber(this.phoneNumber);
     this.otpForm = this.formBuilder.group({
       digit1: this.digit1Control,
       digit2: this.digit2Control,
@@ -37,6 +40,18 @@ export class OtpPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.startResendTimer();
+  }
+  maskPhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber) return '';
+    // Ensure the phone number is at least 10 digits
+    if (phoneNumber.length < 10) return phoneNumber;
+    
+    // Get the last 4 digits
+    const lastFourDigits = phoneNumber.slice(-4);
+    // Create mask of 'X' characters for the first 6 digits
+    const mask = 'X'.repeat(6);
+    
+    return `${mask}${lastFourDigits}`;
   }
 
   ngOnDestroy() {
@@ -97,7 +112,7 @@ export class OtpPage implements OnInit, OnDestroy {
     // Simulate API call
     setTimeout(() => {
       this.isVerifying = false;
-      this.router.navigate(['/tabs/tabs/tab1']); // Navigate to home after verification
+      this.router.navigate(['/profile-details', { phoneNumber: this.phoneNumber }]); // Navigate to home after verification
     }, 1500);
   }
 

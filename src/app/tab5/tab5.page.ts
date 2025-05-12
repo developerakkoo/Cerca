@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { AnimationController, Platform } from '@ionic/angular';
 import { ThemeService } from '../services/theme.service';
+import { UserService, User } from '../services/user.service';
+import { Router } from '@angular/router';
 
 interface Language {
   code: string;
@@ -18,7 +20,7 @@ export class Tab5Page implements OnInit {
   isDarkMode: boolean = false;
   notificationsEnabled: boolean = true;
   selectedLanguage: string = 'en';
-  
+  user: any;
   languages: Language[] = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
     { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
@@ -28,12 +30,15 @@ export class Tab5Page implements OnInit {
   constructor(
     private animationCtrl: AnimationController,
     private platform: Platform,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private userService: UserService,
+    private router: Router
   ) {}
 
   ngOnInit() {
     this.isDarkMode = this.themeService.isDarkMode();
     this.animateItems();
+    this.getUser();
   }
 
   private animateItems() {
@@ -48,6 +53,12 @@ export class Tab5Page implements OnInit {
         .delay(index * 100);
 
       animation.play();
+    });
+  }
+
+  getUser() {
+    this.userService.getUser().subscribe((user: User) => {
+      this.user = user;
     });
   }
 
@@ -71,7 +82,8 @@ export class Tab5Page implements OnInit {
   }
 
   logout() {
-    // Implement logout logic
+    this.userService.logout();
+    this.router.navigate(['/']);
   }
 
   openSupport() {

@@ -43,7 +43,7 @@ const routes: Routes = [
     loadChildren: () => import('./pages/driver-chat/driver-chat.module').then( m => m.DriverChatPageModule)
   },
   {
-    path: '',
+    path: 'splash',
     loadChildren: () => import('./pages/splash/splash.module').then( m => m.SplashPageModule)
   },
   {
@@ -51,7 +51,7 @@ const routes: Routes = [
     loadChildren: () => import('./pages/welcome/welcome.module').then( m => m.WelcomePageModule)
   },
   {
-    path: 'login',
+    path: '',
     loadChildren: () => import('./pages/auth/login/login.module').then( m => m.LoginPageModule)
   },
   {
@@ -65,6 +65,10 @@ const routes: Routes = [
   {
     path: 'mobile-login',
     loadChildren: () => import('./pages/auth/mobile-login/mobile-login.module').then( m => m.MobileLoginPageModule)
+  },
+  {
+    path: 'profile-details',
+    loadChildren: () => import('./pages/profile-details/profile-details.module').then( m => m.ProfileDetailsPageModule)
   },
 
 ];

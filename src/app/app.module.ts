@@ -10,6 +10,7 @@ import { AppComponent } from './app.component';
 import { SharedModule } from './module/shared/shared.module';
 import { NetworkStatusComponent } from './components/network-status/network-status.component';
 import { GeocodingService } from './services/geocoding.service';
+import { IonicStorageModule } from '@ionic/storage-angular';
 
 @NgModule({
   declarations: [AppComponent],
@@ -18,7 +19,10 @@ import { GeocodingService } from './services/geocoding.service';
     IonicModule.forRoot(), 
     AppRoutingModule,
     NetworkStatusComponent,
-    HttpClientModule
+    HttpClientModule,
+    IonicStorageModule.forRoot({
+      name:'Cerca'
+    })
   ],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },

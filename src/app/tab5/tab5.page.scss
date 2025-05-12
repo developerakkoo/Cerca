@@ -163,3 +163,22 @@ ion-select-option {
   color: var(--text-primary);
   background: var(--item-bg);
 }
+
+.user-avatar {
+  width: 80px;
+  height: 80px;
+  background: var(--ion-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+  border: 2px solid rgba(var(--ion-color-primary-rgb), 0.1);
+
+  .avatar-content {
+    color: white;
+    font-size: 2rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+}

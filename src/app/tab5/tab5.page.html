@@ -17,12 +17,17 @@
   <ion-card class="profile-card">
     <ion-card-content>
       <div class="profile-header">
-        <ion-avatar>
-          <img src="assets/user.png" alt="Profile Picture">
+        <ion-avatar class="user-avatar">
+          <div class="avatar-content" *ngIf="user">
+            {{ user.fullName | slice:0:1  }}
+          </div>
+          <div class="avatar-content" *ngIf="!user?.fullName">
+            U
+          </div>
         </ion-avatar>
         <div class="profile-info">
-          <h2>Akshay Jadhav</h2>
-          <p>akshay.jadhav&#64;gmail.com</p>
+          <h2>{{user?.fullName || 'User'}}</h2>
+          <p>{{user?.email || 'No email provided'}}</p>
         </div>
       </div>
     </ion-card-content>
