@@ -113,8 +113,18 @@ export class UserService {
       ...updates,
       updatedAt: new Date()
     };
-    this.userSubject.next(updatedUser);
-    this.saveUserToStorage(updatedUser);
+
+    return this.http.put(`${environment.apiUrl}/users/${currentUser.id}`, updates).pipe(
+      tap((response: any) => {
+        const finalUser = {
+          ...currentUser,
+          ...response,
+          updatedAt: new Date()
+        };
+        this.userSubject.next(finalUser);
+        this.saveUserToStorage(finalUser);
+      })
+    );
   }
 
   // Update user preferences

@@ -53,7 +53,7 @@
     <ion-item class="settings-item">
       <ion-icon name="moon-outline" slot="start"></ion-icon>
       <ion-label>Dark Mode</ion-label>
-      <ion-toggle slot="end" [(ngModel)]="isDarkMode" (ionChange)="toggleTheme()"></ion-toggle>
+      <ion-toggle slot="end" [(ngModel)]="paletteToggle" (ionChange)="toggleChange($event)"></ion-toggle>
     </ion-item>
 
     <!-- Language -->

@@ -67,7 +67,7 @@ const routes: Routes = [
     loadChildren: () => import('./pages/auth/mobile-login/mobile-login.module').then( m => m.MobileLoginPageModule)
   },
   {
-    path: 'profile-details',
+    path: 'profile-details/:phoneNumber/:isEdit/:userId',
     loadChildren: () => import('./pages/profile-details/profile-details.module').then( m => m.ProfileDetailsPageModule)
   },
 

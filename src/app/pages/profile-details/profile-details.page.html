@@ -24,9 +24,14 @@
 
   <ion-input helperText="For Verification, Promotions and Offers" type="email" fill="outline" formControlName="email" placeholder="Enter your email" label="Email" label-placement="stacked"></ion-input>
 <br>
-  <ion-button expand="block" color="primary" type="submit" [disabled]="userForm.invalid">
+  <ion-button *ngIf="!isEdit" expand="block" color="primary" type="submit" [disabled]="userForm.invalid">
     <ion-text color="light">
       <h2>Continue</h2>
+    </ion-text>
+  </ion-button>
+  <ion-button *ngIf="isEdit" expand="block" color="primary" type="submit" [disabled]="userForm.invalid">
+    <ion-text color="light">
+      <h2>Update</h2>
     </ion-text>
   </ion-button>
  

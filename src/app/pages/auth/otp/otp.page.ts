@@ -112,7 +112,7 @@ this.maskedMobile = this.maskPhoneNumber(this.phoneNumber);
     // Simulate API call
     setTimeout(() => {
       this.isVerifying = false;
-      this.router.navigate(['/profile-details', { phoneNumber: this.phoneNumber }]); // Navigate to home after verification
+      this.router.navigate(['/profile-details', this.phoneNumber, false, 1]); // Navigate to home after verification
     }, 1500);
   }
 

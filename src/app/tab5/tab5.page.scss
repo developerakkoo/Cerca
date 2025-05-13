@@ -1,23 +1,23 @@
 /* Dark mode variables */
-:root {
-  --card-bg: white;
-  --card-shadow: rgba(0, 0, 0, 0.06);
-  --text-primary: var(--ion-color-dark);
-  --text-secondary: var(--ion-color-medium);
-  --border-color: rgba(0, 0, 0, 0.1);
-  --item-bg: white;
-}
+// :root {
+//   --card-bg: white;
+//   --card-shadow: rgba(0, 0, 0, 0.06);
+//   --text-primary: var(--ion-color-dark);
+//   --text-secondary: var(--ion-color-medium);
+//   --border-color: rgba(0, 0, 0, 0.1);
+//   --item-bg: white;
+// }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --card-bg: var(--ion-color-dark);
-    --card-shadow: rgba(0, 0, 0, 0.2);
-    --text-primary: var(--ion-color-light);
-    --text-secondary: var(--ion-color-medium);
-    --border-color: rgba(255, 255, 255, 0.1);
-    --item-bg: var(--ion-color-dark);
-  }
-}
+// @media (prefers-color-scheme: dark) {
+//   :root {
+//     --card-bg: var(--ion-color-dark);
+//     --card-shadow: rgba(0, 0, 0, 0.2);
+//     --text-primary: var(--ion-color-light);
+//     --text-secondary: var(--ion-color-medium);
+//     --border-color: rgba(255, 255, 255, 0.1);
+//     --item-bg: var(--ion-color-dark);
+//   }
+// }
 
 .profile-card {
   margin: 16px 0;
@@ -55,6 +55,7 @@
         color: var(--text-secondary);
         font-size: 1rem;
         margin: 4px 0 0;
+        width: 11rem;
       }
     }
   }
