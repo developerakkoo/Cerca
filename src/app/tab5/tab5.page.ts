@@ -3,7 +3,7 @@ import { AnimationController, Platform } from '@ionic/angular';
 import { ThemeService } from '../services/theme.service';
 import { UserService, User } from '../services/user.service';
 import { Router } from '@angular/router';
-
+import { LanguageService } from '../service/language.service';
 interface Language {
   code: string;
   name: string;
@@ -25,7 +25,7 @@ export class Tab5Page implements OnInit {
   languages: Language[] = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
     { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
-    { code: 'es', name: 'Marathi', flag: '🇮🇳' },
+    { code: 'mr', name: 'Marathi', flag: '🇮🇳' },
   ];
 
   constructor(
@@ -33,7 +33,8 @@ export class Tab5Page implements OnInit {
     private platform: Platform,
     private themeService: ThemeService,
     private userService: UserService,
-    private router: Router
+    private router: Router,
+    private languageService: LanguageService
   ) {}
 
   ngOnInit() {
@@ -100,6 +101,10 @@ export class Tab5Page implements OnInit {
   changeLanguage(langCode: string) {
     this.selectedLanguage = langCode;
     // Implement language change logic
+
+    console.log(langCode);
+    this.languageService.setLanguage(langCode);
+    
   }
 
   editProfile() {

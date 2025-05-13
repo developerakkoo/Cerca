@@ -1,7 +1,7 @@
 <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>
-      Account Settings
+      {{'SETTINGS.title' | translate}}
     </ion-title>
   </ion-toolbar>
 </ion-header>
@@ -9,7 +9,7 @@
 <ion-content [fullscreen]="true" class="ion-padding">
   <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">Account Settings</ion-title>
+        <ion-title size="large">{{'SETTINGS.title' | translate}}</ion-title>
     </ion-toolbar>
   </ion-header>
 
@@ -38,28 +38,28 @@
     <!-- Edit Profile -->
     <ion-item class="settings-item" (click)="editProfile()">
       <ion-icon name="person-outline" slot="start"></ion-icon>
-      <ion-label>Edit Profile</ion-label>
+      <ion-label>{{'SETTINGS.items.Edit' | translate}}</ion-label>
       <ion-icon name="chevron-forward" slot="end"></ion-icon>
     </ion-item>
 
     <!-- Notifications -->
     <ion-item class="settings-item">
       <ion-icon name="notifications-outline" slot="start"></ion-icon>
-      <ion-label>Notifications</ion-label>
+      <ion-label>{{'SETTINGS.items.Notifications' | translate}}</ion-label>
       <ion-toggle slot="end" [(ngModel)]="notificationsEnabled" (ionChange)="toggleNotifications()"></ion-toggle>
     </ion-item>
 
     <!-- Theme Mode -->
     <ion-item class="settings-item">
       <ion-icon name="moon-outline" slot="start"></ion-icon>
-      <ion-label>Dark Mode</ion-label>
+      <ion-label>{{'SETTINGS.items.Theme' | translate}}</ion-label>
       <ion-toggle slot="end" [(ngModel)]="paletteToggle" (ionChange)="toggleChange($event)"></ion-toggle>
     </ion-item>
 
     <!-- Language -->
     <ion-item class="settings-item">
       <ion-icon name="language-outline" slot="start"></ion-icon>
-      <ion-label>Language</ion-label>
+      <ion-label>{{'SETTINGS.items.Language' | translate}}</ion-label>
       <ion-select slot="end" [(ngModel)]="selectedLanguage" (ionChange)="changeLanguage($event.detail.value)">
         <ion-select-option *ngFor="let lang of languages" [value]="lang.code">
           {{ lang.flag }} {{ lang.name }}
@@ -70,21 +70,21 @@
     <!-- Address -->
     <ion-item class="settings-item" (click)="manageAddress()">
       <ion-icon name="location-outline" slot="start"></ion-icon>
-      <ion-label>Manage Address</ion-label>
+      <ion-label>{{'SETTINGS.items.Address' | translate}}</ion-label>
       <ion-icon name="chevron-forward" slot="end"></ion-icon>
     </ion-item>
 
     <!-- Support -->
     <ion-item class="settings-item" (click)="openSupport()">
       <ion-icon name="help-circle-outline" slot="start"></ion-icon>
-      <ion-label>Support</ion-label>
+      <ion-label>{{'SETTINGS.items.Support' | translate}}</ion-label>
       <ion-icon name="chevron-forward" slot="end"></ion-icon>
     </ion-item>
 
     <!-- FAQ -->
     <ion-item class="settings-item" (click)="openFAQ()">
       <ion-icon name="information-circle-outline" slot="start"></ion-icon>
-      <ion-label>FAQ</ion-label>
+      <ion-label>{{'SETTINGS.items.Faq' | translate}}</ion-label>
       <ion-icon name="chevron-forward" slot="end"></ion-icon>
     </ion-item>
 

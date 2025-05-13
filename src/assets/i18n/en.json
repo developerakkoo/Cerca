@@ -1,0 +1,24 @@
+{
+    "SETTINGS":{
+        "title":"Account Settings",
+        "items":{
+            "Edit":"Edit Profile",
+            "Notifications":"Notifications",
+            "Address":"Manage Address",
+            "Language":"Language",
+            "Support":"Support",
+            "Faq":"FAQ",
+            "Theme":"Dark Mode",
+            "Logout":"Logout"
+        },
+
+        "TABS":{
+            "tab1":"Home",
+            "tab2":"Bookings",
+            "tab3":"Wallet",
+            "tab4":"Service",
+            "tab5":"Profile"
+        }
+
+}
+}
