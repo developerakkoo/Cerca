@@ -58,6 +58,7 @@ export class MobileLoginPage implements OnInit, OnDestroy {
           if(isNewUser){
             this.router.navigate(['/otp', { phoneNumber: this.mobileForm.value.phoneNumber }]);
           }else{
+
             this.router.navigate(['/tabs/tabs/tab1']);
           }
           

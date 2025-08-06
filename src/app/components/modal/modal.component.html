@@ -6,7 +6,8 @@
         <ion-searchbar 
           class="animated-input"
           placeholder="Where are you?"
-          [(ngModel)]="pickupInput"
+          [ngModel]="pickupInput"
+          (ngModelChange)="onPickupInputChange($event)"
           (ionFocus)="onFocus($event, 'pickup')"
           (ionBlur)="onBlur($event)"
           (ionClear)="clearInput('pickup')"
@@ -25,7 +26,8 @@
         <ion-searchbar 
           class="animated-input"
           placeholder="Where to?"
-          [(ngModel)]="destinationInput"
+          [ngModel]="destinationInput"
+          (ngModelChange)="onDestinationInputChange($event)"
           (ionFocus)="onFocus($event, 'destination')"
           (ionBlur)="onBlur($event)"
           (ionClear)="clearInput('destination')"

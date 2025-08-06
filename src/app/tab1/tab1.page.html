@@ -17,8 +17,13 @@
     </div>
   </div>
 
-  <capacitor-google-map #map id="map"></capacitor-google-map>
-  
-  
-  <app-modal [pickupInput]="pickupAddress" [isKeyboardOpen]="isKeyboardOpen" [isLocationFetched]="isLocationFetched"></app-modal>
+  <capacitor-google-map #map id="map" style="width: 100%; height: 100vh;"></capacitor-google-map>
+  <app-modal 
+    [pickupInput]="pickupAddress" 
+    (pickupInputChange)="pickupAddress = $event"
+    [destinationInput]="destinationAddress" 
+    (destinationInputChange)="destinationAddress = $event"
+    [isKeyboardOpen]="isKeyboardOpen" 
+    [isLocationFetched]="isLocationFetched">
+  </app-modal>
 </ion-content>

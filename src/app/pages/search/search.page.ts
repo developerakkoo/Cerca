@@ -16,7 +16,7 @@ export class SearchPage implements OnInit {
   private map!: GoogleMap;
   pickup: string = '';
   destination: string = ''; 
-  isPickup!: boolean;
+  isPickup!: string;
   searchQuery: string = '';
   selectedAddress: string = '';
   selectedAddressDetails: any = '';
@@ -36,7 +36,14 @@ export class SearchPage implements OnInit {
     this.route.queryParams.subscribe(params => {
       this.pickup = params['pickup'] || '';
       this.destination = params['destination'] || '';
-      this.isPickup = params['isPickup'] || false;
+      this.isPickup = params['isPickup'];
+      
+      // Set initial selected address based on which input we're editing
+      if (this.isPickup === 'true') {
+        this.selectedAddress = this.pickup;
+      } else if (this.isPickup === 'false') {
+        this.selectedAddress = this.destination;
+      }
     });
     
     console.log("Pickup From Route");
@@ -45,19 +52,21 @@ export class SearchPage implements OnInit {
     console.log(this.destination);
     console.log("Is Pickup From Route");
     console.log(this.isPickup);
+    console.log(typeof(this.isPickup));
     
+    // Subscribe to service updates
     this.userService.pickup$.subscribe(pickup => {
-      // console.log("Pickup From User Service");
-      // console.log(pickup);
-      
-      this.pickup = pickup;
+      if (this.isPickup !== 'true') { // Only update if we're not editing pickup
+        this.pickup = pickup;
+      }
     });
+
     this.userService.destination$.subscribe(destination => {
-      // console.log("Destination From User Service");
-      // console.log(destination);
-      
-      this.destination = destination;
+      if (this.isPickup !== 'false') { // Only update if we're not editing destination
+        this.destination = destination;
+      }
     });
+
     this.userService.currentLocation$.subscribe(location => {
       this.selectedLocation = location;
     });
@@ -120,19 +129,11 @@ export class SearchPage implements OnInit {
         this.selectedLocation = { lat, lng };
       });
 
-      console.log("Selected Address");
-      console.log(this.selectedAddress);
+      console.log("Selected Address:", this.selectedAddress);
+      console.log("Is Pickup:", this.isPickup);
       
-      // console.log(this.selectedAddress);
-      // Get detailed address components
-      //const details = await this.geocodingService.getAddressFromLatLng(lat, lng);
-      
-        console.log("Setting Pickup Address");
-        
-        this.userService.setPickup(this.selectedAddress);
-        console.log("Setting Destination Address");
-        
-        this.userService.setDestination(this.selectedAddress);
+      // Don't update the service here, only update the local selectedAddress
+      // The actual update will happen in confirmLocation
     } catch (error) {
       console.error('Error getting address:', error);
     }
@@ -159,12 +160,16 @@ export class SearchPage implements OnInit {
   }
 
   async confirmLocation() {
-        console.log("Confirming Pickup Address");
-        
-        this.userService.setPickup(this.selectedAddress);
-        console.log("Confirming Destination Address");
-        this.userService.setDestination(this.selectedAddress);
-        this.router.navigate(['tabs','tabs','tab1']);
+    if (this.isPickup === 'true') {
+      console.log("Confirming Pickup Address:", this.selectedAddress);
+      // Only update pickup, preserve destination
+      this.userService.setPickup(this.selectedAddress);
+    } else if (this.isPickup === 'false') {
+      console.log("Confirming Destination Address:", this.selectedAddress);
+      // Only update destination, preserve pickup
+      this.userService.setDestination(this.selectedAddress);
+    }
+    this.router.navigate(['/tabs/tabs/tab1']);
   }
 
   clearSearch() {

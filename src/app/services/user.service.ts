@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Storage } from '@ionic/storage-angular';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, of } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
 export interface User {
@@ -48,7 +48,9 @@ export class UserService {
   public pickup$ = this.pickupSubject.asObservable();
 
   private destinationSubject = new BehaviorSubject<string>('');
-  public destination$ = this.destinationSubject.asObservable(); 
+  public destination$ = this.destinationSubject.asObservable();
+
+  private walletBalanceSubject = new BehaviorSubject<number>(100); // Initial balance of ₹1000
 
   constructor(private http: HttpClient,
     private storage: Storage
@@ -211,5 +213,24 @@ export class UserService {
 
   getCurrentLocation(): { lat: number, lng: number } {
     return this.currentLocationSubject.value;
+  }
+
+  getWalletBalance(): Observable<number> {
+    return this.walletBalanceSubject.asObservable();
+  }
+
+  deductFromWallet(amount: number): Observable<boolean> {
+    const currentBalance = this.walletBalanceSubject.value;
+    if (currentBalance >= amount) {
+      this.walletBalanceSubject.next(currentBalance - amount);
+      return of(true);
+    }
+    return of(false);
+  }
+
+  addToWallet(amount: number): Observable<boolean> {
+    const currentBalance = this.walletBalanceSubject.value;
+    this.walletBalanceSubject.next(currentBalance + amount);
+    return of(true);
   }
 }

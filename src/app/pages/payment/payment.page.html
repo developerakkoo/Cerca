@@ -33,13 +33,16 @@
       <h2>Select Payment Method</h2>
       <ion-list lines="none">
         <ion-radio-group justify="space-between" [(ngModel)]="selectedPaymentMethod" (ionChange)="onPaymentMethodChange($event)">
-          <ion-item lines="none" class="payment-method-item">
+          <ion-item lines="none" class="payment-method-item" [class.insufficient-balance]="isWalletSelected && insufficientBalance">
             <ion-avatar slot="start">
               <ion-icon name="wallet-outline"></ion-icon>
             </ion-avatar>
             <ion-label>
               <h3>Wallet</h3>
-              <p>Pay using your wallet balance</p>
+              <p>Available Balance: ₹{{walletBalance}}</p>
+              <p *ngIf="isWalletSelected && insufficientBalance" class="error-message">
+                Insufficient balance. Add ₹{{totalAmount - walletBalance}} more to your wallet.
+              </p>
             </ion-label>
             <ion-radio slot="end" value="wallet"></ion-radio>
           </ion-item>
@@ -95,9 +98,18 @@
 
     <!-- Continue to Pay Button -->
     <div class="payment-action">
-      <ion-button expand="block" class="pay-button" (click)="proceedToPayment()">
+      <ion-button 
+        expand="block" 
+        class="pay-button" 
+        (click)="proceedToPayment()"
+        [disabled]="isWalletSelected && insufficientBalance">
         <ion-icon name="card-outline" slot="start"></ion-icon>
-        Pay ₹{{totalAmount}}
+        <ng-container *ngIf="isWalletSelected">
+          Pay from Wallet ₹{{totalAmount}}
+        </ng-container>
+        <ng-container *ngIf="!isWalletSelected">
+          Pay ₹{{totalAmount}}
+        </ng-container>
       </ion-button>
     </div>
   </div>

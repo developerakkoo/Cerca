@@ -1,28 +1,37 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, Input, OnInit } from '@angular/core';
+import { Component, HostListener, Input, OnInit, Output, EventEmitter, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { HeaderComponent } from '../header/header.component';
 import { Router } from '@angular/router';
+import { UserService } from '../../services/user.service';
+import { Subscription } from 'rxjs';
+
 interface Address {
   type: string;
   address: string;
   isSelected: boolean;
 }
+
 @Component({
   selector: 'app-modal',
   templateUrl: './modal.component.html',
   styleUrls: ['./modal.component.scss'],
-  standalone:true,
-  imports:[IonicModule, CommonModule,FormsModule,HeaderComponent]
+  standalone: true,
+  imports: [IonicModule, CommonModule, FormsModule, HeaderComponent]
 })
-export class ModalComponent  implements OnInit {
+export class ModalComponent implements OnInit, OnDestroy {
   @Input() isLocationFetched = false;
   @Input() pickupInput: string = '';
   @Input() destinationInput: string = '';
   @Input() isKeyboardOpen: boolean = false;
+  @Output() pickupInputChange = new EventEmitter<string>();
+  @Output() destinationInputChange = new EventEmitter<string>();
+  
   activeInput: 'pickup' | 'destination' | null = null;
   selectedVehicle: string = 'small';
+  private pickupSubscription: Subscription | null = null;
+  private destinationSubscription: Subscription | null = null;
 
   addresses: Address[] = [
     { type: 'Home', address: '123 Main St', isSelected: false },
@@ -34,10 +43,47 @@ export class ModalComponent  implements OnInit {
     return !!this.pickupInput && !!this.destinationInput;
   }
 
-  constructor(private router: Router) {
+  constructor(
+    private router: Router,
+    private userService: UserService
+  ) {}
+
+  ngOnInit() {
+    this.initializeSubscriptions();
   }
 
-  ngOnInit() {}
+  ngOnDestroy() {
+    if (this.pickupSubscription) {
+      this.pickupSubscription.unsubscribe();
+    }
+    if (this.destinationSubscription) {
+      this.destinationSubscription.unsubscribe();
+    }
+  }
+
+  private initializeSubscriptions() {
+    // Subscribe to pickup changes
+    if (this.pickupSubscription) {
+      this.pickupSubscription.unsubscribe();
+    }
+    this.pickupSubscription = this.userService.pickup$.subscribe(pickup => {
+      if (pickup !== this.pickupInput) {
+        this.pickupInput = pickup;
+        this.pickupInputChange.emit(pickup);
+      }
+    });
+
+    // Subscribe to destination changes
+    if (this.destinationSubscription) {
+      this.destinationSubscription.unsubscribe();
+    }
+    this.destinationSubscription = this.userService.destination$.subscribe(destination => {
+      if (destination !== this.destinationInput) {
+        this.destinationInput = destination;
+        this.destinationInputChange.emit(destination);
+      }
+    });
+  }
 
   @HostListener('window:keyboardWillShow')
   onKeyboardShow() {
@@ -51,13 +97,21 @@ export class ModalComponent  implements OnInit {
 
   onFocus(_event: any, type: 'pickup' | 'destination') {
     this.activeInput = type;
-    if(type === 'pickup'){
-      this.router.navigate(['/search'], { queryParams: { pickup: this.pickupInput, isPickup: true } });
-    } 
-    
-    // else {
-    //   this.router.navigate(['/search'], { queryParams: { destination: this.destinationInput, isPickup: false } });
-    // }
+    if (type === 'pickup') {
+      this.router.navigate(['/search'], { 
+        queryParams: { 
+          pickup: this.pickupInput, 
+          isPickup: 'true' 
+        } 
+      });
+    } else {
+      this.router.navigate(['/search'], { 
+        queryParams: { 
+          destination: this.destinationInput, 
+          isPickup: 'false' 
+        } 
+      });
+    }
   }
 
   onBlur(_event: any) {
@@ -70,8 +124,12 @@ export class ModalComponent  implements OnInit {
   clearInput(type: 'pickup' | 'destination') {
     if (type === 'pickup') {
       this.pickupInput = '';
+      this.pickupInputChange.emit('');
+      this.userService.setPickup('');
     } else {
       this.destinationInput = '';
+      this.destinationInputChange.emit('');
+      this.userService.setDestination('');
     }
     
     // Reset selection state for all addresses
@@ -92,11 +150,15 @@ export class ModalComponent  implements OnInit {
     // Toggle the selected address
     address.isSelected = !address.isSelected;
     
-    // Update the appropriate input
+    // Update only the appropriate input
     if (targetInput === 'pickup') {
       this.pickupInput = address.isSelected ? address.address : '';
+      this.pickupInputChange.emit(this.pickupInput);
+      this.userService.setPickup(this.pickupInput);
     } else {
       this.destinationInput = address.isSelected ? address.address : '';
+      this.destinationInputChange.emit(this.destinationInput);
+      this.userService.setDestination(this.destinationInput);
     }
   }
 
@@ -119,5 +181,21 @@ export class ModalComponent  implements OnInit {
         vehicle: this.selectedVehicle
       }
     });
+  }
+
+  onPickupInputChange(value: string) {
+    // Only update pickup input and emit pickup changes
+    this.pickupInput = value;
+    this.pickupInputChange.emit(value);
+    // Only update pickup in service
+    this.userService.setPickup(value);
+  }
+
+  onDestinationInputChange(value: string) {
+    // Only update destination input and emit destination changes
+    this.destinationInput = value;
+    this.destinationInputChange.emit(value);
+    // Only update destination in service
+    this.userService.setDestination(value);
   }
 }

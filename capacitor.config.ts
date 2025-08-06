@@ -10,6 +10,9 @@ const config: CapacitorConfig = {
       iconColor: "#333652",
       sound: "beep.wav",
     },
+    GoogleMaps: {
+      forceCompile: true
+    }
   },
 };
 

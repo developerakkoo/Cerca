@@ -12,6 +12,9 @@ import { environment } from 'src/environments/environment';
 import { NotificationService } from '../services/notification.service';
 import { GeocodingService } from '../services/geocoding.service';
 import { UserService } from '../services/user.service';
+import { Subscription } from 'rxjs';
+import { ToastController } from '@ionic/angular';
+
 interface LatLng {
   lat: number;
   lng: number;
@@ -43,32 +46,65 @@ export class Tab1Page implements OnInit, OnDestroy {
   private cabMarkers: CabMarker[] = [];
   private updateInterval: any;
   private currentLocationMarker: string | undefined;
+  private pickupSubscription: Subscription | null = null;
 
   constructor(
     private notification: NotificationService,
     private geocodingService: GeocodingService,
     private userService: UserService,
-    private zone: NgZone
+    private zone: NgZone,
+    private toastController: ToastController
   ) {}
 
-  ionViewDidEnter() {
+  ngAfterViewInit() {
+   setTimeout(() => {
     this.getCurrentPosition();
+    // this.createMap(18.5213738, 73.8545071);
+   },2000)
   }
 
   ionViewWillLeave() {
-    // this.cleanupMap();
+    this.cleanupMap();
   }
 
   ngOnDestroy() {
+    if (this.pickupSubscription) {
+      this.pickupSubscription.unsubscribe();
+    }
     // this.cleanupMap();
   }
 
   ngOnInit() {
-    this.getCurrentPosition();
+    this.initializePickupSubscription();
     this.getPickUpAddress();
     this.getDestinationAddress();
   }
 
+  private initializePickupSubscription() {
+    // Unsubscribe from any existing subscription
+    if (this.pickupSubscription) {
+      this.pickupSubscription.unsubscribe();
+    }
+
+    // Create new subscription
+    this.pickupSubscription = this.userService.pickup$.subscribe(pickup => {
+      if (pickup) {
+        this.pickupAddress = pickup;
+        console.log("Pickup Address Updated:", this.pickupAddress);
+        // You can add any additional logic here that needs to run when pickup address changes
+        // For example, update map markers, recalculate routes, etc.
+      }
+    });
+  }
+
+
+  async presentToast(msg:string) {
+    const toast = await this.toastController.create({
+      message: msg,
+      duration: 2000
+    });
+    toast.present();
+  }
   private async cleanupMap() {
     if (this.newMap) {
       await this.clearCabMarkers();
@@ -90,7 +126,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   getPickUpAddress() {
     this.userService.pickup$.subscribe(pickup => {
       this.pickupAddress = pickup;
-      console.log("Pickup Address");
+      console.log("Pickup Address On Tab1");
       console.log(this.pickupAddress);
     });
   }
@@ -99,28 +135,27 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.userService.destination$.subscribe(destination => {
       this.destinationAddress = destination;
     });
-    console.log("Destination Address");
+    console.log("Destination Address On Tab1");
     console.log(this.destinationAddress);
   }
   async createMap(lat: number, lng: number) {
     try {
       const newMap = await GoogleMap.create({
         id: 'my-map',
-        element: document.getElementById('map') as HTMLElement,
-        apiKey: environment.apiKey,
+        element: this.mapRef.nativeElement,
+        apiKey: "AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono",
         config: {
           center: {
-            lat: lat,
-            lng: lng,
+            lat: 18.5213738,
+            lng: 73.8545071,
           },
-          mapId: environment.mapId,
+          // mapId: environment.mapId,
           zoom: 18,
         },
       });
 
       this.zone.run(() => {
         this.newMap = newMap;
-        this.isMapReady = true;
       });
 
       await this.newMap.setMapType(MapType.Normal);
@@ -128,9 +163,12 @@ export class Tab1Page implements OnInit, OnDestroy {
       await this.newMap.enableCurrentLocation(true);
 
       await this.setCurrentLocationMarker(lat, lng);
+        this.isMapReady = true;
+      this.presentToast("Map is ready");
 
     } catch (error) {
       console.error('Error creating map:', error);
+      this.presentToast(error as string);
       this.zone.run(() => {
         this.isMapReady = true; // Set to true even on error to not block the UI
       });
