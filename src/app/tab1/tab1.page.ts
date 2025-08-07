@@ -4,7 +4,8 @@ import {
   ViewChild,
   OnDestroy,
   NgZone,
-  OnInit
+  OnInit,
+  Renderer2
 } from '@angular/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { GoogleMap, MapType } from '@capacitor/google-maps';
@@ -14,6 +15,7 @@ import { GeocodingService } from '../services/geocoding.service';
 import { UserService } from '../services/user.service';
 import { Subscription } from 'rxjs';
 import { ToastController } from '@ionic/angular';
+import { MapService } from '../services/map.service';
 
 interface LatLng {
   lat: number;
@@ -47,31 +49,90 @@ export class Tab1Page implements OnInit, OnDestroy {
   private updateInterval: any;
   private currentLocationMarker: string | undefined;
   private pickupSubscription: Subscription | null = null;
+  private isCreatingMap = false; // Flag to prevent multiple map creations
 
   constructor(
     private notification: NotificationService,
     private geocodingService: GeocodingService,
     private userService: UserService,
     private zone: NgZone,
-    private toastController: ToastController
+    private renderer: Renderer2,
+    private toastController: ToastController,
+    private mapService: MapService
   ) {}
 
   ngAfterViewInit() {
-   setTimeout(() => {
-    this.getCurrentPosition();
-    // this.createMap(18.5213738, 73.8545071);
-   },2000)
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Only get current position if no map exists and we're not already creating one
+        if (!this.mapService.isTab1MapReady() && !this.isMapReady && !this.isCreatingMap) {
+          this.getCurrentPosition();
+        }
+      }, 500); // Give enough time for DOM to settle
+    });
   }
+  
 
   ionViewWillLeave() {
-    this.cleanupMap();
+    // this.cleanupMap();
+    this.renderer.removeClass(document.body, 'map-active');
   }
+
+  ionViewDidEnter() {
+    // Set current map type to tab1
+    this.mapService.setCurrentMapType('tab1');
+    
+    // Check if tab1 map already exists
+    if (this.mapService.isTab1MapReady()) {
+      console.log('Tab1 map exists, restoring it...');
+      this.newMap = this.mapService.getTab1Map()!;
+      this.isMapReady = true;
+      this.renderer.addClass(document.body, 'map-active');
+      
+      // Ensure map elements are visible
+      this.ensureMapVisibility();
+      
+      console.log('Successfully restored existing tab1 map');
+    } else {
+      console.log('No tab1 map exists, creating new one...');
+      // Only destroy search map and create fresh tab1 map if no tab1 map exists
+      this.mapService.destroySearchMap().then(() => {
+        // Only get current position if no map exists and not already creating
+        if (!this.mapService.isTab1MapReady() && !this.isMapReady && !this.isCreatingMap) {
+          console.log('Creating new tab1 map...');
+          this.getCurrentPosition();
+        }
+      });
+    }
+  }
+
+  private ensureMapVisibility() {
+    // Ensure map elements are visible when returning to tab1
+    const mapElement = document.getElementById('map');
+    const mapContainer = document.querySelector('.map-container');
+    
+    if (mapElement) {
+      mapElement.style.display = 'block';
+      mapElement.style.visibility = 'visible';
+      mapElement.style.opacity = '1';
+      mapElement.style.pointerEvents = 'auto';
+    }
+    
+    if (mapContainer) {
+      (mapContainer as HTMLElement).style.display = 'block';
+      (mapContainer as HTMLElement).style.visibility = 'visible';
+      (mapContainer as HTMLElement).style.opacity = '1';
+      (mapContainer as HTMLElement).style.pointerEvents = 'auto';
+    }
+  }
+
 
   ngOnDestroy() {
     if (this.pickupSubscription) {
       this.pickupSubscription.unsubscribe();
     }
-    // this.cleanupMap();
+    // Don't destroy the map here, let the service handle it
+    this.renderer.removeClass(document.body, 'map-active');
   }
 
   ngOnInit() {
@@ -138,39 +199,51 @@ export class Tab1Page implements OnInit, OnDestroy {
     console.log("Destination Address On Tab1");
     console.log(this.destinationAddress);
   }
+
+  //Create the map with the current location
   async createMap(lat: number, lng: number) {
     try {
-      const newMap = await GoogleMap.create({
-        id: 'my-map',
-        element: this.mapRef.nativeElement,
-        apiKey: "AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono",
-        config: {
-          center: {
-            lat: 18.5213738,
-            lng: 73.8545071,
-          },
-          // mapId: environment.mapId,
-          zoom: 18,
-        },
-      });
-
+      // Check if map element exists
+      const mapElement = document.getElementById('map');
+      console.log('Map element found:', !!mapElement, 'Element:', mapElement);
+      
+      // Check if map already exists to prevent double creation
+      if (this.mapService.isTab1MapReady()) {
+        console.log('Tab1 map already exists, reusing it');
+        this.newMap = this.mapService.getTab1Map()!;
+        this.zone.run(() => {
+          this.isMapReady = true;
+        });
+        this.ensureMapVisibility();
+        return;
+      }
+      
+      // Always destroy existing tab1 map first
+      await this.mapService.destroyTab1Map();
+      
+      // Use the shared map service for tab1
+      this.newMap = await this.mapService.createTab1Map('map', lat, lng);
+      
+      console.log('Map created in tab1:', !!this.newMap);
+      
       this.zone.run(() => {
-        this.newMap = newMap;
+        this.isMapReady = true;
       });
 
-      await this.newMap.setMapType(MapType.Normal);
       await this.newMap.enableClustering();
-      await this.newMap.enableCurrentLocation(true);
-
       await this.setCurrentLocationMarker(lat, lng);
-        this.isMapReady = true;
-      this.presentToast("Map is ready");
-
+      
+      // Ensure map is visible
+      this.ensureMapVisibility();
+    
     } catch (error) {
       console.error('Error creating map:', error);
-      this.presentToast(error as string);
+      // Only show toast if it's a real error, not just map already exists
+      if (!this.mapService.isTab1MapReady()) {
+        this.presentToast("Error creating map");
+      }
       this.zone.run(() => {
-        this.isMapReady = true; // Set to true even on error to not block the UI
+        this.isMapReady = true;
       });
     }
   }
@@ -254,6 +327,12 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   async getCurrentPosition() {
     try {
+      // Prevent multiple simultaneous map creations
+      if (this.isCreatingMap) {
+        console.log('Map creation already in progress, skipping...');
+        return;
+      }
+
       if (!navigator.onLine) {
         this.notification.scheduleNotification({
           title: 'No Internet',
@@ -262,7 +341,7 @@ export class Tab1Page implements OnInit, OnDestroy {
         });
         return;
       }
-
+  
       const permission = await Geolocation.checkPermissions();
       if (permission.location === 'denied') {
         await Geolocation.requestPermissions();
@@ -273,47 +352,33 @@ export class Tab1Page implements OnInit, OnDestroy {
         });
         return;
       }
-
+  
       const coordinates = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 0
       });
-
+  
       const { latitude, longitude } = coordinates.coords;
       this.zone.run(async () => {
         this.isLocationFetched = true;
-        this.createMap(latitude, longitude);
+        this.currentLocation = { lat: latitude, lng: longitude }; // Set current location
+        this.isCreatingMap = true; // Set flag before creating map
+        try {
+          await this.createMap(latitude, longitude);
+        } finally {
+          this.isCreatingMap = false; // Clear flag after map creation
+        }
         this.pickupAddress = await this.geocodingService.getAddressFromLatLng(latitude, longitude);
         this.userService.setCurrentLocation({ lat: latitude, lng: longitude });
       });
     } catch (error) {
       console.error('Error getting location:', error);
       this.isLocationFetched = false;
+      this.isCreatingMap = false; // Clear flag on error
       this.notification.scheduleNotification({
         title: 'Location Error',
         body: 'Unable to get your current location. Please check location settings.',
-        extra: { type: 'error' }
-      });
-    }
-  }
-
-  async recenterToCurrentLocation() {
-    try {
-      const coordinates = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      });
-
-      const { latitude, longitude } = coordinates.coords;
-      await this.setCurrentLocationMarker(latitude, longitude);
-      this.currentLocation = { lat: latitude, lng: longitude };
-    } catch (error) {
-      console.error('Error recentering map:', error);
-      this.notification.scheduleNotification({
-        title: 'Location Error',
-        body: 'Unable to recenter. Please check your location settings.',
         extra: { type: 'error' }
       });
     }

@@ -9,6 +9,7 @@ ion-tab-bar {
     margin: 0;
     position: relative;
     overflow: hidden;
+    z-index: 999;
   }
   
   ion-tab-button {

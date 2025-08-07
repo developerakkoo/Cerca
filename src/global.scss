@@ -35,4 +35,177 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 // @import "@ionic/angular/css/palettes/dark.system.css";
-@import '@ionic/angular/css/palettes/dark.class.css';
+// @import '@ionic/angular/css/palettes/dark.class.css';
+
+// Safe Area Support for all pages
+ion-app {
+  // Safe area support for the entire app
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+ion-content {
+  // Safe area support for content
+  --padding-top: env(safe-area-inset-top);
+  --padding-bottom: env(safe-area-inset-bottom);
+  --padding-start: env(safe-area-inset-left);
+  --padding-end: env(safe-area-inset-right);
+}
+
+ion-header {
+  // Safe area support for headers
+  padding-top: env(safe-area-inset-top);
+}
+
+ion-tab-bar {
+  // Safe area support for tab bars
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+// Safe area support for fixed positioned elements
+.fixed-bottom {
+  bottom: env(safe-area-inset-bottom);
+}
+
+.fixed-top {
+  top: env(safe-area-inset-top);
+}
+
+
+body.map-active {
+  ion-content {
+    --background: transparent !important;
+    background: transparent !important;
+  }
+  
+  // Ensure tab bar remains visible but below modal
+  ion-tab-bar {
+    z-index: 999 !important;
+    background: var(--ion-background-color) !important;
+  }
+}
+
+// Add specific styles for map pages
+.map-page {
+  ion-tab-bar {
+    z-index: 999 !important;
+    background: var(--ion-background-color) !important;
+  }
+  
+  ion-content {
+    --background: transparent !important;
+    background: transparent !important;
+  }
+}
+
+// Ensure shared map works properly
+capacitor-google-map {
+  z-index: 1 !important;
+  background: transparent !important;
+}
+
+// Fix for map visibility and overlay issues
+ion-content.map-page {
+  --background: transparent !important;
+  background: transparent !important;
+}
+
+// Ensure proper layering for map containers
+.map-container {
+  position: relative !important;
+  z-index: 1 !important;
+  background: transparent !important;
+}
+
+// Specific override for tab1 map
+.tab1-page .map-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 60vh !important;
+  background: transparent !important;
+  min-height: 400px !important;
+}
+
+// Specific override for search page map
+.search-page .map-container {
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 100vh !important;
+  background: transparent !important;
+}
+
+// Ensure map element is visible
+capacitor-google-map {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+  z-index: 1 !important;
+}
+
+// Specific override for tab1 map element
+.tab1-page capacitor-google-map {
+  min-height: 400px !important;
+  height: 100% !important;
+}
+
+// Specific override for search page map element
+.search-page capacitor-google-map {
+  height: 100% !important;
+}
+
+// Fix for tab bar transparency
+ion-tab-bar {
+  background: var(--ion-background-color) !important;
+  z-index: 999 !important;
+}
+
+// Ensure modal appears above everything
+app-modal {
+  z-index: 1000 !important;
+  position: relative;
+}
+  
+  // Add specific styles for modal layering
+  .modal-wrapper {
+    z-index: 1000 !important;
+  }
+
+  // Ensure payment button is above tab bar
+  .payment-button-container {
+    z-index: 1001 !important;
+    position: relative;
+  }
+
+  .payment-button {
+    z-index: 1001 !important;
+    position: relative;
+  }
+
+// Hide maps on searchbytext page only
+.searchbytext-page {
+  ion-content {
+    capacitor-google-map {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    
+    .map-container {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  }
+}
+  
+  

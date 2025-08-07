@@ -19,15 +19,23 @@
     transform: translateZ(0);
     backface-visibility: hidden;
     perspective: 1000px;
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    // Safe area support
+    padding-bottom: env(safe-area-inset-bottom);
+    max-height: 90vh; // Limit to 85% of viewport height
 
   &.keyboard-open {
     height: 50%;
     transform: translateZ(0);
+    max-height: 85vh; // Ensure keyboard open doesn't exceed 85%
   }
 
   &.inputs-filled {
-    height: 80%;
+    height: 85%; // Changed from 80% to 85%
+    bottom: 0; // Changed from 100px to 0
+    transform: translateY(0); // Removed the -100px transform
+    max-height: 85vh; // Ensure inputs filled doesn't exceed 85%
   }
 
   .handle {
@@ -148,6 +156,17 @@
   @keyframes slideUp {
     from {
       transform: translateY(100%) translateZ(0);
+      max-height: 40vh;
+    }
+    to {
+      transform: translateY(0) translateZ(0);
+      max-height: 90vh;
+    }
+  }
+  
+  @keyframes slideDown {
+    from {
+      transform: translateY(-100%) translateZ(0);
     }
     to {
       transform: translateY(0) translateZ(0);
@@ -432,6 +451,8 @@
   padding: 16px;
   margin-top: 16px;
   background: transparent;
+  position: relative;
+  z-index: 1001; // Higher than modal wrapper
 }
 
 .payment-button {
@@ -445,6 +466,8 @@
   font-size: 16px;
   letter-spacing: 0.5px;
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 1001; // Higher than modal wrapper
 
   &:hover {
     --box-shadow: 0 6px 16px rgba(var(--ion-color-primary-rgb), 0.3);
@@ -486,6 +509,35 @@
 
     .vehicle-seats {
       color: var(--ion-color-medium);
+    }
+  }
+}
+
+// Media queries for different screen sizes
+@media (max-height: 600px) {
+  .modal-wrapper {
+    &.inputs-filled {
+      height: 90%; // Slightly higher for smaller screens
+      max-height: 90vh;
+    }
+  }
+}
+
+@media (min-height: 800px) {
+  .modal-wrapper {
+    &.inputs-filled {
+      height: 80%; // Slightly lower for larger screens
+      max-height: 80vh;
+    }
+  }
+}
+
+// Ensure modal works well on landscape orientation
+@media (orientation: landscape) {
+  .modal-wrapper {
+    &.inputs-filled {
+      height: 85%;
+      max-height: 85vh;
     }
   }
 }

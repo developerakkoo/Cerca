@@ -1,0 +1,89 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()" fill="clear">
+        <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title class="ion-text-center">
+      {{ isPickup === 'true' ? 'Select Pickup Location' : 'Select Destination' }}
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="searchbytext-page">
+  <!-- Search Bar Section -->
+  <div class="search-section">
+    <div class="search-container">
+      <div class="search-input-wrapper">
+        <ion-icon name="search" class="search-icon"></ion-icon>
+        <input
+          #searchInput
+          type="text"
+          [(ngModel)]="searchQuery"
+          (input)="onSearchInput($event)"
+          placeholder="{{ isPickup === 'true' ? 'Enter pickup location' : 'Enter destination' }}"
+          class="search-input"
+          autocomplete="off"
+        />
+        <ion-button
+          *ngIf="searchQuery"
+          (click)="clearSearch()"
+          fill="clear"
+          class="clear-button"
+        >
+          <ion-icon name="close" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Searching locations...</p>
+  </div>
+
+  <!-- Search Results -->
+  <div *ngIf="!isLoading && searchResults.length > 0" class="results-section">
+    <div class="results-header">
+      <h3>Search Results</h3>
+    </div>
+    <div class="results-list">
+      <div
+        *ngFor="let result of searchResults"
+        class="result-item"
+        (click)="selectLocation(result)"
+      >
+        <div class="result-icon">
+          <ion-icon name="location" class="location-icon"></ion-icon>
+        </div>
+        <div class="result-content">
+          <div class="result-main-text">
+            {{ result.structured_formatting?.main_text || result.description }}
+          </div>
+          <div class="result-secondary-text">
+            {{ result.structured_formatting?.secondary_text || '' }}
+          </div>
+        </div>
+        <div class="result-arrow">
+          <ion-icon name="chevron-forward" class="arrow-icon"></ion-icon>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Results -->
+  <div *ngIf="!isLoading && searchQuery && searchResults.length === 0" class="no-results">
+    <ion-icon name="search-outline" class="no-results-icon"></ion-icon>
+    <h3>No locations found</h3>
+    <p>Try searching with a different keyword</p>
+  </div>
+
+  <!-- Initial State -->
+  <div *ngIf="!isLoading && !searchQuery && searchResults.length === 0" class="initial-state">
+    <ion-icon name="location-outline" class="initial-icon"></ion-icon>
+    <h3>Search for a location</h3>
+    <p>Start typing to search for places, addresses, or landmarks</p>
+  </div>
+</ion-content>

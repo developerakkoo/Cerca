@@ -1,216 +1,78 @@
-// capacitor-google-map {
-//     display: inline-block;
-//     width: 100%;
-//     height: 100vh;
-//     border: 2px solid limegreen;
-//   }
+.map-page {
+  --background: transparent !important;
+  background: transparent !important;
+  // Safe area support
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.map-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1 !important;
+  height: 60vh !important;
+  background: transparent !important;
+  min-height: 400px !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  // Safe area support
+  padding-top: env(safe-area-inset-top);
+}
 
 capacitor-google-map {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1 !important;
+  background: transparent !important;
+  min-height: 400px !important;
+  position: relative !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
-
-ion-content {
-  --background: transparent;
+// Ensure map is visible on tab1 page (override any global hiding)
+.tab1-page {
+  capacitor-google-map {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  
+  .map-container {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
 }
 
-// Loading Overlay Styles
+// Ensure loading overlay doesn't interfere with map
 .loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--ion-color-primary);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 1001 !important;
+  pointer-events: none !important;
+  // Safe area support
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.loading-container {
-  text-align: center;
-  padding: 2rem;
-}
-
-.loading-animation {
+// Ensure modal appears above everything and is positioned at top
+app-modal {
+  z-index: 1000 !important;
   position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 0 auto 2rem;
+  // Safe area support
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(var(--ion-color-primary-rgb), 0.1);
-  border: 2px solid var(--ion-color-primary);
-  animation: pulse 2s infinite;
-}
-
-.circle-1 {
-  width: 100%;
-  height: 100%;
-  animation-delay: 0s;
-}
-
-.circle-2 {
-  width: 80%;
-  height: 80%;
-  top: 10%;
-  left: 10%;
-  animation-delay: 0.3s;
-}
-
-.circle-3 {
-  width: 60%;
-  height: 60%;
-  top: 20%;
-  left: 20%;
-  animation-delay: 0.6s;
-}
-
-.loading-text {
-  h2 {
-    color: var(--ion-color-dark);
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  p {
-    color: var(--ion-color-medium);
-    font-size: 1rem;
-    margin: 0;
-  }
-}
-
-.typewriter-text {
-  display: inline-block;
+// Ensure tab bar stays below modal but above map
+ion-tab-bar {
+  z-index: 999 !important;
   position: relative;
-  
-  &::after {
-    content: '|';
-    position: absolute;
-    right: -2px;
-    animation: blink 0.7s infinite;
-  }
-}
-
-.location-info {
-  position: absolute;
-  bottom: 20px;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  padding: 0 16px;
-  background: rgba(var(--ion-color-light-rgb), 0.9);
-  border-radius: 12px;
-  margin: 0 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-ion-item {
-  --background: transparent;
-  --padding-start: 0;
-  --inner-padding-end: 0;
-}
-
-ion-label {
-  h2 {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--ion-color-dark);
-    margin-bottom: 4px;
-  }
-
-  p {
-    font-size: 14px;
-    color: var(--ion-color-medium);
-    white-space: normal;
-    line-height: 1.4;
-  }
-}
-
-// Dark mode adjustments
-@media (prefers-color-scheme: dark) {
-  .location-info {
-    background: rgba(var(--ion-color-dark-rgb), 0.9);
-  }
-
-  ion-label {
-    h2 {
-      color: var(--ion-color-light);
-    }
-
-    p {
-      color: var(--ion-color-light-shade);
-    }
-  }
-
-  .loading-overlay {
-    background: var(--ion-color-dark);
-  }
-
-  .loading-text {
-    h2 {
-      color: var(--ion-color-light);
-    }
-    p {
-      color: var(--ion-color-light-shade);
-    }
-  }
-
-  .circle {
-    background: rgba(var(--ion-color-primary-rgb), 0.2);
-    border-color: var(--ion-color-primary-shade);
-  }
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.current-location-marker {
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: rgba(33, 150, 243, 0.3);
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: rgba(33, 150, 243, 0.2);
-    border-radius: 50%;
-    animation: pulse 2s infinite 0.5s;
-  }
+  background: var(--ion-background-color) !important;
+  // Safe area support
+  padding-bottom: env(safe-area-inset-bottom);
 }

@@ -1,10 +1,12 @@
-import { Component, OnInit, ViewChild, ElementRef, NgZone } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, NgZone, Renderer2 } from '@angular/core';
 import { GoogleMap, MapType, Marker } from '@capacitor/google-maps';
 import { environment } from 'src/environments/environment';
 import { NavController } from '@ionic/angular';
 import { GeocodingService } from 'src/app/services/geocoding.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
+import { MapService } from '../../services/map.service';
+
 @Component({
   selector: 'app-search',
   templateUrl: './search.page.html',
@@ -29,7 +31,9 @@ export class SearchPage implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private userService: UserService,
-    private zone: NgZone
+    private zone: NgZone,
+    private renderer: Renderer2,
+    private mapService: MapService
   ) {}
 
   async ngOnInit() {
@@ -79,43 +83,47 @@ export class SearchPage implements OnInit {
   }
 
   ionViewDidEnter() {
-    setTimeout(() => {
-      this.initializeMap();
-    }, 1000);
+    // Set current map type to search
+    this.mapService.setCurrentMapType('search');
+    
+    // Always destroy tab1 map and create fresh search map
+    this.mapService.destroyTab1Map().then(() => {
+      setTimeout(() => {
+        this.initializeMap();
+      }, 1000);
+    });
+  }
+
+  ionViewWillEnter() {
+    this.renderer.addClass(document.body, 'map-active');
+  }
+
+  ionViewWillLeave() {
+    this.renderer.removeClass(document.body, 'map-active');
+  }
+
+  ionViewDidLeave() {
+    // Don't destroy the search map, let the service handle it
+    // The map will be preserved for when user returns to search page
   }
 
   private async initializeMap() {
-    this.map = await GoogleMap.create({
-      id: 'map2',
-      element: document.getElementById('map2')!,
-      apiKey: environment.apiKey,
-      config: {
-        mapId: environment.mapId,
-        center: {
-          lat: this.selectedLocation?.lat, // Default to Pune
-          lng: this.selectedLocation?.lng
-        },
-        zoom: 18,
-        disableDefaultUI: true,
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false
-      }
-    });
+    try {
+      // Always create a fresh search map
+      console.log('Creating new map for search page');
+      this.map = await this.mapService.createSearchMap('map2', this.selectedLocation?.lat || 18.5204, this.selectedLocation?.lng || 73.8567);
 
-    // Listen for map movement
-      const position = await this.map.setOnCameraMoveStartedListener((event) =>{
+      // Listen for map movement
+      await this.map.setOnCameraMoveStartedListener((event) => {
         // console.log("Camera Move Started");
-        // console.log(event);
       });
 
-      await this.map.setOnCameraIdleListener((event) =>{
-        // console.log("Camera Move Idle");
-        // console.log(event);
+      await this.map.setOnCameraIdleListener((event) => {
         this.updateAddressFromLocation(event.latitude, event.longitude);
       });
-     
+    } catch (error) {
+      console.error('Error initializing map:', error);
+    }
   }
 
   private async updateAddressFromLocation(lat: number, lng: number) {

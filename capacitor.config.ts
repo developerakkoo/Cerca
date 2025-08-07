@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.techlapse.Cerca',
+  appId: 'io.ionic.starter',
   appName: 'Cerca',
   webDir: 'www',
   plugins: {
@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
       sound: "beep.wav",
     },
     GoogleMaps: {
-      forceCompile: true
+      // forceCompile: true,
     }
   },
 };

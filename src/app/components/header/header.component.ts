@@ -19,7 +19,7 @@ export class HeaderComponent  implements OnInit {
 
   handleButtonClick(index: number) {
     if(index === 0){
-      this.router.navigate(['/search']);
+      this.router.navigate(['/searchbytext']);
     } else if(index === 1){
       this.router.navigate(['/gift']);
     } else if(index === 2){

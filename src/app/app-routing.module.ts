@@ -11,6 +11,10 @@ const routes: Routes = [
     loadChildren: () => import('./pages/search/search.module').then( m => m.SearchPageModule)
   },
   {
+    path: 'searchbytext',
+    loadChildren: () => import('./pages/searchbytext/searchbytext.module').then( m => m.SearchbytextPageModule)
+  },
+  {
     path: 'gift',
     loadChildren: () => import('./pages/gift/gift.module').then( m => m.GiftPageModule)
   },

@@ -98,14 +98,14 @@ export class ModalComponent implements OnInit, OnDestroy {
   onFocus(_event: any, type: 'pickup' | 'destination') {
     this.activeInput = type;
     if (type === 'pickup') {
-      this.router.navigate(['/search'], { 
+      this.router.navigate(['/searchbytext'], { 
         queryParams: { 
           pickup: this.pickupInput, 
           isPickup: 'true' 
         } 
       });
     } else {
-      this.router.navigate(['/search'], { 
+      this.router.navigate(['/searchbytext'], { 
         queryParams: { 
           destination: this.destinationInput, 
           isPickup: 'false' 
