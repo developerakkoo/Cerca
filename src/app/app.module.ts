@@ -16,7 +16,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { SocketIoModule, SocketIoConfig } from 'ngx-socket-io';
 
-const config: SocketIoConfig = { url: 'https://api.myserverdevops.com', options: {} };
+const config: SocketIoConfig = { url: 'http://192.168.1.10:3000', options: {} };
 export function createTranslateLoader(http:HttpClient){
   return new TranslateHttpLoader(http, 'assets/i18n/', '.json');
 }

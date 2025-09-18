@@ -29,7 +29,7 @@ export class AppComponent {
       console.log(user);
       // console.log(user['preferences']['language']);
       // this.languageService.setLanguage(user['preferences']['language']);
-      if(user['isLoggedIn'])
+      if(user)
 {
 this.router.navigate(['/tabs/tabs/tab1']);
 
