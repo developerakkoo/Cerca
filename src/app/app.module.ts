@@ -15,33 +15,46 @@ import { TranslateLoader } from '@ngx-translate/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { SocketIoModule, SocketIoConfig } from 'ngx-socket-io';
+import { environment } from 'src/environments/environment';
 
-const config: SocketIoConfig = { url: 'http://192.168.1.10:3000', options: {} };
-export function createTranslateLoader(http:HttpClient){
+const config: SocketIoConfig = {
+  url: environment.apiUrl,
+  options: {
+    transports: ['websocket'],
+    autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+  },
+};
+
+export function createTranslateLoader(http: HttpClient) {
   return new TranslateHttpLoader(http, 'assets/i18n/', '.json');
 }
+
 @NgModule({
   declarations: [AppComponent],
   imports: [
-    BrowserModule, 
-    IonicModule.forRoot(), 
+    BrowserModule,
+    IonicModule.forRoot(),
     AppRoutingModule,
     NetworkStatusComponent,
     HttpClientModule,
+    SocketIoModule.forRoot(config),
     IonicStorageModule.forRoot({
-      name:'Cerca'
+      name: 'Cerca',
     }),
     TranslateModule.forRoot({
       loader: {
         provide: TranslateLoader,
-        useFactory: (createTranslateLoader),
-        deps: [HttpClient]
-      }
-    })
+        useFactory: createTranslateLoader,
+        deps: [HttpClient],
+      },
+    }),
   ],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    GeocodingService
+    GeocodingService,
   ],
   bootstrap: [AppComponent],
 })

@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package io.techlapse.Cerca;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -33,7 +33,8 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
-           <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono"/>
+      <meta-data android:name="com.google.android.geo.API_KEY" android:value="AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono"/>
+
     </application>
 
     <!-- Permissions -->
@@ -53,7 +54,7 @@
     
     <!-- Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Removed SCHEDULE_EXACT_ALARM - requires system app permission -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     
     <!-- Network State -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

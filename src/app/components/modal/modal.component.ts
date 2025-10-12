@@ -1,10 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, Input, OnInit, Output, EventEmitter, OnDestroy } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  Input,
+  OnInit,
+  Output,
+  EventEmitter,
+  OnDestroy,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
-import { HeaderComponent } from '../header/header.component';
+import { IonicModule, LoadingController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
+import { RideService } from '../../services/ride.service';
 import { Subscription } from 'rxjs';
 
 interface Address {
@@ -18,7 +26,7 @@ interface Address {
   templateUrl: './modal.component.html',
   styleUrls: ['./modal.component.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, FormsModule, HeaderComponent]
+  imports: [IonicModule, CommonModule, FormsModule],
 })
 export class ModalComponent implements OnInit, OnDestroy {
   @Input() isLocationFetched = false;
@@ -27,7 +35,7 @@ export class ModalComponent implements OnInit, OnDestroy {
   @Input() isKeyboardOpen: boolean = false;
   @Output() pickupInputChange = new EventEmitter<string>();
   @Output() destinationInputChange = new EventEmitter<string>();
-  
+
   activeInput: 'pickup' | 'destination' | null = null;
   selectedVehicle: string = 'small';
   private pickupSubscription: Subscription | null = null;
@@ -36,7 +44,7 @@ export class ModalComponent implements OnInit, OnDestroy {
   addresses: Address[] = [
     { type: 'Home', address: '123 Main St', isSelected: false },
     { type: 'Work', address: '456 Business Ave', isSelected: false },
-    { type: 'Gym', address: '789 Fitness Rd', isSelected: false }
+    { type: 'Gym', address: '789 Fitness Rd', isSelected: false },
   ];
 
   get areInputsFilled(): boolean {
@@ -45,7 +53,9 @@ export class ModalComponent implements OnInit, OnDestroy {
 
   constructor(
     private router: Router,
-    private userService: UserService
+    private userService: UserService,
+    private rideService: RideService,
+    private loadingCtrl: LoadingController
   ) {}
 
   ngOnInit() {
@@ -66,7 +76,7 @@ export class ModalComponent implements OnInit, OnDestroy {
     if (this.pickupSubscription) {
       this.pickupSubscription.unsubscribe();
     }
-    this.pickupSubscription = this.userService.pickup$.subscribe(pickup => {
+    this.pickupSubscription = this.userService.pickup$.subscribe((pickup) => {
       if (pickup !== this.pickupInput) {
         this.pickupInput = pickup;
         this.pickupInputChange.emit(pickup);
@@ -77,12 +87,14 @@ export class ModalComponent implements OnInit, OnDestroy {
     if (this.destinationSubscription) {
       this.destinationSubscription.unsubscribe();
     }
-    this.destinationSubscription = this.userService.destination$.subscribe(destination => {
-      if (destination !== this.destinationInput) {
-        this.destinationInput = destination;
-        this.destinationInputChange.emit(destination);
+    this.destinationSubscription = this.userService.destination$.subscribe(
+      (destination) => {
+        if (destination !== this.destinationInput) {
+          this.destinationInput = destination;
+          this.destinationInputChange.emit(destination);
+        }
       }
-    });
+    );
   }
 
   @HostListener('window:keyboardWillShow')
@@ -98,18 +110,18 @@ export class ModalComponent implements OnInit, OnDestroy {
   onFocus(_event: any, type: 'pickup' | 'destination') {
     this.activeInput = type;
     if (type === 'pickup') {
-      this.router.navigate(['/search'], { 
-        queryParams: { 
-          pickup: this.pickupInput, 
-          isPickup: 'true' 
-        } 
+      this.router.navigate(['/search'], {
+        queryParams: {
+          pickup: this.pickupInput,
+          isPickup: 'true',
+        },
       });
     } else {
-      this.router.navigate(['/search'], { 
-        queryParams: { 
-          destination: this.destinationInput, 
-          isPickup: 'false' 
-        } 
+      this.router.navigate(['/search'], {
+        queryParams: {
+          destination: this.destinationInput,
+          isPickup: 'false',
+        },
       });
     }
   }
@@ -131,9 +143,9 @@ export class ModalComponent implements OnInit, OnDestroy {
       this.destinationInputChange.emit('');
       this.userService.setDestination('');
     }
-    
+
     // Reset selection state for all addresses
-    this.addresses.forEach(addr => {
+    this.addresses.forEach((addr) => {
       addr.isSelected = false;
     });
   }
@@ -141,15 +153,15 @@ export class ModalComponent implements OnInit, OnDestroy {
   toggleAddress(address: Address) {
     // If no input is active, use the last active input or default to pickup
     const targetInput = this.activeInput || 'pickup';
-    
+
     // Reset all addresses first
-    this.addresses.forEach(addr => {
+    this.addresses.forEach((addr) => {
       addr.isSelected = false;
     });
-    
+
     // Toggle the selected address
     address.isSelected = !address.isSelected;
-    
+
     // Update only the appropriate input
     if (targetInput === 'pickup') {
       this.pickupInput = address.isSelected ? address.address : '';
@@ -172,15 +184,67 @@ export class ModalComponent implements OnInit, OnDestroy {
     // - etc.
   }
 
-  goToPayment() {
-    // Navigate to payment page with the selected options
-    this.router.navigate(['/payment'], {
-      queryParams: {
-        pickup: this.pickupInput,
-        destination: this.destinationInput,
-        vehicle: this.selectedVehicle
-      }
+  async goToPayment() {
+    // Legacy method - now redirects to requestRide
+    await this.requestRide();
+  }
+
+  /**
+   * Request a ride via Socket.IO
+   */
+  async requestRide() {
+    if (!this.areInputsFilled) {
+      return;
+    }
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Requesting ride...',
+      spinner: 'crescent',
     });
+    await loading.present();
+
+    try {
+      // Get current location from user service
+      const currentLocation = this.userService.getCurrentLocation();
+
+      if (!currentLocation || !currentLocation.lat || !currentLocation.lng) {
+        throw new Error('Current location not available');
+      }
+
+      // TODO: Implement geocoding for destination address
+      // For now using relative coordinates from pickup
+      const destinationCoords = {
+        latitude: currentLocation.lat + 0.02, // ~2km away
+        longitude: currentLocation.lng + 0.02,
+      };
+
+      // TODO: Calculate actual fare based on distance
+      const estimatedFare = 150;
+      const estimatedDistance = 5.2;
+
+      await this.rideService.requestRide({
+        pickupLocation: {
+          latitude: currentLocation.lat,
+          longitude: currentLocation.lng,
+        },
+        dropoffLocation: destinationCoords,
+        pickupAddress: this.pickupInput,
+        dropoffAddress: this.destinationInput,
+        fare: estimatedFare,
+        distanceInKm: estimatedDistance,
+        service:
+          this.selectedVehicle === 'small' ? 'sedan' : this.selectedVehicle,
+        rideType: 'normal',
+        paymentMethod: 'CASH',
+      });
+
+      await loading.dismiss();
+      // Navigation is handled by RideService
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Error requesting ride:', error);
+      // Error toast is shown by RideService
+    }
   }
 
   onPickupInputChange(value: string) {

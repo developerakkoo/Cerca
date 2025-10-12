@@ -4,7 +4,7 @@ import {
   ViewChild,
   OnDestroy,
   NgZone,
-  OnInit
+  OnInit,
 } from '@angular/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { GoogleMap, MapType } from '@capacitor/google-maps';
@@ -59,10 +59,10 @@ export class Tab1Page implements OnInit, OnDestroy {
   ) {}
 
   ngAfterViewInit() {
-   setTimeout(() => {
-    this.getCurrentPosition();
-    // this.createMap(18.5213738, 73.8545071);
-   },2000)
+    setTimeout(() => {
+      this.getCurrentPosition();
+      // this.createMap(18.5213738, 73.8545071);
+    }, 2000);
   }
 
   ionViewWillLeave() {
@@ -89,21 +89,20 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
 
     // Create new subscription
-    this.pickupSubscription = this.userService.pickup$.subscribe(pickup => {
+    this.pickupSubscription = this.userService.pickup$.subscribe((pickup) => {
       if (pickup) {
         this.pickupAddress = pickup;
-        console.log("Pickup Address Updated:", this.pickupAddress);
+        console.log('Pickup Address Updated:', this.pickupAddress);
         // You can add any additional logic here that needs to run when pickup address changes
         // For example, update map markers, recalculate routes, etc.
       }
     });
   }
 
-
-  async presentToast(msg:string) {
+  async presentToast(msg: string) {
     const toast = await this.toastController.create({
       message: msg,
-      duration: 2000
+      duration: 2000,
     });
     toast.present();
   }
@@ -126,22 +125,26 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   getPickUpAddress() {
-    this.userService.pickup$.subscribe(pickup => {
+    this.userService.pickup$.subscribe((pickup) => {
       this.pickupAddress = pickup;
-      console.log("Pickup Address On Tab1");
+      console.log('Pickup Address On Tab1');
       console.log(this.pickupAddress);
     });
   }
 
   getDestinationAddress() {
-    this.userService.destination$.subscribe(destination => {
+    this.userService.destination$.subscribe((destination) => {
       this.destinationAddress = destination;
     });
-    console.log("Destination Address On Tab1");
+    console.log('Destination Address On Tab1');
     console.log(this.destinationAddress);
   }
   async createMap(lat: number, lng: number) {
     try {
+      console.log('Creating map with coordinates:', lat, lng);
+      console.log('API Key:', environment.apiKey ? 'Present' : 'Missing');
+      console.log('Map ID:', environment.mapId);
+
       const newMap = await GoogleMap.create({
         id: 'my-map',
         element: this.mapRef.nativeElement,
@@ -156,21 +159,36 @@ export class Tab1Page implements OnInit, OnDestroy {
         },
       });
 
+      console.log('Map created successfully');
       this.zone.run(() => {
         this.newMap = newMap;
       });
 
       await this.newMap.setMapType(MapType.Normal);
+      console.log('Map type set');
+
       await this.newMap.enableClustering();
+      console.log('Clustering enabled');
+
       await this.newMap.enableCurrentLocation(true);
+      console.log('Current location enabled');
 
       await this.setCurrentLocationMarker(lat, lng);
-        this.isMapReady = true;
-      this.presentToast("Map is ready");
+      console.log('Location marker set');
 
-    } catch (error) {
+      this.zone.run(() => {
+        this.isMapReady = true;
+      });
+      this.presentToast('Map is ready');
+    } catch (error: any) {
       console.error('Error creating map:', error);
-      this.presentToast(error as string);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+
+      const errorMessage =
+        error?.message || error?.toString() || 'Unknown map error';
+      this.presentToast(`Map Error: ${errorMessage}`);
+
       this.zone.run(() => {
         this.isMapReady = true; // Set to true even on error to not block the UI
       });
@@ -187,7 +205,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       snippet: 'You are here',
       iconUrl: 'assets/current-location.png',
       iconSize: { width: 48, height: 48 },
-      iconAnchor: { x: 24, y: 24 }
+      iconAnchor: { x: 24, y: 24 },
     });
     this.currentLocationMarker = marker;
   }
@@ -204,7 +222,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     const numCabs = 5;
     for (let i = 0; i < numCabs; i++) {
       const cabPosition = this.generateRandomCabPosition();
-      const previousPosition = this.cabMarkers.find(cab => cab.id === `cab-${i}`)?.position || cabPosition;
+      const previousPosition =
+        this.cabMarkers.find((cab) => cab.id === `cab-${i}`)?.position ||
+        cabPosition;
       const direction = this.calculateDirection(previousPosition, cabPosition);
       const iconUrl = this.getDirectionalCabIcon(direction);
 
@@ -212,14 +232,14 @@ export class Tab1Page implements OnInit, OnDestroy {
         coordinate: cabPosition,
         title: `Cab ${i + 1}`,
         snippet: 'Available',
-        iconUrl: iconUrl
+        iconUrl: iconUrl,
       });
 
       this.cabMarkers.push({
         id: `cab-${i}`,
         marker: cabMarker,
         position: cabPosition,
-        previousPosition: previousPosition
+        previousPosition: previousPosition,
       });
     }
   }
@@ -249,91 +269,131 @@ export class Tab1Page implements OnInit, OnDestroy {
     const movementFactor = 0.0001;
     const movementAngle = Math.random() * 2 * Math.PI;
     return {
-      lat: this.currentLocation.lat + distance * Math.cos(angle) + movementFactor * Math.cos(movementAngle),
-      lng: this.currentLocation.lng + distance * Math.sin(angle) + movementFactor * Math.sin(movementAngle)
+      lat:
+        this.currentLocation.lat +
+        distance * Math.cos(angle) +
+        movementFactor * Math.cos(movementAngle),
+      lng:
+        this.currentLocation.lng +
+        distance * Math.sin(angle) +
+        movementFactor * Math.sin(movementAngle),
     };
   }
 
   async getCurrentPosition() {
     try {
+      console.log('Starting location fetch...');
+
       // Check internet connectivity
       if (!navigator.onLine) {
-        await this.presentToast('No internet connection. Please check your network.');
+        console.log('No internet connection detected');
+        await this.presentToast(
+          'No internet connection. Please check your network.'
+        );
         this.notification.scheduleNotification({
           title: 'No Internet',
           body: 'Please check your internet connection.',
-          extra: { type: 'error' }
+          extra: { type: 'error' },
         });
         return;
       }
 
+      console.log('Internet connection OK, requesting permissions...');
+
       // Request location permission with proper handling
-      const permissionResult = await this.permissionService.requestLocationPermission();
-      
+      const permissionResult =
+        await this.permissionService.requestLocationPermission();
+      console.log('Permission result:', permissionResult);
+
       if (!permissionResult.granted) {
+        console.log('Permission not granted');
         this.isLocationFetched = false;
-        
+
         if (!permissionResult.canAskAgain) {
           // Permission permanently denied - show settings dialog
-          await this.presentToast('Location permission denied. Tap to open settings.');
+          console.log('Permission permanently denied');
+          await this.presentToast(
+            'Location permission denied. Tap to open settings.'
+          );
           await this.permissionService.showOpenSettingsAlert();
         } else {
           // Permission denied but can ask again
-          await this.presentToast('Location permission is required to show nearby cabs.');
+          console.log('Permission denied, can ask again');
+          await this.presentToast(
+            'Location permission is required to show nearby cabs.'
+          );
           this.notification.scheduleNotification({
             title: 'Permission Required',
             body: 'Location access is needed to find cabs near you.',
-            extra: { type: 'warning' }
+            extra: { type: 'warning' },
           });
         }
         return;
       }
 
+      console.log('Permission granted, fetching location...');
+
       // Permission granted - get location with timeout handling
       const locationPromise = Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0
+        maximumAge: 0,
       });
 
-      const timeoutPromise = new Promise<never>((_, reject) => 
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Location request timeout')), 15000)
       );
 
       const coordinates = await Promise.race([locationPromise, timeoutPromise]);
+      console.log('Location fetched:', coordinates);
 
       const { latitude, longitude } = coordinates.coords;
-      
+      console.log('Coordinates:', latitude, longitude);
+
       // Update current location
       this.currentLocation = { lat: latitude, lng: longitude };
-      
+
       this.zone.run(async () => {
         this.isLocationFetched = true;
-        this.createMap(latitude, longitude);
-        this.pickupAddress = await this.geocodingService.getAddressFromLatLng(latitude, longitude);
+        console.log('Creating map...');
+        await this.createMap(latitude, longitude);
+        console.log('Fetching address...');
+        this.pickupAddress = await this.geocodingService.getAddressFromLatLng(
+          latitude,
+          longitude
+        );
+        console.log('Address fetched:', this.pickupAddress);
         this.userService.setCurrentLocation({ lat: latitude, lng: longitude });
       });
-      
     } catch (error: any) {
       console.error('Error getting location:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error details:', JSON.stringify(error));
       this.isLocationFetched = false;
-      
+
       // Handle specific error types
       if (error.message?.includes('timeout')) {
-        await this.presentToast('Location request timed out. Please try again.');
+        console.log('Location timeout error');
+        await this.presentToast(
+          'Location request timed out. Please try again.'
+        );
         this.notification.scheduleNotification({
           title: 'Location Timeout',
           body: 'Could not get your location in time. Please ensure GPS is enabled.',
-          extra: { type: 'error' }
+          extra: { type: 'error' },
         });
       } else if (error.message?.includes('denied')) {
+        console.log('Location denied error');
         await this.presentToast('Location access denied.');
       } else {
-        await this.presentToast('Unable to get your location. Please try again.');
+        console.log('Generic location error');
+        await this.presentToast(
+          `Location error: ${error.message || 'Unknown error'}`
+        );
         this.notification.scheduleNotification({
           title: 'Location Error',
           body: 'Unable to get your current location. Please check location settings.',
-          extra: { type: 'error' }
+          extra: { type: 'error' },
         });
       }
     }
@@ -342,11 +402,15 @@ export class Tab1Page implements OnInit, OnDestroy {
   async recenterToCurrentLocation() {
     try {
       // Check permission first
-      const hasPermission = await this.permissionService.isLocationPermissionGranted();
-      
+      const hasPermission =
+        await this.permissionService.isLocationPermissionGranted();
+
       if (!hasPermission) {
-        await this.presentToast('Location permission required to recenter map.');
-        const granted = await this.permissionService.requestPermissionWithFallback();
+        await this.presentToast(
+          'Location permission required to recenter map.'
+        );
+        const granted =
+          await this.permissionService.requestPermissionWithFallback();
         if (!granted) {
           return;
         }
@@ -355,30 +419,29 @@ export class Tab1Page implements OnInit, OnDestroy {
       const coordinates = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0
+        maximumAge: 0,
       });
 
       const { latitude, longitude } = coordinates.coords;
       await this.setCurrentLocationMarker(latitude, longitude);
       this.currentLocation = { lat: latitude, lng: longitude };
-      
+
       // Update camera to new location
       if (this.newMap) {
         await this.newMap.setCamera({
           coordinate: { lat: latitude, lng: longitude },
-          zoom: 18
+          zoom: 18,
         });
       }
-      
+
       await this.presentToast('Location updated successfully.');
-      
     } catch (error) {
       console.error('Error recentering map:', error);
       await this.presentToast('Unable to get current location.');
       this.notification.scheduleNotification({
         title: 'Location Error',
         body: 'Unable to recenter. Please check your location settings.',
-        extra: { type: 'error' }
+        extra: { type: 'error' },
       });
     }
   }
