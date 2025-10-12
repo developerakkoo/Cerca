@@ -77,7 +77,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       id: 'mymap',
       element: document.getElementById('mymap')!,
       apiKey: environment.apiKey,
-      config: mapOptions,
+      config: {
+        ...mapOptions,
+        mapId: environment.mapId,
+      }
     }, (data) => {
       console.log("map created");
       console.log(data);

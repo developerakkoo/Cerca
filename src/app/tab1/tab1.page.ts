@@ -12,6 +12,7 @@ import { environment } from 'src/environments/environment';
 import { NotificationService } from '../services/notification.service';
 import { GeocodingService } from '../services/geocoding.service';
 import { UserService } from '../services/user.service';
+import { PermissionService } from '../services/permission.service';
 import { Subscription } from 'rxjs';
 import { ToastController } from '@ionic/angular';
 
@@ -53,7 +54,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private geocodingService: GeocodingService,
     private userService: UserService,
     private zone: NgZone,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private permissionService: PermissionService
   ) {}
 
   ngAfterViewInit() {
@@ -143,13 +145,13 @@ export class Tab1Page implements OnInit, OnDestroy {
       const newMap = await GoogleMap.create({
         id: 'my-map',
         element: this.mapRef.nativeElement,
-        apiKey: "AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono",
+        apiKey: environment.apiKey,
         config: {
           center: {
-            lat: 18.5213738,
-            lng: 73.8545071,
+            lat: lat,
+            lng: lng,
           },
-          // mapId: environment.mapId,
+          mapId: environment.mapId,
           zoom: 18,
         },
       });
@@ -254,7 +256,9 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   async getCurrentPosition() {
     try {
+      // Check internet connectivity
       if (!navigator.onLine) {
+        await this.presentToast('No internet connection. Please check your network.');
         this.notification.scheduleNotification({
           title: 'No Internet',
           body: 'Please check your internet connection.',
@@ -263,43 +267,91 @@ export class Tab1Page implements OnInit, OnDestroy {
         return;
       }
 
-      const permission = await Geolocation.checkPermissions();
-      if (permission.location === 'denied') {
-        await Geolocation.requestPermissions();
-        this.notification.scheduleNotification({
-          title: 'Permission Denied',
-          body: 'Location access denied. Please enable it from settings.',
-          extra: { type: 'error' }
-        });
+      // Request location permission with proper handling
+      const permissionResult = await this.permissionService.requestLocationPermission();
+      
+      if (!permissionResult.granted) {
+        this.isLocationFetched = false;
+        
+        if (!permissionResult.canAskAgain) {
+          // Permission permanently denied - show settings dialog
+          await this.presentToast('Location permission denied. Tap to open settings.');
+          await this.permissionService.showOpenSettingsAlert();
+        } else {
+          // Permission denied but can ask again
+          await this.presentToast('Location permission is required to show nearby cabs.');
+          this.notification.scheduleNotification({
+            title: 'Permission Required',
+            body: 'Location access is needed to find cabs near you.',
+            extra: { type: 'warning' }
+          });
+        }
         return;
       }
 
-      const coordinates = await Geolocation.getCurrentPosition({
+      // Permission granted - get location with timeout handling
+      const locationPromise = Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 0
       });
 
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Location request timeout')), 15000)
+      );
+
+      const coordinates = await Promise.race([locationPromise, timeoutPromise]);
+
       const { latitude, longitude } = coordinates.coords;
+      
+      // Update current location
+      this.currentLocation = { lat: latitude, lng: longitude };
+      
       this.zone.run(async () => {
         this.isLocationFetched = true;
         this.createMap(latitude, longitude);
         this.pickupAddress = await this.geocodingService.getAddressFromLatLng(latitude, longitude);
         this.userService.setCurrentLocation({ lat: latitude, lng: longitude });
       });
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Error getting location:', error);
       this.isLocationFetched = false;
-      this.notification.scheduleNotification({
-        title: 'Location Error',
-        body: 'Unable to get your current location. Please check location settings.',
-        extra: { type: 'error' }
-      });
+      
+      // Handle specific error types
+      if (error.message?.includes('timeout')) {
+        await this.presentToast('Location request timed out. Please try again.');
+        this.notification.scheduleNotification({
+          title: 'Location Timeout',
+          body: 'Could not get your location in time. Please ensure GPS is enabled.',
+          extra: { type: 'error' }
+        });
+      } else if (error.message?.includes('denied')) {
+        await this.presentToast('Location access denied.');
+      } else {
+        await this.presentToast('Unable to get your location. Please try again.');
+        this.notification.scheduleNotification({
+          title: 'Location Error',
+          body: 'Unable to get your current location. Please check location settings.',
+          extra: { type: 'error' }
+        });
+      }
     }
   }
 
   async recenterToCurrentLocation() {
     try {
+      // Check permission first
+      const hasPermission = await this.permissionService.isLocationPermissionGranted();
+      
+      if (!hasPermission) {
+        await this.presentToast('Location permission required to recenter map.');
+        const granted = await this.permissionService.requestPermissionWithFallback();
+        if (!granted) {
+          return;
+        }
+      }
+
       const coordinates = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 10000,
@@ -309,8 +361,20 @@ export class Tab1Page implements OnInit, OnDestroy {
       const { latitude, longitude } = coordinates.coords;
       await this.setCurrentLocationMarker(latitude, longitude);
       this.currentLocation = { lat: latitude, lng: longitude };
+      
+      // Update camera to new location
+      if (this.newMap) {
+        await this.newMap.setCamera({
+          coordinate: { lat: latitude, lng: longitude },
+          zoom: 18
+        });
+      }
+      
+      await this.presentToast('Location updated successfully.');
+      
     } catch (error) {
       console.error('Error recentering map:', error);
+      await this.presentToast('Unable to get current location.');
       this.notification.scheduleNotification({
         title: 'Location Error',
         body: 'Unable to recenter. Please check your location settings.',

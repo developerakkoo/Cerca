@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import GoogleMaps
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,6 +9,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+        // Initialize Google Maps with API Key
+        if let apiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String {
+            GMSServices.provideAPIKey(apiKey)
+        }
+        
         return true
     }
 
