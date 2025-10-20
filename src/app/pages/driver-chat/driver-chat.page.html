@@ -16,25 +16,30 @@
 
     <!-- Messages -->
     <div class="messages" #messageContainer>
-      <!-- Driver Messages -->
-      <div class="message driver-message" *ngFor="let message of messages" [ngClass]="{'with-image': message.image}">
-        <div class="message-avatar">
-          <img src="assets/user.png" alt="Driver">
+      <!-- All Messages (Driver and User) -->
+      <div
+        class="message"
+        *ngFor="let message of messages"
+        [ngClass]="{
+             'driver-message': message.sender === 'driver',
+             'user-message': message.sender === 'user',
+             'with-image': message.image
+           }"
+      >
+        <div class="message-avatar" *ngIf="message.sender === 'driver'">
+          <img src="assets/user.png" alt="Driver" />
         </div>
         <div class="message-content">
-          <div class="message-bubble" [ngClass]="{'image-bubble': message.image}">
-            <img *ngIf="message.image" [src]="message.image" alt="Shared image" (click)="openImage(message.image)">
-            <p>{{ message.text }}</p>
-          </div>
-          <span class="message-time">{{ message.time }}</span>
-        </div>
-      </div>
-
-      <!-- User Messages -->
-      <div class="message user-message" *ngFor="let message of userMessages" [ngClass]="{'with-image': message.image}">
-        <div class="message-content">
-          <div class="message-bubble" [ngClass]="{'image-bubble': message.image}">
-            <img *ngIf="message.image" [src]="message.image" alt="Shared image" (click)="openImage(message.image)">
+          <div
+            class="message-bubble"
+            [ngClass]="{'image-bubble': message.image}"
+          >
+            <img
+              *ngIf="message.image"
+              [src]="message.image"
+              alt="Shared image"
+              (click)="openImage(message.image)"
+            />
             <p>{{ message.text }}</p>
           </div>
           <span class="message-time">{{ message.time }}</span>
@@ -49,14 +54,20 @@
       <ion-button fill="clear" class="attach-btn" (click)="openImagePicker()">
         <ion-icon name="image-outline"></ion-icon>
       </ion-button>
-      <ion-input 
-        type="text" 
-        placeholder="Type a message..." 
+      <ion-input
+        type="text"
+        placeholder="Type a message..."
         [(ngModel)]="newMessage"
         (keyup.enter)="sendMessage()"
-        class="message-input">
+        class="message-input"
+      >
       </ion-input>
-      <ion-button fill="clear" class="send-btn" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+      <ion-button
+        fill="clear"
+        class="send-btn"
+        (click)="sendMessage()"
+        [disabled]="!newMessage.trim()"
+      >
         <ion-icon name="send"></ion-icon>
       </ion-button>
     </div>

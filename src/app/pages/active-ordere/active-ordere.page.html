@@ -1,7 +1,7 @@
 <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/" text=""></ion-back-button>
+      <ion-back-button defaultHref="/tabs/tab1" text=""></ion-back-button>
     </ion-buttons>
     <ion-title>Track Ride</ion-title>
   </ion-toolbar>
@@ -9,40 +9,59 @@
 
 <ion-content [fullscreen]="true" class="map-content">
   <!-- Google Map -->
-    <capacitor-google-map id="mymap" #mymap></capacitor-google-map>
+  <capacitor-google-map id="mymap" #mymap></capacitor-google-map>
 
   <!-- Driver Details Modal -->
-  <div class="driver-modal" [class.arrived]="isDriverArrived">
+  <div
+    class="driver-modal"
+    [class.arrived]="isDriverArrived"
+    [class.in-progress]="currentRideStatus === 'in_progress'"
+  >
     <div class="modal-header">
       <div class="arrival-status">
-        <h2>{{isDriverArrived ? 'Driver Arrived' : 'Driver is Arriving'}}</h2>
-        <p *ngIf="!isDriverArrived" class="arrival-time">{{arrivalTime}} mins</p>
+        <h2>{{statusText}}</h2>
+        <p
+          *ngIf="!isDriverArrived && currentRideStatus !== 'in_progress' && arrivalTime !== '0'"
+          class="arrival-time"
+        >
+          ETA: {{arrivalTime}} mins
+        </p>
+        <p *ngIf="currentRideStatus === 'in_progress'" class="ride-message">
+          Enjoy your ride! 🚗
+        </p>
       </div>
     </div>
 
     <div class="modal-content">
       <!-- Driver Info Section -->
-      <div class="driver-info" (click)="navigateToDriverDetails()">
+      <div
+        class="driver-info"
+        (click)="navigateToDriverDetails()"
+        *ngIf="driver"
+      >
         <div class="driver-profile">
           <ion-avatar>
-            <img src="assets/user.png" alt="Driver Profile">
+            <img src="assets/user.png" alt="Driver Profile" />
           </ion-avatar>
           <div class="driver-details">
-            <h3>{{driver.name}}</h3>
+            <h3>{{driver?.name}}</h3>
             <div class="rating">
               <ion-icon name="star"></ion-icon>
-              <span>{{driver.rating}}</span>
+              <span>{{driver?.rating}}</span>
             </div>
           </div>
         </div>
         <div class="car-details">
-          <p class="car-number">{{driver.carNumber}}</p>
-          <p class="car-type">{{driver.carType}}</p>
+          <p class="car-number">{{driver?.carNumber}}</p>
+          <p class="car-type">{{driver?.carType}}</p>
         </div>
       </div>
 
       <!-- Action Buttons -->
-      <div class="action-buttons" *ngIf="!isDriverArrived">
+      <div
+        class="action-buttons"
+        *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled'"
+      >
         <ion-button fill="clear" class="action-btn" (click)="chatWithDriver()">
           <ion-icon name="chatbubble-outline"></ion-icon>
           Chat
@@ -54,10 +73,14 @@
       </div>
 
       <!-- OTP Section (shown when driver arrives) -->
-      <div class="otp-section" *ngIf="isDriverArrived && !showRating">
+      <div
+        class="otp-section"
+        *ngIf="isDriverArrived && !showRating && driver && currentRideStatus === 'arrived'"
+      >
         <div class="otp-container">
           <h3>Share OTP with Driver</h3>
-          <div class="otp-code">{{driver.otp}}</div>
+          <div class="otp-code">{{driver?.otp}}</div>
+          <p class="otp-instruction">Share this OTP to start your ride</p>
         </div>
       </div>
 
@@ -85,7 +108,13 @@
       </div>
 
       <!-- Emergency Button -->
-      <ion-button expand="block" fill="clear" class="emergency-btn" *ngIf="!isDriverArrived">
+      <ion-button
+        expand="block"
+        fill="clear"
+        class="emergency-btn"
+        *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled' && currentRideStatus !== 'idle'"
+        (click)="triggerEmergency()"
+      >
         <ion-icon name="warning-outline"></ion-icon>
         Emergency
       </ion-button>
@@ -97,9 +126,12 @@
     <div class="rating-content">
       <h2>How was your ride?</h2>
       <div class="emoji-grid">
-        <div class="emoji-item" *ngFor="let emoji of emojis" 
-             [class.selected]="selectedEmoji === emoji.value"
-             (click)="selectEmoji(emoji.value)">
+        <div
+          class="emoji-item"
+          *ngFor="let emoji of emojis"
+          [class.selected]="selectedEmoji === emoji.value"
+          (click)="selectEmoji(emoji.value)"
+        >
           <span class="emoji">{{emoji.emoji}}</span>
           <span class="emoji-label">{{emoji.label}}</span>
         </div>

@@ -32,7 +32,25 @@
  * https://ionicframework.com/docs/theming/dark-mode
  */
 
-/* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-// @import "@ionic/angular/css/palettes/dark.system.css";
-@import '@ionic/angular/css/palettes/dark.class.css';
+/* Ionic Dark Mode - Using system preference */
+@import "@ionic/angular/css/palettes/dark.system.css";
+
+/**
+ * Google Maps Transparency Fix for Android
+ * On Android, Google Maps renders BENEATH the webview, so we need
+ * to make the entire webview stack transparent to see the map.
+ * Reference: https://capacitorjs.com/docs/apis/google-maps
+ * 
+ * Note: Pages that need non-transparent backgrounds must override this in their own SCSS
+ */
+html, body {
+  background: transparent !important;
+}
+
+ion-app {
+  background: transparent !important;
+}
+
+ion-content {
+  --background: transparent !important;
+}

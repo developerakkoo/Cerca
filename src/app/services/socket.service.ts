@@ -44,14 +44,21 @@ export class SocketService {
    * Initialize socket connection
    */
   async initialize(config: SocketConfig): Promise<void> {
+    console.log('🚀 ========================================');
+    console.log('🚀 INITIALIZING SOCKET CONNECTION');
+    console.log('🚀 ========================================');
+    console.log('📋 Config:', config);
+
     if (this.isInitialized) {
-      console.log('Socket already initialized');
+      console.log('⚠️ Socket already initialized - skipping');
       return;
     }
 
     try {
       // Get user ID from storage if not provided
       const userId = config.userId || (await this.storage.get('userId'));
+
+      console.log('👤 User ID:', userId);
 
       if (!userId) {
         throw new Error('User ID is required for socket connection');
@@ -67,16 +74,30 @@ export class SocketService {
         userType: config.userType,
       };
 
+      console.log(
+        '🔧 Socket query params:',
+        this.socket.ioSocket.io.opts.query
+      );
+      console.log('🌐 Target URL:', environment.apiUrl);
+      console.log('🔌 Transports:', this.socket.ioSocket.io.opts.transports);
+
       // Setup event listeners
       this.setupEventListeners();
 
       // Connect
+      console.log('📞 Calling socket.connect()...');
       this.socket.connect();
       this.isInitialized = true;
 
-      console.log('Socket initialization started');
+      console.log('✅ Socket initialization started successfully');
+      console.log('========================================');
     } catch (error) {
-      console.error('Socket initialization error:', error);
+      console.error('❌ ========================================');
+      console.error('❌ SOCKET INITIALIZATION ERROR');
+      console.error('❌ ========================================');
+      console.error('📝 Error:', error);
+      console.error('========================================');
+
       this.connectionStatus$.next({
         connected: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -89,10 +110,25 @@ export class SocketService {
    * Setup socket event listeners
    */
   private setupEventListeners(): void {
+    console.log('🔧 ========================================');
+    console.log('🔧 SETTING UP SOCKET EVENT LISTENERS');
+    console.log('🔧 ========================================');
+
     // Connection events
     this.socket.on('connect', () => {
       this.zone.run(() => {
-        console.log('Socket connected:', this.socket.ioSocket.id);
+        console.log('✅ ========================================');
+        console.log('✅ SOCKET CONNECTED SUCCESSFULLY!');
+        console.log('✅ ========================================');
+        console.log('📡 Socket ID:', this.socket.ioSocket.id);
+        console.log('🌐 Server URL:', environment.apiUrl);
+        console.log(
+          '🔌 Transport:',
+          this.socket.ioSocket.io.engine.transport.name
+        );
+        console.log('⏰ Connected at:', new Date().toLocaleTimeString());
+        console.log('========================================');
+
         this.reconnectAttempts = 0;
         this.connectionStatus$.next({
           connected: true,
@@ -106,7 +142,13 @@ export class SocketService {
 
     this.socket.on('disconnect', (reason: string) => {
       this.zone.run(() => {
-        console.log('Socket disconnected:', reason);
+        console.log('❌ ========================================');
+        console.log('❌ SOCKET DISCONNECTED');
+        console.log('❌ ========================================');
+        console.log('📝 Reason:', reason);
+        console.log('⏰ Disconnected at:', new Date().toLocaleTimeString());
+        console.log('========================================');
+
         this.connectionStatus$.next({
           connected: false,
           error: reason,
@@ -116,14 +158,26 @@ export class SocketService {
 
     this.socket.on('connect_error', (error: Error) => {
       this.zone.run(() => {
-        console.error('Socket connection error:', error);
+        console.error('⚠️ ========================================');
+        console.error('⚠️ SOCKET CONNECTION ERROR');
+        console.error('⚠️ ========================================');
+        console.error('📝 Error:', error.message);
+        console.error('🔍 Full Error:', error);
+        console.error('⏰ Error at:', new Date().toLocaleTimeString());
+        console.error('========================================');
+
         this.handleReconnect();
       });
     });
 
     this.socket.on('error', (error: any) => {
       this.zone.run(() => {
-        console.error('Socket error:', error);
+        console.error('❌ ========================================');
+        console.error('❌ SOCKET ERROR');
+        console.error('❌ ========================================');
+        console.error('📝 Error:', error);
+        console.error('⏰ Error at:', new Date().toLocaleTimeString());
+        console.error('========================================');
       });
     });
   }
@@ -132,14 +186,25 @@ export class SocketService {
    * Register as rider after connection
    */
   private async registerRider(): Promise<void> {
+    console.log('🎫 ========================================');
+    console.log('🎫 REGISTERING AS RIDER');
+    console.log('🎫 ========================================');
+
     try {
       const userId = await this.storage.get('userId');
+      console.log('👤 User ID from storage:', userId);
+
       if (userId) {
         this.emit('riderConnect', { userId });
-        console.log('Rider registered:', userId);
+        console.log('✅ Rider registration message sent');
+        console.log('========================================');
+      } else {
+        console.warn('⚠️ No user ID found - cannot register');
+        console.log('========================================');
       }
     } catch (error) {
-      console.error('Error registering rider:', error);
+      console.error('❌ Error registering rider:', error);
+      console.log('========================================');
     }
   }
 
@@ -172,12 +237,24 @@ export class SocketService {
    * Emit event to server
    */
   emit(event: string, data?: any): void {
+    console.log('📤 ========================================');
+    console.log('📤 EMITTING EVENT');
+    console.log('📤 ========================================');
+    console.log('📝 Event Name:', event);
+    console.log('📦 Data:', data);
+    console.log(
+      '📡 Connection Status:',
+      this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'
+    );
+
     if (!this.isConnected()) {
-      console.warn(`Cannot emit ${event}: Socket not connected`);
+      console.error('⚠️ Cannot emit - Socket not connected!');
+      console.error('========================================');
       return;
     }
 
-    console.log(`Emitting ${event}:`, data);
+    console.log('✅ Emitting to server...');
+    console.log('========================================');
     this.socket.emit(event, data);
   }
 
@@ -185,10 +262,19 @@ export class SocketService {
    * Listen for event from server
    */
   on<T = any>(event: string): Observable<T> {
+    console.log('👂 Setting up listener for event:', event);
+
     return new Observable((observer) => {
       const handler = (data: T) => {
         this.zone.run(() => {
-          console.log(`Received ${event}:`, data);
+          console.log('📥 ========================================');
+          console.log('📥 RECEIVED EVENT FROM SERVER');
+          console.log('📥 ========================================');
+          console.log('📝 Event Name:', event);
+          console.log('📦 Data:', data);
+          console.log('⏰ Received at:', new Date().toLocaleTimeString());
+          console.log('========================================');
+
           observer.next(data);
         });
       };
@@ -197,6 +283,7 @@ export class SocketService {
 
       // Cleanup
       return () => {
+        console.log('🧹 Cleaning up listener for event:', event);
         this.socket.off(event, handler);
       };
     });
@@ -270,26 +357,50 @@ export class SocketService {
   }
 
   /**
-   * Wait for connection
+   * Wait for connection (NO TIMEOUT - will wait indefinitely)
    */
-  async waitForConnection(timeoutMs: number = 10000): Promise<void> {
+  async waitForConnection(timeoutMs: number = 0): Promise<void> {
+    console.log('⏳ ========================================');
+    console.log('⏳ WAITING FOR SOCKET CONNECTION...');
+    console.log('⏳ ========================================');
+    console.log(
+      '📡 Current Status:',
+      this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'
+    );
+    console.log('🌐 Target URL:', environment.apiUrl);
+    console.log('⏰ Started waiting at:', new Date().toLocaleTimeString());
+    console.log('========================================');
+
     if (this.isConnected()) {
+      console.log('✅ Already connected! Socket ID:', this.socket.ioSocket.id);
       return;
     }
 
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        subscription.unsubscribe();
-        reject(new Error('Socket connection timeout'));
-      }, timeoutMs);
-
+      // NO TIMEOUT - will wait forever until connected
       const subscription = this.connectionStatus$.subscribe((status) => {
+        console.log('📊 Connection status update:', status);
+
         if (status.connected) {
-          clearTimeout(timeout);
+          console.log('✅ Connection established! Resolving...');
           subscription.unsubscribe();
           resolve();
         }
+
+        if (status.error) {
+          console.error('❌ Connection error detected:', status.error);
+          // Don't reject - keep waiting
+        }
       });
+
+      // Optional: Add a very long timeout (5 minutes) just to prevent infinite hanging
+      if (timeoutMs > 0) {
+        setTimeout(() => {
+          console.error('⏰ Connection timeout after', timeoutMs, 'ms');
+          subscription.unsubscribe();
+          reject(new Error(`Socket connection timeout after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }
     });
   }
 }

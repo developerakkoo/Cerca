@@ -42,33 +42,61 @@ export class AppComponent implements OnDestroy {
       this.user = user;
 
       if (user && user.isLoggedIn) {
+        console.log('🔐 ========================================');
+        console.log('🔐 USER LOGGED IN - INITIALIZING SOCKET');
+        console.log('🔐 ========================================');
+        console.log('👤 User Object:', user);
+
         // Initialize socket connection for logged-in users
         try {
           const userId = user._id || user.id || user.uid || user.userId;
+          console.log('👤 Extracted User ID:', userId);
 
           if (userId) {
+            console.log('🚀 Calling socketService.initialize()...');
+
             await this.socketService.initialize({
               userId,
               userType: 'rider',
             });
 
+            console.log('✅ Socket initialization call completed');
+            console.log(
+              '📡 Socket connected?',
+              this.socketService.isConnected()
+            );
+
             // Restore any active ride
+            console.log('🔄 Restoring any active rides...');
             await this.rideService.restoreRide();
 
-            console.log('✅ Socket.IO initialized successfully');
+            console.log('✅ Socket.IO initialization sequence complete');
+            console.log('========================================');
           } else {
-            console.warn(
-              '⚠️ User logged in but no user ID found. Socket not initialized.'
-            );
+            console.warn('⚠️ ========================================');
+            console.warn('⚠️ User logged in but no user ID found');
+            console.warn('⚠️ Socket not initialized');
+            console.warn('========================================');
           }
         } catch (error) {
-          console.error('❌ Failed to initialize socket:', error);
+          console.error('❌ ========================================');
+          console.error('❌ FAILED TO INITIALIZE SOCKET');
+          console.error('❌ ========================================');
+          console.error('📝 Error:', error);
+          console.error('========================================');
         }
 
+        console.log('🧭 Navigating to /tabs/tabs/tab1');
         this.router.navigate(['/tabs/tabs/tab1']);
       } else {
+        console.log('🚪 ========================================');
+        console.log('🚪 USER LOGGED OUT - DISCONNECTING SOCKET');
+        console.log('🚪 ========================================');
+
         // Disconnect socket for logged-out users
         await this.socketService.disconnect();
+
+        console.log('🧭 Navigating to /');
         this.router.navigate(['/']);
       }
     });

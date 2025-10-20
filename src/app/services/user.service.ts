@@ -26,18 +26,21 @@ const initialUserState: User = {
   preferences: {
     notifications: true,
     darkMode: false,
-    language: 'en'
-  }
+    language: 'en',
+  },
 };
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class UserService {
   private userSubject = new BehaviorSubject<any>(initialUserState);
   public user$ = this.userSubject.asObservable();
 
-  private currentLocationSubject = new BehaviorSubject<{ lat: number, lng: number }>({ lat: 0, lng: 0 });
+  private currentLocationSubject = new BehaviorSubject<{
+    lat: number;
+    lng: number;
+  }>({ lat: 0, lng: 0 });
   public currentLocation$ = this.currentLocationSubject.asObservable();
 
   // Pickup and Destination
@@ -52,33 +55,37 @@ export class UserService {
 
   private walletBalanceSubject = new BehaviorSubject<number>(100); // Initial balance of ₹1000
 
-  constructor(private http: HttpClient,
-    private storage: Storage
-              
-  ) {
+  // Pending ride details
+  private pendingRideDetailsSubject = new BehaviorSubject<any>(null);
+  public pendingRideDetails$ = this.pendingRideDetailsSubject.asObservable();
+
+  constructor(private http: HttpClient, private storage: Storage) {
     this.storage.create();
     // Load user data from storage on service initialization
     this.loadUserFromStorage();
   }
 
-   loadUserFromStorage() {
-    this.storage.get('user').then((storedUser) => {
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          this.userSubject.next(parsedUser);
-        } catch (error) {
-          console.error('Error parsing stored user data:', error);
-          this.userSubject.next(initialUserState);
+  loadUserFromStorage() {
+    this.storage
+      .get('user')
+      .then((storedUser) => {
+        if (storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            this.userSubject.next(parsedUser);
+          } catch (error) {
+            console.error('Error parsing stored user data:', error);
+            this.userSubject.next(initialUserState);
+          }
         }
-      }
-    }).catch((error) => {
-      console.error('Error loading user from storage:', error);
-      this.userSubject.next(initialUserState);
-    });
+      })
+      .catch((error) => {
+        console.error('Error loading user from storage:', error);
+        this.userSubject.next(initialUserState);
+      });
   }
 
-   async saveUserToStorage(user: any) {
+  async saveUserToStorage(user: any) {
     await this.storage.set('user', JSON.stringify(user));
   }
 
@@ -99,7 +106,7 @@ export class UserService {
         const updatedUser = {
           ...response,
           isLoggedIn: true,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
         this.userSubject.next(updatedUser);
         this.saveUserToStorage(updatedUser);
@@ -113,20 +120,22 @@ export class UserService {
     const updatedUser = {
       ...currentUser,
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
-    return this.http.put(`${environment.apiUrl}/users/${currentUser.id}`, updates).pipe(
-      tap((response: any) => {
-        const finalUser = {
-          ...currentUser,
-          ...response,
-          updatedAt: new Date()
-        };
-        this.userSubject.next(finalUser);
-        this.saveUserToStorage(finalUser);
-      })
-    );
+    return this.http
+      .put(`${environment.apiUrl}/users/${currentUser.id}`, updates)
+      .pipe(
+        tap((response: any) => {
+          const finalUser = {
+            ...currentUser,
+            ...response,
+            updatedAt: new Date(),
+          };
+          this.userSubject.next(finalUser);
+          this.saveUserToStorage(finalUser);
+        })
+      );
   }
 
   // Update user preferences
@@ -134,13 +143,13 @@ export class UserService {
     const currentUser = this.userSubject.value;
     const updatedPreferences = {
       ...currentUser.preferences,
-      ...preferences
+      ...preferences,
     };
     this.updateUser({ preferences: updatedPreferences as any['preferences'] });
   }
 
   // Login user
-  login(userData:any) {
+  login(userData: any) {
     // const updatedUser = {
     //   ...this.userSubject.value,
     //   ...userData,
@@ -150,7 +159,7 @@ export class UserService {
     // };
     // this.userSubject.next(updatedUser);
     // this.saveUserToStorage(updatedUser);
-      return this.http.post(`${environment.apiUrl}/users/login`, userData);
+    return this.http.post(`${environment.apiUrl}/users/login`, userData);
   }
 
   // Logout user
@@ -176,7 +185,7 @@ export class UserService {
     const currentPreferences = this.userSubject.value.preferences;
     this.updatePreferences({
       ...currentPreferences,
-      [key]: value
+      [key]: value,
     });
   }
 
@@ -195,7 +204,7 @@ export class UserService {
     this.destinationSubject.next(destination);
   }
 
-  setCurrentLocation(location: { lat: number, lng: number }) {
+  setCurrentLocation(location: { lat: number; lng: number }) {
     this.currentLocationSubject.next(location);
   }
 
@@ -211,7 +220,7 @@ export class UserService {
     return this.destinationSubject.value;
   }
 
-  getCurrentLocation(): { lat: number, lng: number } {
+  getCurrentLocation(): { lat: number; lng: number } {
     return this.currentLocationSubject.value;
   }
 
@@ -232,5 +241,18 @@ export class UserService {
     const currentBalance = this.walletBalanceSubject.value;
     this.walletBalanceSubject.next(currentBalance + amount);
     return of(true);
+  }
+
+  // Pending ride details management
+  setPendingRideDetails(details: any) {
+    this.pendingRideDetailsSubject.next(details);
+  }
+
+  getPendingRideDetails(): any {
+    return this.pendingRideDetailsSubject.value;
+  }
+
+  clearPendingRideDetails() {
+    this.pendingRideDetailsSubject.next(null);
   }
 }

@@ -59,14 +59,32 @@ export class Tab1Page implements OnInit, OnDestroy {
   ) {}
 
   ngAfterViewInit() {
-    setTimeout(() => {
-      this.getCurrentPosition();
-      // this.createMap(18.5213738, 73.8545071);
-    }, 2000);
+    // Initial map creation happens here
   }
 
-  ionViewWillLeave() {
-    this.cleanupMap();
+  async ionViewDidEnter() {
+    // Recreate map when entering the view
+    console.log('🗺️ Tab1 entered, initializing map...');
+    await this.presentToast('🗺️ Tab1: Entering view');
+
+    // Force cleanup first to ensure clean state
+    if (this.newMap) {
+      console.log('🗺️ Cleaning up existing map before recreation...');
+      await this.presentToast('🗺️ Tab1: Cleaning old map...');
+      await this.cleanupMap();
+    }
+
+    setTimeout(async () => {
+      console.log('🗺️ Creating fresh map instance...');
+      await this.presentToast('🗺️ Tab1: Creating new map...');
+      this.getCurrentPosition();
+    }, 500);
+  }
+
+  async ionViewWillLeave() {
+    console.log('🗺️ Tab1 leaving, cleaning up map...');
+    await this.presentToast('🗺️ Tab1: Leaving, destroying map');
+    await this.cleanupMap();
   }
 
   ngOnDestroy() {
@@ -108,18 +126,46 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
   private async cleanupMap() {
     if (this.newMap) {
-      await this.clearCabMarkers();
-      if (this.updateInterval) {
-        clearInterval(this.updateInterval);
+      try {
+        await this.clearCabMarkers();
+        if (this.updateInterval) {
+          clearInterval(this.updateInterval);
+        }
+        await this.newMap.destroy();
+        this.newMap = undefined as any;
+        this.isMapReady = false;
+        this.isLocationFetched = false;
+        // Clear marker references
+        this.currentLocationMarker = undefined;
+        this.cabMarkers = [];
+        console.log('🗺️ Map cleaned up successfully');
+        await this.presentToast('✅ Tab1: Map destroyed');
+      } catch (error) {
+        console.error('Error cleaning up map:', error);
+        await this.presentToast('❌ Tab1: Cleanup error');
+        // Reset flags and clear marker references anyway
+        this.newMap = undefined as any;
+        this.isMapReady = false;
+        this.isLocationFetched = false;
+        this.currentLocationMarker = undefined;
+        this.cabMarkers = [];
       }
-      await this.newMap.destroy();
-      this.newMap = undefined as any;
     }
   }
 
   private async clearCabMarkers() {
+    if (!this.newMap) {
+      this.cabMarkers = [];
+      return;
+    }
+
     for (const cab of this.cabMarkers) {
-      await this.newMap.removeMarker(cab.marker);
+      try {
+        await this.newMap.removeMarker(cab.marker);
+      } catch (error) {
+        console.log('Marker already removed or invalid:', cab.id);
+        // Continue with other markers
+      }
     }
     this.cabMarkers = [];
   }
@@ -146,7 +192,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       console.log('Map ID:', environment.mapId);
 
       const newMap = await GoogleMap.create({
-        id: 'my-map',
+        id: 'tab1-map', // Unique ID for tab1 page
         element: this.mapRef.nativeElement,
         apiKey: environment.apiKey,
         config: {
@@ -179,7 +225,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.zone.run(() => {
         this.isMapReady = true;
       });
-      this.presentToast('Map is ready');
+      await this.presentToast('✅ Tab1: Map created & ready!');
     } catch (error: any) {
       console.error('Error creating map:', error);
       console.error('Error message:', error?.message);
@@ -196,9 +242,16 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   private async setCurrentLocationMarker(lat: number, lng: number) {
-    if (this.currentLocationMarker) {
-      await this.newMap.removeMarker(this.currentLocationMarker);
+    // Only try to remove marker if it exists and map is valid
+    if (this.currentLocationMarker && this.newMap) {
+      try {
+        await this.newMap.removeMarker(this.currentLocationMarker);
+      } catch (error) {
+        console.log('Previous location marker already removed or invalid');
+        // Continue to add new marker
+      }
     }
+
     const marker = await this.newMap.addMarker({
       coordinate: { lat, lng },
       title: 'Your Location',

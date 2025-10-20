@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { UserService } from 'src/app/services/user.service';
 import { LoadingController } from '@ionic/angular';
+import { StorageService } from 'src/app/services/storage.service';
 @Component({
   selector: 'app-mobile-login',
   templateUrl: './mobile-login.page.html',
@@ -17,13 +18,14 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     private router: Router,
     private formBuilder: FormBuilder,
     private userService: UserService,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private storageService: StorageService
   ) {
     this.mobileForm = this.formBuilder.group({
-      phoneNumber: ['', [
-        Validators.required,
-        Validators.pattern('^[0-9]{10}$')
-      ]]
+      phoneNumber: [
+        '',
+        [Validators.required, Validators.pattern('^[0-9]{10}$')],
+      ],
     });
   }
 
@@ -43,34 +45,70 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     if (this.mobileForm.valid) {
       const loading = await this.loadingController.create({
         message: 'Logging in...',
-        duration: 3000
+        duration: 3000,
       });
       await loading.present();
       // Navigate to OTP page
       console.log(this.mobileForm.value);
       this.userService.login(this.mobileForm.value).subscribe({
-        next:async(res:any)=>{
+        next: async (res: any) => {
           await loading.dismiss();
           console.log(res['message']);
           console.log(res);
 
           let isNewUser = res['isNewUser'];
-          if(isNewUser){
-            this.router.navigate(['/otp', { phoneNumber: this.mobileForm.value.phoneNumber }]);
-          }else{
+          if (isNewUser) {
+            await this.storageService.set(
+              'phoneNumber',
+              this.mobileForm.value.phoneNumber
+            );
+            this.router.navigate([
+              '/otp',
+              { phoneNumber: this.mobileForm.value.phoneNumber },
+            ]);
+          } else {
+            console.log('✅ ========================================');
+            console.log('✅ LOGIN SUCCESSFUL - UPDATING USER STATE');
+            console.log('✅ ========================================');
+            console.log('isNewUser is false');
+            console.log('Response:', res);
 
-            this.router.navigate(['/tabs/tabs/tab1']);
+            // Store credentials
+            await this.storageService.set('userId', res['userId']);
+            await this.storageService.set('token', res['token']);
+
+            // **CRITICAL: Update UserService to trigger socket initialization**
+            const userData = {
+              _id: res['userId'],
+              id: res['userId'],
+              userId: res['userId'],
+              phoneNumber: res['phoneNumber'],
+              token: res['token'],
+              isLoggedIn: true,
+              lastLogin: new Date(),
+            };
+
+            console.log('📤 Updating UserService with user data:', userData);
+
+            // Save to UserService (this triggers app.component.ts socket initialization)
+            await this.userService.saveUserToStorage(userData);
+            this.userService['userSubject'].next(userData);
+
+            console.log('✅ User state updated - socket should initialize now');
+            console.log('========================================');
+
+            // Navigation will happen via app.component.ts
+            // this.router.navigate(['/tabs/tabs/tab1']);
           }
-          
         },
-        error:async(err:any)=>{
+        error: async (err: any) => {
           console.log(err.message.message);
           console.log(err.status);
-            // this.router.navigate(['/otp']);
-         await loading.dismiss();
-        }
-      })
-      
+          // this.router.navigate(['/otp']);
+          await loading.dismiss();
+        },
+      });
+
       // this.router.navigate(['/otp']);
     }
   }

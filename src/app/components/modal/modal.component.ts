@@ -185,66 +185,40 @@ export class ModalComponent implements OnInit, OnDestroy {
   }
 
   async goToPayment() {
-    // Legacy method - now redirects to requestRide
-    await this.requestRide();
-  }
-
-  /**
-   * Request a ride via Socket.IO
-   */
-  async requestRide() {
     if (!this.areInputsFilled) {
+      console.warn('Please fill in both pickup and destination');
       return;
     }
 
-    const loading = await this.loadingCtrl.create({
-      message: 'Requesting ride...',
-      spinner: 'crescent',
-    });
-    await loading.present();
-
-    try {
-      // Get current location from user service
-      const currentLocation = this.userService.getCurrentLocation();
-
-      if (!currentLocation || !currentLocation.lat || !currentLocation.lng) {
-        throw new Error('Current location not available');
-      }
-
-      // TODO: Implement geocoding for destination address
-      // For now using relative coordinates from pickup
-      const destinationCoords = {
-        latitude: currentLocation.lat + 0.02, // ~2km away
-        longitude: currentLocation.lng + 0.02,
-      };
-
-      // TODO: Calculate actual fare based on distance
-      const estimatedFare = 150;
-      const estimatedDistance = 5.2;
-
-      await this.rideService.requestRide({
-        pickupLocation: {
-          latitude: currentLocation.lat,
-          longitude: currentLocation.lng,
-        },
-        dropoffLocation: destinationCoords,
-        pickupAddress: this.pickupInput,
-        dropoffAddress: this.destinationInput,
-        fare: estimatedFare,
-        distanceInKm: estimatedDistance,
-        service:
-          this.selectedVehicle === 'small' ? 'sedan' : this.selectedVehicle,
-        rideType: 'normal',
-        paymentMethod: 'CASH',
-      });
-
-      await loading.dismiss();
-      // Navigation is handled by RideService
-    } catch (error) {
-      await loading.dismiss();
-      console.error('Error requesting ride:', error);
-      // Error toast is shown by RideService
+    // Get current location
+    const currentLocation = this.userService.getCurrentLocation();
+    if (!currentLocation || !currentLocation.lat || !currentLocation.lng) {
+      console.error('Current location not available');
+      return;
     }
+
+    // Store ride details in UserService for payment page
+    this.userService.setPendingRideDetails({
+      pickupAddress: this.pickupInput,
+      dropoffAddress: this.destinationInput,
+      selectedVehicle: this.selectedVehicle,
+      pickupLocation: {
+        latitude: currentLocation.lat,
+        longitude: currentLocation.lng,
+      },
+      // TODO: Implement actual destination geocoding
+      dropoffLocation: {
+        latitude: currentLocation.lat + 0.02,
+        longitude: currentLocation.lng + 0.02,
+      },
+    });
+
+    // Navigate to payment page with vehicle type
+    this.router.navigate(['/payment'], {
+      queryParams: {
+        vehicle: this.selectedVehicle,
+      },
+    });
   }
 
   onPickupInputChange(value: string) {

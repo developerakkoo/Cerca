@@ -1,5 +1,10 @@
+:host {
+  background: transparent !important;
+}
+
 ion-content {
-  --background: transparent;
+  --background: transparent !important;
+  background: transparent !important;
 }
 
 .map-container {

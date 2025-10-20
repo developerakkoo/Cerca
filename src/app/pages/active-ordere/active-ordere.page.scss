@@ -41,6 +41,12 @@ ion-content{
       transform: translateY(0);
     }
   }
+
+  &.in-progress {
+    .modal-header {
+      background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.1) 0%, rgba(var(--ion-color-secondary-rgb), 0.1) 100%);
+    }
+  }
 }
 
 .modal-header {
@@ -61,6 +67,14 @@ ion-content{
       font-size: 16px;
       color: var(--ion-color-primary);
       font-weight: 500;
+    }
+
+    .ride-message {
+      margin: 4px 0 0;
+      font-size: 14px;
+      color: var(--ion-color-success);
+      font-weight: 500;
+      font-style: italic;
     }
   }
 }
@@ -171,6 +185,13 @@ ion-content{
     font-weight: 600;
     color: var(--ion-color-primary);
     letter-spacing: 4px;
+  }
+
+  .otp-instruction {
+    margin: 12px 0 0;
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    font-style: italic;
   }
 }
 

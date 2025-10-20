@@ -1,8 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
+import { RideService } from 'src/app/services/ride.service';
+import { SocketService } from 'src/app/services/socket.service';
+import { Subscription } from 'rxjs';
 
 interface Notification {
-  id: number;
+  _id?: string;
+  id?: number;
   title: string;
   message: string;
   time: string;
@@ -13,55 +17,108 @@ interface Notification {
   startX?: number;
   currentX?: number;
   isClearing?: boolean;
+  type?: string;
+  relatedRide?: string;
 }
 
 @Component({
   selector: 'app-notifications',
   templateUrl: './notifications.page.html',
   styleUrls: ['./notifications.page.scss'],
-  standalone: false
+  standalone: false,
 })
-export class NotificationsPage implements OnInit {
-  notifications: Notification[] = [
-    {
-      id: 1,
-      title: 'Ride Completed',
-      message: 'Your ride with Rajesh has been completed successfully.',
-      time: '2 hours ago',
-      icon: 'checkmark-circle-outline',
-      color: '#4CAF50',
-      read: false,
-      isSliding: false
-    },
-    {
-      id: 2,
-      title: 'Payment Received',
-      message: 'Payment of ₹299 has been received for your recent ride.',
-      time: '5 hours ago',
-      icon: 'wallet-outline',
-      color: '#2196F3',
-      read: true,
-      isSliding: false
-    },
-    {
-      id: 3,
-      title: 'Promo Code',
-      message: 'Use code WELCOME50 to get 50% off on your next ride!',
-      time: '1 day ago',
-      icon: 'gift-outline',
-      color: '#FF9800',
-      read: false,
-      isSliding: false
-    }
-  ];
+export class NotificationsPage implements OnInit, OnDestroy {
+  notifications: Notification[] = [];
 
   private readonly SWIPE_THRESHOLD = 100;
   private readonly DELETE_THRESHOLD = 50;
   private isClearingAll = false;
 
-  constructor(private router: Router) {}
+  private notificationsSubscription?: Subscription;
+  private notificationReadSubscription?: Subscription;
 
-  ngOnInit() {}
+  constructor(
+    private router: Router,
+    private rideService: RideService,
+    private socketService: SocketService
+  ) {}
+
+  ngOnInit() {
+    // Load notifications from backend
+    this.rideService.getNotifications();
+
+    // Listen for notifications
+    this.notificationsSubscription = this.socketService
+      .on<any[]>('notifications')
+      .subscribe((notifications) => {
+        console.log('🔔 Received notifications:', notifications);
+        this.notifications = notifications.map((notif) =>
+          this.mapNotification(notif)
+        );
+      });
+
+    // Listen for notification read confirmation
+    this.notificationReadSubscription = this.socketService
+      .on<any>('notificationMarkedRead')
+      .subscribe((data) => {
+        console.log('✅ Notification marked as read:', data);
+      });
+  }
+
+  ngOnDestroy() {
+    this.notificationsSubscription?.unsubscribe();
+    this.notificationReadSubscription?.unsubscribe();
+  }
+
+  private mapNotification(notif: any): Notification {
+    // Map notification type to icon and color
+    const typeConfig = this.getNotificationConfig(notif.type);
+
+    return {
+      _id: notif._id,
+      id: notif._id,
+      title: notif.title,
+      message: notif.message,
+      time: this.formatTime(notif.createdAt),
+      icon: typeConfig.icon,
+      color: typeConfig.color,
+      read: notif.isRead || false,
+      isSliding: false,
+      type: notif.type,
+      relatedRide: notif.relatedRide,
+    };
+  }
+
+  private getNotificationConfig(type: string): { icon: string; color: string } {
+    const configs: Record<string, { icon: string; color: string }> = {
+      ride_accepted: { icon: 'car-outline', color: '#00B894' },
+      driver_arrived: { icon: 'location-outline', color: '#0984E3' },
+      ride_started: { icon: 'play-circle-outline', color: '#6C5CE7' },
+      ride_completed: { icon: 'checkmark-circle-outline', color: '#4CAF50' },
+      ride_cancelled: { icon: 'close-circle-outline', color: '#FF6B6B' },
+      payment_received: { icon: 'wallet-outline', color: '#2196F3' },
+      promo_code: { icon: 'gift-outline', color: '#FF9800' },
+      emergency_alert: { icon: 'warning-outline', color: '#E74C3C' },
+    };
+
+    return configs[type] || { icon: 'notifications-outline', color: '#636E72' };
+  }
+
+  private formatTime(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  }
 
   onTouchStart(event: TouchEvent, index: number) {
     if (this.isClearingAll) return;
@@ -78,7 +135,7 @@ export class NotificationsPage implements OnInit {
 
     const currentX = event.touches[0].clientX;
     const diff = notification.startX - currentX;
-    
+
     if (diff > 0) {
       notification.currentX = -diff;
       const element = event.currentTarget as HTMLElement;
@@ -92,11 +149,11 @@ export class NotificationsPage implements OnInit {
     if (!notification.startX || !notification.currentX) return;
 
     const element = event.currentTarget as HTMLElement;
-    
+
     if (Math.abs(notification.currentX) > this.DELETE_THRESHOLD) {
       element.style.transform = `translateX(-100%)`;
       element.style.transition = 'transform 0.3s ease-out';
-      
+
       setTimeout(() => {
         this.deleteNotification(index);
       }, 300);
@@ -111,6 +168,13 @@ export class NotificationsPage implements OnInit {
   }
 
   deleteNotification(index: number) {
+    const notification = this.notifications[index];
+
+    // Mark as read on backend if it has an ID
+    if (notification._id) {
+      this.rideService.markNotificationRead(notification._id);
+    }
+
     this.notifications.splice(index, 1);
   }
 
@@ -118,12 +182,23 @@ export class NotificationsPage implements OnInit {
     if (this.isClearingAll) return;
     this.isClearingAll = true;
 
+    // Mark all unread notifications as read on backend
+    this.notifications.forEach((notification) => {
+      if (!notification.read && notification._id) {
+        this.rideService.markNotificationRead(notification._id);
+      }
+    });
+
     // Add clearing animation to all notifications
     this.notifications.forEach((notification, index) => {
       notification.isClearing = true;
-      const element = document.querySelector(`.notification-item:nth-child(${index + 1})`) as HTMLElement;
+      notification.read = true;
+      const element = document.querySelector(
+        `.notification-item:nth-child(${index + 1})`
+      ) as HTMLElement;
       if (element) {
-        element.style.transition = 'transform 0.5s ease-out, opacity 0.5s ease-out';
+        element.style.transition =
+          'transform 0.5s ease-out, opacity 0.5s ease-out';
         element.style.transform = 'translateX(-100%)';
         element.style.opacity = '0';
       }

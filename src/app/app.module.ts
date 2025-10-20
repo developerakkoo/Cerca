@@ -20,11 +20,20 @@ import { environment } from 'src/environments/environment';
 const config: SocketIoConfig = {
   url: environment.apiUrl,
   options: {
-    transports: ['websocket'],
+    // Try both transports - polling first, then upgrade to websocket
+    transports: ['polling', 'websocket'],
     autoConnect: false,
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
+    // Add timeout configuration
+    timeout: 20000,
+    // Force new connection
+    forceNew: true,
+    // Disable upgrade for initial connection (helps with HTTPS)
+    upgrade: true,
+    // Add path if your backend uses custom path
+    // path: '/socket.io/',
   },
 };
 

@@ -116,13 +116,16 @@ export class RideService {
     // Driver accepted ride
     this.socketService.on<Ride>('rideAccepted').subscribe((ride) => {
       console.log('✅ Driver accepted ride:', ride);
+      console.log('📦 Full ride object:', ride);
       this.currentRide$.next(ride);
       this.rideStatus$.next('accepted');
       this.storeRide(ride);
       this.showToast(`🚗 Driver found! ${ride.driver?.name} is on the way`);
       this.showDriverAcceptedAlert(ride.driver!);
-      this.router.navigate(['/driver-details'], {
-        state: { driver: ride.driver, ride },
+      
+      // Navigate to active-ordere page (not driver-details)
+      this.router.navigate(['/active-ordere'], {
+        replaceUrl: true, // Replace history so back goes to tab1
       });
     });
 
@@ -149,13 +152,12 @@ export class RideService {
     // Ride started
     this.socketService.on<Ride>('rideStarted').subscribe((ride) => {
       console.log('✅ Ride started:', ride);
+      console.log('📦 Full ride object:', ride);
       this.currentRide$.next(ride);
       this.rideStatus$.next('in_progress');
       this.storeRide(ride);
       this.showToast('🎉 Ride started! Have a safe journey');
-      this.router.navigate(['/active-ordere'], {
-        state: { ride },
-      });
+      // Already on active-ordere, just update state
     });
 
     // Live ride location updates
@@ -185,7 +187,9 @@ export class RideService {
         this.rideStatus$.next('cancelled');
         this.clearRide();
         this.showToast('Ride cancelled');
-        this.router.navigate(['/tabs/tab1']);
+        this.router.navigate(['/tabs/tab1'], {
+          replaceUrl: true, // Clear navigation stack
+        });
       });
 
     // Ride errors
@@ -202,8 +206,76 @@ export class RideService {
       console.log('⭐ Rating submitted:', data);
       this.showToast('Thank you for your feedback!');
       this.clearRide();
-      this.router.navigate(['/tabs/tab1']);
+      this.router.navigate(['/tabs/tab1'], {
+        replaceUrl: true, // Clear navigation stack
+      });
     });
+
+    // Message sent confirmation
+    this.socketService.on<any>('messageSent').subscribe((data) => {
+      console.log('💬 Message sent:', data);
+    });
+
+    // Receive message from driver
+    this.socketService.on<any>('receiveMessage').subscribe((message) => {
+      console.log('📨 New message from driver:', message);
+      // This will be handled by the driver-chat page
+    });
+
+    // Ride messages (all chat history)
+    this.socketService.on<any[]>('rideMessages').subscribe((messages) => {
+      console.log('📚 Ride messages loaded:', messages);
+      // This will be handled by the driver-chat page
+    });
+
+    // Emergency alert confirmation
+    this.socketService.on<any>('emergencyAlertCreated').subscribe((data) => {
+      console.log('🚨 Emergency alert created:', data);
+      this.showToast('Emergency alert sent successfully!', 'success');
+    });
+
+    // Notifications
+    this.socketService.on<any[]>('notifications').subscribe((notifications) => {
+      console.log('🔔 Notifications received:', notifications);
+      // This will be handled by the notifications page
+    });
+
+    // Notification marked as read
+    this.socketService.on<any>('notificationMarkedRead').subscribe((data) => {
+      console.log('✅ Notification marked as read:', data);
+    });
+
+    // Message errors
+    this.socketService
+      .on<{ message: string }>('messageError')
+      .subscribe((error) => {
+        console.error('❌ Message error:', error);
+        this.showToast(`Message error: ${error.message}`, 'danger');
+      });
+
+    // Emergency errors
+    this.socketService
+      .on<{ message: string }>('emergencyError')
+      .subscribe((error) => {
+        console.error('❌ Emergency error:', error);
+        this.showToast(`Emergency error: ${error.message}`, 'danger');
+      });
+
+    // Rating errors
+    this.socketService
+      .on<{ message: string }>('ratingError')
+      .subscribe((error) => {
+        console.error('❌ Rating error:', error);
+        this.showToast(`Rating error: ${error.message}`, 'danger');
+      });
+
+    // General error event
+    this.socketService
+      .on<{ message: string }>('errorEvent')
+      .subscribe((error) => {
+        console.error('❌ General error:', error);
+        this.showToast(`Error: ${error.message}`, 'danger');
+      });
   }
 
   /**
@@ -227,9 +299,14 @@ export class RideService {
         throw new Error('User not authenticated');
       }
 
-      // Ensure socket is connected
+      // Ensure socket is connected (NO TIMEOUT - wait indefinitely)
+      console.log('🔌 Checking socket connection status...');
       if (!this.socketService.isConnected()) {
-        await this.socketService.waitForConnection();
+        console.log('⏳ Socket not connected, waiting for connection...');
+        await this.socketService.waitForConnection(); // No timeout parameter = infinite wait
+        console.log('✅ Socket connected! Proceeding with ride request...');
+      } else {
+        console.log('✅ Socket already connected!');
       }
 
       // Prepare ride request
@@ -336,43 +413,95 @@ export class RideService {
   /**
    * Send message to driver
    */
-  sendMessage(message: string): void {
+  sendMessage(message: string, messageType: string = 'text'): void {
     const ride = this.currentRide$.value;
-    if (!ride) return;
+    if (!ride || !ride.driver) {
+      console.warn('No active ride or driver to send message to');
+      return;
+    }
 
     this.socketService.emit('sendMessage', {
       rideId: ride._id,
-      message,
-      from: 'rider',
+      senderId: ride.rider,
+      senderModel: 'User',
+      receiverId: ride.driver._id,
+      receiverModel: 'Driver',
+      message: message,
+      messageType: messageType, // 'text', 'location', 'audio'
+    });
+  }
+
+  /**
+   * Get ride messages
+   */
+  getRideMessages(rideId: string): void {
+    this.socketService.emit('getRideMessages', {
+      rideId: rideId,
     });
   }
 
   /**
    * Trigger emergency alert
    */
-  async triggerEmergency(): Promise<void> {
+  async triggerEmergency(
+    location: { latitude: number; longitude: number },
+    reason: string = 'other',
+    description?: string
+  ): Promise<void> {
     const ride = this.currentRide$.value;
-    if (!ride) return;
+    if (!ride) {
+      this.showToast('No active ride', 'warning');
+      return;
+    }
 
     try {
       const userId = await this.storage.get('userId');
 
       this.socketService.emit('emergencyAlert', {
         rideId: ride._id,
-        userId,
+        triggeredBy: userId,
+        triggeredByModel: 'User',
         location: {
-          latitude: ride.pickupLocation.coordinates[1],
-          longitude: ride.pickupLocation.coordinates[0],
+          longitude: location.longitude,
+          latitude: location.latitude,
         },
+        reason: reason, // 'accident', 'harassment', 'unsafe_driving', 'medical', 'other'
+        description: description || '',
       });
 
       await this.showAlert(
-        'Emergency Alert Sent',
-        'Emergency services have been notified.'
+        '🚨 Emergency Alert Sent',
+        'Emergency services and support team have been notified. Help is on the way.'
       );
     } catch (error) {
       console.error('Error triggering emergency:', error);
+      this.showToast('Failed to send emergency alert', 'danger');
     }
+  }
+
+  /**
+   * Get notifications
+   */
+  async getNotifications(): Promise<void> {
+    try {
+      const userId = await this.storage.get('userId');
+
+      this.socketService.emit('getNotifications', {
+        userId: userId,
+        userModel: 'User',
+      });
+    } catch (error) {
+      console.error('Error getting notifications:', error);
+    }
+  }
+
+  /**
+   * Mark notification as read
+   */
+  markNotificationRead(notificationId: string): void {
+    this.socketService.emit('markNotificationRead', {
+      notificationId: notificationId,
+    });
   }
 
   /**
