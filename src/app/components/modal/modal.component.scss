@@ -4,7 +4,9 @@
     left: 0;
     right: 0;
     width: 100%;
-    height: 40%;
+    max-height: 90vh;
+    min-height: 200px;
+    height: 40vh;
     background-color: var(--ion-color-light-tint);
     border-top-left-radius: 24px;
     border-top-right-radius: 24px;
@@ -20,14 +22,49 @@
     backface-visibility: hidden;
     perspective: 1000px;
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
 
   &.keyboard-open {
-    height: 50%;
+    height: 50vh;
+    max-height: 50vh;
     transform: translateZ(0);
   }
 
   &.inputs-filled {
-    height: 80%;
+    height: 75vh;
+    max-height: 75vh;
+  }
+
+  // Small devices (height < 600px)
+  @media (max-height: 600px) {
+    height: 50vh;
+    max-height: 50vh;
+    
+    &.inputs-filled {
+      height: 85vh;
+      max-height: 85vh;
+    }
+    
+    &.keyboard-open {
+      height: 60vh;
+      max-height: 60vh;
+    }
+  }
+
+  // Very small devices (height < 500px)
+  @media (max-height: 500px) {
+    height: 60vh;
+    max-height: 60vh;
+    
+    &.inputs-filled {
+      height: 90vh;
+      max-height: 90vh;
+    }
+    
+    &.keyboard-open {
+      height: 70vh;
+      max-height: 70vh;
+    }
   }
 
   .handle {
@@ -45,17 +82,55 @@
 
 .modal-content {
   width: 100%;
-  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: fadeIn 0.5s ease-out;
   will-change: transform;
   transform: translateZ(0);
+}
+
+.scrollable-content {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 24px;
+  padding-top: 32px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ion-color-medium-rgb), 0.3) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--ion-color-medium-rgb), 0.3);
+    border-radius: 2px;
+    
+    &:hover {
+      background-color: rgba(var(--ion-color-medium-rgb), 0.5);
+    }
+  }
 }
 
 .input-group {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-top: 16px;
+    margin-top: 0;
+    flex-shrink: 0;
+    
+    // Small devices - reduce gap
+    @media (max-height: 600px) {
+      gap: 12px;
+    }
   }
   
   .input-wrapper {
@@ -207,19 +282,43 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+.address-chips-container {
+  width: 100%;
+  margin-top: 16px;
+  padding-bottom: 8px;
+}
+
 .address-chips {
   display: flex;
   flex-wrap: nowrap;
   gap: 12px;
-  margin-top: 20px;
   padding: 4px;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ion-color-medium-rgb), 0.3) transparent;
   
   &::-webkit-scrollbar {
-    display: none;
+    height: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--ion-color-medium-rgb), 0.3);
+    border-radius: 2px;
+    
+    &:hover {
+      background-color: rgba(var(--ion-color-medium-rgb), 0.5);
+    }
+  }
+  
+  // Ensure chips don't shrink
+  .chip {
+    flex-shrink: 0;
   }
 }
 
@@ -273,11 +372,40 @@
   text-overflow: ellipsis;
 }
 
+// Responsive adjustments for very small screens
+@media (max-width: 360px) {
+  .scrollable-content {
+    padding: 16px;
+    padding-top: 28px;
+  }
+  
+  .input-wrapper {
+    border-radius: 12px;
+  }
+  
+  .chip {
+    min-width: 120px;
+    padding: 8px 12px;
+  }
+  
+  .vehicle-item {
+    padding: 6px;
+  }
+  
+  .payment-button-container {
+    padding: 12px;
+  }
+}
+
 // Dark mode adjustments
 @media (prefers-color-scheme: dark) {
   .modal-wrapper {
     background-color: var(--ion-color-dark);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .payment-button-container {
+    background: linear-gradient(to top, var(--ion-color-dark) 0%, transparent 100%);
   }
 
   .input-wrapper {
@@ -287,6 +415,42 @@
     &:focus-within {
       background: rgba(var(--ion-color-light-rgb), 0.08);
       border-color: var(--ion-color-primary);
+    }
+  }
+  
+  .scrollable-content {
+    scrollbar-color: rgba(var(--ion-color-light-rgb), 0.3) transparent;
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(var(--ion-color-light-rgb), 0.3);
+      
+      &:hover {
+        background-color: rgba(var(--ion-color-light-rgb), 0.5);
+      }
+    }
+  }
+  
+  .vehicle-list-container {
+    scrollbar-color: rgba(var(--ion-color-light-rgb), 0.3) transparent;
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(var(--ion-color-light-rgb), 0.3);
+      
+      &:hover {
+        background-color: rgba(var(--ion-color-light-rgb), 0.5);
+      }
+    }
+  }
+  
+  .address-chips {
+    scrollbar-color: rgba(var(--ion-color-light-rgb), 0.3) transparent;
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(var(--ion-color-light-rgb), 0.3);
+      
+      &:hover {
+        background-color: rgba(var(--ion-color-light-rgb), 0.5);
+      }
     }
   }
 
@@ -328,9 +492,52 @@
   margin: 16px 0;
   background: transparent;
   padding: 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  
+  .vehicle-list-container {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--ion-color-medium-rgb), 0.3) transparent;
+    max-height: 40vh;
+    
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(var(--ion-color-medium-rgb), 0.3);
+      border-radius: 2px;
+      
+      &:hover {
+        background-color: rgba(var(--ion-color-medium-rgb), 0.5);
+      }
+    }
+  }
   
   .vehicle-radio-group {
     width: 100%;
+  }
+  
+  // Small devices - reduce max height
+  @media (max-height: 600px) {
+    .vehicle-list-container {
+      max-height: 25vh;
+    }
+  }
+  
+  @media (max-height: 500px) {
+    .vehicle-list-container {
+      max-height: 20vh;
+    }
   }
 
   .vehicle-item {
@@ -345,6 +552,13 @@
     border: 2px solid rgba(var(--ion-color-medium-rgb), 0.2);
     overflow: hidden;
     padding: 10px;
+    flex-shrink: 0;
+    
+    // Small devices - reduce padding and margin
+    @media (max-height: 600px) {
+      margin: 6px 0;
+      padding: 8px;
+    }
 
     &:hover {
       background: rgba(var(--ion-color-light-rgb), 0.7);
@@ -375,9 +589,17 @@
     width: 48px;
     height: 48px;
     margin: 8px 16px;
+    flex-shrink: 0;
     
     img {
       border-radius: 8px;
+    }
+    
+    // Small devices - smaller avatar
+    @media (max-height: 600px) {
+      width: 40px;
+      height: 40px;
+      margin: 6px 12px;
     }
   }
 
@@ -409,29 +631,59 @@
     font-weight: 600;
     color: var(--ion-color-dark);
     transition: color 0.3s ease;
+    
+    // Small devices - smaller font
+    @media (max-height: 600px) {
+      font-size: 14px;
+    }
   }
 
   .vehicle-price {
     font-size: 16px;
     font-weight: 600;
     position: absolute;
-        top: 20px;
-        right: 30px;
+    top: 20px;
+    right: 30px;
     color: var(--ion-color-dark);
     transition: color 0.3s ease;
+    
+    // Small devices - smaller font and adjust position
+    @media (max-height: 600px) {
+      font-size: 14px;
+      top: 16px;
+      right: 24px;
+    }
   }
 
   .vehicle-seats {
     font-size: 14px;
     color: var(--ion-color-medium);
     margin-top: 2px;
+    
+    // Small devices - smaller font
+    @media (max-height: 600px) {
+      font-size: 12px;
+    }
   }
 }
 
 .payment-button-container {
   padding: 16px;
-  margin-top: 16px;
+  padding-bottom: 8px;
+  margin-top: 8px;
   background: transparent;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, var(--ion-color-light-tint) 0%, transparent 100%);
+  z-index: 10;
+  
+  // Ensure button is always visible on small devices
+  @media (max-height: 600px) {
+    padding: 12px;
+    padding-bottom: 8px;
+    margin-top: 4px;
+  }
 }
 
 .payment-button {
@@ -445,6 +697,13 @@
   font-size: 16px;
   letter-spacing: 0.5px;
   transition: all 0.3s ease;
+  flex-shrink: 0;
+  
+  // Small devices - smaller button
+  @media (max-height: 600px) {
+    height: 48px;
+    font-size: 14px;
+  }
 
   &:hover {
     --box-shadow: 0 6px 16px rgba(var(--ion-color-primary-rgb), 0.3);

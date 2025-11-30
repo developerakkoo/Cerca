@@ -1,113 +1,118 @@
 <div class="modal-wrapper" [class.keyboard-open]="isKeyboardOpen" [class.inputs-filled]="areInputsFilled">
   <div class="handle"></div>
   <div class="modal-content">
-    <div class="input-group">
-      <div class="input-wrapper">
-        <ion-searchbar 
-          class="animated-input"
-          placeholder="Where are you?"
-          [ngModel]="pickupInput"
-          (ngModelChange)="onPickupInputChange($event)"
-          (ionFocus)="onFocus($event, 'pickup')"
-          (ionBlur)="onBlur($event)"
-          (ionClear)="clearInput('pickup')"
-          showCancelButton="never"
-          cancelButtonText="Clear">
-        </ion-searchbar>
-        <div *ngIf="!pickupInput" class="icon-wrapper" (click)="clearInput('pickup')">
-          <ion-icon 
-            [color]="isLocationFetched ? 'success' : 'medium'"
-            name="location-outline"
-            class="location-icon">
-          </ion-icon>
+    <div class="scrollable-content">
+      <div class="input-group">
+        <div class="input-wrapper">
+          <ion-searchbar 
+            class="animated-input"
+            placeholder="Where are you?"
+            [ngModel]="pickupInput"
+            (ngModelChange)="onPickupInputChange($event)"
+            (ionFocus)="onFocus($event, 'pickup')"
+            (ionBlur)="onBlur($event)"
+            (ionClear)="clearInput('pickup')"
+            showCancelButton="never"
+            cancelButtonText="Clear">
+          </ion-searchbar>
+          <div *ngIf="!pickupInput" class="icon-wrapper" (click)="clearInput('pickup')">
+            <ion-icon 
+              [color]="isLocationFetched ? 'success' : 'medium'"
+              name="location-outline"
+              class="location-icon">
+            </ion-icon>
+          </div>
+        </div>
+        <div class="input-wrapper">
+          <ion-searchbar 
+            class="animated-input"
+            placeholder="Where to?"
+            [ngModel]="destinationInput"
+            (ngModelChange)="onDestinationInputChange($event)"
+            (ionFocus)="onFocus($event, 'destination')"
+            (ionBlur)="onBlur($event)"
+            (ionClear)="clearInput('destination')"
+            showCancelButton="never"
+            cancelButtonText="Clear">
+          </ion-searchbar>
+          <div *ngIf="!destinationInput" class="icon-wrapper" (click)="clearInput('destination')">
+            <ion-icon 
+              name="location-outline"
+              class="location-icon">
+            </ion-icon>
+          </div>
+        </div>
+
+        <div *ngIf="pickupInput && destinationInput" class="vehicle-selection">
+          <div class="vehicle-list-container">
+            <ion-list>
+              <ion-radio-group name="auto" [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="vehicle-radio-group">
+                <ion-item lines="none" class="vehicle-item">
+                  <ion-avatar class="vehicle-avatar">
+                    <img src="assets/cars/cerca-small.png" alt="Cerca Small Vehicle" />
+                  </ion-avatar>
+                  <ion-radio value="small" class="vehicle-radio">
+                    <div class="vehicle-info">
+                      <div class="vehicle-header">
+                        <span class="vehicle-name">Cerca Small</span>
+                        <span class="vehicle-price">₹299</span>
+                      </div>
+                      <span class="vehicle-seats">4 seats</span>
+                    </div>
+                  </ion-radio>
+                </ion-item>
+                <ion-item lines="none" class="vehicle-item">
+                  <ion-avatar class="vehicle-avatar">
+                    <img src="assets/cars/cerca-small.png" alt="Cerca Medium Vehicle" />
+                  </ion-avatar>
+                  <ion-radio value="medium" class="vehicle-radio">
+                    <div class="vehicle-info">
+                      <div class="vehicle-header">
+                        <span class="vehicle-name">Cerca Medium</span>
+                        <span class="vehicle-price">₹499</span>
+                      </div>
+                      <span class="vehicle-seats">6 seats</span>
+                    </div>
+                  </ion-radio>
+                </ion-item>
+                <ion-item lines="none" class="vehicle-item">
+                  <ion-avatar class="vehicle-avatar">
+                    <img src="assets/cars/cerca-small.png" alt="Cerca Large Vehicle" />
+                  </ion-avatar>
+                  <ion-radio value="large" class="vehicle-radio">
+                    <div class="vehicle-info">
+                      <div class="vehicle-header">
+                        <span class="vehicle-name">Cerca Large</span>
+                        <span class="vehicle-price">₹699</span>
+                      </div>
+                      <span class="vehicle-seats">8 seats</span>
+                    </div>
+                  </ion-radio>
+                </ion-item>
+              </ion-radio-group>
+            </ion-list>
+          </div>
+
+          <div class="payment-button-container">
+            <ion-button expand="block" class="payment-button" (click)="goToPayment()">
+              <ion-icon name="card-outline" slot="start"></ion-icon>
+              Proceed to Payment
+            </ion-button>
+          </div>
         </div>
       </div>
-      <div class="input-wrapper">
-        <ion-searchbar 
-          class="animated-input"
-          placeholder="Where to?"
-          [ngModel]="destinationInput"
-          (ngModelChange)="onDestinationInputChange($event)"
-          (ionFocus)="onFocus($event, 'destination')"
-          (ionBlur)="onBlur($event)"
-          (ionClear)="clearInput('destination')"
-          showCancelButton="never"
-          cancelButtonText="Clear">
-        </ion-searchbar>
-        <div *ngIf="!destinationInput" class="icon-wrapper" (click)="clearInput('destination')">
-          <ion-icon 
-            name="location-outline"
-            class="location-icon">
-          </ion-icon>
+
+      <div class="address-chips-container" *ngIf="!areInputsFilled">
+        <div class="address-chips">
+          <div 
+            *ngFor="let address of addresses" 
+            class="chip"
+            [class.selected]="address.isSelected"
+            (click)="toggleAddress(address)">
+            <span class="chip-type">{{address.type}}</span>
+            <span class="chip-address">{{address.address}}</span>
+          </div>
         </div>
-      </div>
-
-      <div *ngIf="pickupInput && destinationInput" class="vehicle-selection">
-        <ion-list>
-          <ion-radio-group name="auto" [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="vehicle-radio-group">
-            <ion-item lines="none" class="vehicle-item">
-              <ion-avatar class="vehicle-avatar">
-                <img src="assets/cars/cerca-small.png" alt="Cerca Small Vehicle" />
-              </ion-avatar>
-              <ion-radio value="small" class="vehicle-radio">
-                <div class="vehicle-info">
-                  <div class="vehicle-header">
-                    <span class="vehicle-name">Cerca Small</span>
-                    <span class="vehicle-price">₹299</span>
-                  </div>
-                  <span class="vehicle-seats">4 seats</span>
-                </div>
-              </ion-radio>
-            </ion-item>
-            <ion-item lines="none" class="vehicle-item">
-              <ion-avatar class="vehicle-avatar">
-                <img src="assets/cars/cerca-small.png" alt="Cerca Medium Vehicle" />
-              </ion-avatar>
-              <ion-radio value="medium" class="vehicle-radio">
-                <div class="vehicle-info">
-                  <div class="vehicle-header">
-                    <span class="vehicle-name">Cerca Medium</span>
-                    <span class="vehicle-price">₹499</span>
-                  </div>
-                  <span class="vehicle-seats">6 seats</span>
-                </div>
-              </ion-radio>
-            </ion-item>
-            <ion-item lines="none" class="vehicle-item">
-              <ion-avatar class="vehicle-avatar">
-                <img src="assets/cars/cerca-small.png" alt="Cerca Large Vehicle" />
-              </ion-avatar>
-              <ion-radio value="large" class="vehicle-radio">
-                <div class="vehicle-info">
-                  <div class="vehicle-header">
-                    <span class="vehicle-name">Cerca Large</span>
-                    <span class="vehicle-price">₹699</span>
-                  </div>
-                  <span class="vehicle-seats">8 seats</span>
-                </div>
-              </ion-radio>
-            </ion-item>
-          </ion-radio-group>
-        </ion-list>
-
-        <div class="payment-button-container">
-          <ion-button expand="block" class="payment-button" (click)="goToPayment()">
-            <ion-icon name="card-outline" slot="start"></ion-icon>
-            Proceed to Payment
-          </ion-button>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="address-chips" *ngIf="!areInputsFilled">
-      <div 
-        *ngFor="let address of addresses" 
-        class="chip"
-        [class.selected]="address.isSelected"
-        (click)="toggleAddress(address)">
-        <span class="chip-type">{{address.type}}</span>
-        <span class="chip-address">{{address.address}}</span>
       </div>
     </div>
   </div>

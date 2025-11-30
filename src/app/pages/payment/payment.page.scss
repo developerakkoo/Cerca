@@ -1,6 +1,32 @@
 .payment-content {
   --background: var(--ion-color-light-tint);
   --padding-bottom: 88px;
+  position: relative;
+  z-index: 10000;
+  background: var(--ion-color-light-tint) !important;
+  overflow: hidden;
+  
+  // Ensure content covers any background elements (like Google Map)
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--ion-color-light-tint);
+    z-index: -1;
+    pointer-events: none;
+  }
+  
+  // Dark mode background
+  @media (prefers-color-scheme: dark) {
+    background: var(--ion-color-dark) !important;
+    
+    &::before {
+      background: var(--ion-color-dark);
+    }
+  }
 }
 
 .payment-container {
@@ -8,6 +34,9 @@
   max-width: 600px;
   margin: 0 auto;
   padding-bottom: 88px;
+  position: relative;
+  z-index: 1;
+  background: transparent;
 }
 
 .payment-summary {
@@ -243,6 +272,16 @@
   ion-icon {
     font-size: 20px;
     margin-right: 8px;
+  }
+}
+
+.payment-header {
+  position: relative;
+  z-index: 10001;
+  background: var(--ion-color-light-tint) !important;
+  
+  @media (prefers-color-scheme: dark) {
+    background: var(--ion-color-dark) !important;
   }
 }
 

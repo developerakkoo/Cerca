@@ -40,6 +40,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private driverLocationSubscription?: Subscription;
   private driverETASubscription?: Subscription;
 
+  // Timeout references for cleanup
+  private ratingTimeout?: any;
+  private rateUsTimeout?: any;
+
   // Current ride data
   currentRide: Ride | null = null;
   driver: {
@@ -217,6 +221,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.driverLocationSubscription?.unsubscribe();
     this.driverETASubscription?.unsubscribe();
 
+    // Clear all timeouts
+    if (this.ratingTimeout) {
+      clearTimeout(this.ratingTimeout);
+      this.ratingTimeout = undefined;
+    }
+    if (this.rateUsTimeout) {
+      clearTimeout(this.rateUsTimeout);
+      this.rateUsTimeout = undefined;
+    }
+
     // Destroy map
     if (this.map) {
       this.map.destroy();
@@ -286,9 +300,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         break;
       case 'completed':
         this.statusText = 'Ride Completed';
+        // Clear any existing timeout
+        if (this.ratingTimeout) {
+          clearTimeout(this.ratingTimeout);
+        }
         // Show rating modal after 2 seconds
-        setTimeout(() => {
+        this.ratingTimeout = setTimeout(() => {
           this.showRating = true;
+          this.ratingTimeout = undefined;
         }, 2000);
         break;
       case 'cancelled':
@@ -694,10 +713,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.showRating = false;
       this.showThankYou = true;
 
+      // Clear any existing timeout
+      if (this.rateUsTimeout) {
+        clearTimeout(this.rateUsTimeout);
+      }
       // Show rate us modal after thank you message
-      setTimeout(() => {
+      this.rateUsTimeout = setTimeout(() => {
         this.showThankYou = false;
         this.showRateUs = true;
+        this.rateUsTimeout = undefined;
       }, 2000);
     } catch (error) {
       console.error('Error submitting rating:', error);

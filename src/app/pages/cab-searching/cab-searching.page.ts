@@ -35,6 +35,17 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   private rideSubscription?: Subscription;
   private errorSubscription?: Subscription;
 
+  // Event listener references for cleanup
+  private eventListeners: {
+    element: HTMLElement;
+    event: string;
+    handler: EventListener;
+  }[] = [];
+
+  // UI state
+  showNoDriverFound = false;
+  noDriverMessage = 'No drivers found nearby. Please try again later.';
+
   timeOut: any;
   searchTimeout: any;
 
@@ -46,6 +57,43 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   ) {}
 
   ngOnInit() {
+    // Subscribe to ride errors - handle noDriverFound event
+    this.errorSubscription = this.rideService
+      .getRideErrors()
+      .subscribe((error) => {
+        console.error('❌ Ride error:', error);
+        // Check if it's a "no driver found" error - match backend message pattern
+        const errorLower = error.toLowerCase();
+        const isNoDriverError = 
+          errorLower.includes('no driver') || 
+          errorLower.includes('no drivers') ||
+          (errorLower.includes('within') && errorLower.includes('radius')) ||
+          errorLower.includes('try again later');
+        
+        if (isNoDriverError) {
+          console.log('🚫 No driver found error detected, showing UI');
+          // Show no driver found UI
+          this.noDriverMessage = error;
+          this.showNoDriverFound = true;
+          this.stopAnimations();
+          // Clear search timeout
+          if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+          }
+        } else {
+          // For other errors, show toast and navigate
+          this.showToast(error, 'danger');
+          setTimeout(() => {
+            if (!this.showNoDriverFound) { // Only navigate if no driver found UI is not active
+              this.router.navigate(['/tabs/tabs/tab1'], {
+                replaceUrl: true,
+              });
+            }
+          }, 2000);
+        }
+      });
+
     // Subscribe to ride status changes
     this.rideStatusSubscription = this.rideService
       .getRideStatus()
@@ -63,26 +111,13 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
         }
       });
 
-    // Subscribe to ride errors
-    this.errorSubscription = this.rideService
-      .getRideErrors()
-      .subscribe((error) => {
-        console.error('❌ Ride error:', error);
-        this.showToast(error, 'danger');
-        // Navigate back to home on error
-        setTimeout(() => {
-          this.router.navigate(['/tabs/tab1'], {
-            replaceUrl: true,
-          });
-        }, 2000);
-      });
-
     // Set a timeout for maximum search time (2 minutes)
+    // Note: This is a fallback. The noDriverFound event from backend should handle this first.
     this.searchTimeout = setTimeout(() => {
       const currentStatus = this.rideService.getCurrentRideValue();
       if (currentStatus && this.router.url.includes('cab-searching')) {
         this.showToast('No drivers found nearby. Please try again.', 'warning');
-        this.router.navigate(['/tabs/tab1'], {
+        this.router.navigate(['/tabs/tabs/tab1'], {
           replaceUrl: true,
         });
       }
@@ -111,6 +146,12 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
       clearTimeout(this.searchTimeout);
     }
 
+    // Remove all event listeners
+    this.eventListeners.forEach(({ element, event, handler }) => {
+      element.removeEventListener(event, handler);
+    });
+    this.eventListeners = [];
+
     // Unsubscribe from all Socket.IO subscriptions
     this.rideStatusSubscription?.unsubscribe();
     this.rideSubscription?.unsubscribe();
@@ -124,21 +165,46 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
         console.log('✅ Driver accepted!');
         break;
       case 'cancelled':
-        // Ride cancelled - navigate back
-        this.router.navigate(['/tabs/tab1'], {
-          replaceUrl: true,
-        });
+        // Ride cancelled - if no driver found UI is showing, don't navigate
+        // (cancellation is handled on cancel-order page)
+        if (!this.showNoDriverFound) {
+          this.router.navigate(['/tabs/tabs/tab1'], {
+            replaceUrl: true,
+          });
+        }
         break;
       case 'idle':
         // Ride is idle - shouldn't be on this page
-        this.router.navigate(['/tabs/tab1'], {
-          replaceUrl: true,
-        });
+        if (!this.showNoDriverFound) {
+          this.router.navigate(['/tabs/tabs/tab1'], {
+            replaceUrl: true,
+          });
+        }
         break;
       default:
         // Continue searching
         break;
     }
+  }
+
+  private stopAnimations() {
+    // Stop all animations
+    this.animations.forEach((animation) => {
+      if (animation) {
+        animation.stop();
+      }
+    });
+    // Clear typewriter interval
+    if (this.typewriterInterval) {
+      clearInterval(this.typewriterInterval);
+      this.typewriterInterval = null;
+    }
+  }
+
+  goBack() {
+    this.router.navigate(['/tabs/tabs/tab1'], {
+      replaceUrl: true,
+    });
   }
 
   private async showToast(message: string, color: string = 'dark') {
@@ -159,16 +225,28 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
 
     const button = this.slideButton.nativeElement;
 
+    // Helper function to add and track event listeners
+    const addTrackedListener = (
+      element: HTMLElement,
+      event: string,
+      handler: EventListener
+    ) => {
+      element.addEventListener(event, handler);
+      this.eventListeners.push({ element, event, handler });
+    };
+
     // Touch events
-    button.addEventListener('touchstart', (e: TouchEvent) => {
-      this.startX = e.touches[0].clientX;
+    addTrackedListener(button, 'touchstart', (e: Event) => {
+      const touchEvent = e as TouchEvent;
+      this.startX = touchEvent.touches[0].clientX;
       this.isSliding = true;
     });
 
-    button.addEventListener('touchmove', (e: TouchEvent) => {
+    addTrackedListener(button, 'touchmove', (e: Event) => {
       if (!this.isSliding) return;
+      const touchEvent = e as TouchEvent;
 
-      this.currentX = e.touches[0].clientX;
+      this.currentX = touchEvent.touches[0].clientX;
       const diff = this.currentX - this.startX;
 
       if (diff > 0) {
@@ -179,7 +257,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
-    button.addEventListener('touchend', () => {
+    addTrackedListener(button, 'touchend', () => {
       if (!this.isSliding) return;
 
       const diff = this.currentX - this.startX;
@@ -195,15 +273,17 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
     });
 
     // Mouse events for desktop
-    button.addEventListener('mousedown', (e: MouseEvent) => {
-      this.startX = e.clientX;
+    addTrackedListener(button, 'mousedown', (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      this.startX = mouseEvent.clientX;
       this.isSliding = true;
     });
 
-    button.addEventListener('mousemove', (e: MouseEvent) => {
+    addTrackedListener(button, 'mousemove', (e: Event) => {
       if (!this.isSliding) return;
+      const mouseEvent = e as MouseEvent;
 
-      this.currentX = e.clientX;
+      this.currentX = mouseEvent.clientX;
       const diff = this.currentX - this.startX;
 
       if (diff > 0) {
@@ -214,7 +294,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
-    button.addEventListener('mouseup', () => {
+    addTrackedListener(button, 'mouseup', () => {
       if (!this.isSliding) return;
 
       const diff = this.currentX - this.startX;
@@ -230,8 +310,9 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
     });
 
     // Prevent default drag behavior
-    button.addEventListener('dragstart', (e: DragEvent) => {
-      e.preventDefault();
+    addTrackedListener(button, 'dragstart', (e: Event) => {
+      const dragEvent = e as DragEvent;
+      dragEvent.preventDefault();
     });
   }
 
@@ -260,7 +341,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
     } catch (error) {
       console.error('Error cancelling ride:', error);
       // Navigate back anyway
-      this.router.navigate(['/tabs/tab1'], {
+      this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true,
       });
     }

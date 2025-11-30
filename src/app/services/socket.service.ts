@@ -27,6 +27,13 @@ export class SocketService {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private isInitialized = false;
+  private reconnectTimeout: any = null;
+  
+  // Store event listener handlers for cleanup
+  private eventHandlers: {
+    event: string;
+    handler: (...args: any[]) => void;
+  }[] = [];
 
   constructor(
     private socket: Socket,
@@ -114,8 +121,17 @@ export class SocketService {
     console.log('🔧 SETTING UP SOCKET EVENT LISTENERS');
     console.log('🔧 ========================================');
 
+    // Helper to add and track event listeners
+    const addTrackedListener = (
+      event: string,
+      handler: (...args: any[]) => void
+    ) => {
+      this.socket.on(event, handler);
+      this.eventHandlers.push({ event, handler });
+    };
+
     // Connection events
-    this.socket.on('connect', () => {
+    addTrackedListener('connect', () => {
       this.zone.run(() => {
         console.log('✅ ========================================');
         console.log('✅ SOCKET CONNECTED SUCCESSFULLY!');
@@ -130,6 +146,11 @@ export class SocketService {
         console.log('========================================');
 
         this.reconnectAttempts = 0;
+        // Clear any pending reconnect timeout
+        if (this.reconnectTimeout) {
+          clearTimeout(this.reconnectTimeout);
+          this.reconnectTimeout = null;
+        }
         this.connectionStatus$.next({
           connected: true,
           socketId: this.socket.ioSocket.id,
@@ -140,7 +161,7 @@ export class SocketService {
       });
     });
 
-    this.socket.on('disconnect', (reason: string) => {
+    addTrackedListener('disconnect', (reason: string) => {
       this.zone.run(() => {
         console.log('❌ ========================================');
         console.log('❌ SOCKET DISCONNECTED');
@@ -156,7 +177,7 @@ export class SocketService {
       });
     });
 
-    this.socket.on('connect_error', (error: Error) => {
+    addTrackedListener('connect_error', (error: Error) => {
       this.zone.run(() => {
         console.error('⚠️ ========================================');
         console.error('⚠️ SOCKET CONNECTION ERROR');
@@ -170,7 +191,7 @@ export class SocketService {
       });
     });
 
-    this.socket.on('error', (error: any) => {
+    addTrackedListener('error', (error: any) => {
       this.zone.run(() => {
         console.error('❌ ========================================');
         console.error('❌ SOCKET ERROR');
@@ -212,6 +233,12 @@ export class SocketService {
    * Handle reconnection logic
    */
   private handleReconnect(): void {
+    // Clear any existing reconnect timeout
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay =
@@ -221,7 +248,8 @@ export class SocketService {
         `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
       );
 
-      setTimeout(() => {
+      this.reconnectTimeout = setTimeout(() => {
+        this.reconnectTimeout = null;
         this.socket.connect();
       }, delay);
     } else {
@@ -320,6 +348,18 @@ export class SocketService {
    */
   async disconnect(): Promise<void> {
     try {
+      // Clear reconnect timeout
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout);
+        this.reconnectTimeout = null;
+      }
+
+      // Remove all event listeners
+      this.eventHandlers.forEach(({ event, handler }) => {
+        this.socket.off(event, handler);
+      });
+      this.eventHandlers = [];
+
       const userId = await this.storage.get('userId');
       if (userId && this.isConnected()) {
         this.emit('riderDisconnect', { userId });
@@ -327,6 +367,7 @@ export class SocketService {
 
       this.socket.disconnect();
       this.isInitialized = false;
+      this.reconnectAttempts = 0;
       this.connectionStatus$.next({ connected: false });
 
       console.log('Socket disconnected successfully');
@@ -394,10 +435,15 @@ export class SocketService {
       });
 
       // Optional: Add a very long timeout (5 minutes) just to prevent infinite hanging
+      let waitTimeout: any = null;
       if (timeoutMs > 0) {
-        setTimeout(() => {
+        waitTimeout = setTimeout(() => {
           console.error('⏰ Connection timeout after', timeoutMs, 'ms');
           subscription.unsubscribe();
+          if (waitTimeout) {
+            clearTimeout(waitTimeout);
+            waitTimeout = null;
+          }
           reject(new Error(`Socket connection timeout after ${timeoutMs}ms`));
         }, timeoutMs);
       }

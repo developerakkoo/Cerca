@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Fix for Kotlin removeFirst/removeLast compatibility with Android 15
+# Keep Kotlin extension functions to avoid conflicts with Java methods
+-keep class kotlin.collections.CollectionsKt { *; }
+-keep class kotlin.collections.CollectionsKt__CollectionsKt { *; }
+-keep class kotlin.collections.CollectionsKt__MutableCollectionsKt { *; }
+-dontwarn kotlin.collections.**

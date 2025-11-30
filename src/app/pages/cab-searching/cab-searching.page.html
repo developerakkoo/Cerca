@@ -8,7 +8,8 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <div class="searching-container">
+  <!-- Searching UI -->
+  <div class="searching-container" *ngIf="!showNoDriverFound">
     <div class="animation-container" #animationContainer>
       <!-- Outer pulsing circles -->
       <div class="pulse-circle circle-1"></div>
@@ -37,6 +38,33 @@
           <ion-icon name="arrow-forward"></ion-icon>
         </div>
         <div class="slide-text">Slide to cancel</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Driver Found UI -->
+  <div class="no-driver-container" *ngIf="showNoDriverFound">
+    <div class="no-driver-content">
+      <div class="icon-container">
+        <div class="icon-circle">
+          <ion-icon name="car-outline" class="icon"></ion-icon>
+        </div>
+      </div>
+      
+      <div class="message-container">
+        <h2>No Drivers Available</h2>
+        <p class="message-text">{{ noDriverMessage }}</p>
+      </div>
+
+      <div class="button-container">
+        <ion-button 
+          expand="block" 
+          color="primary" 
+          class="back-button"
+          (click)="goBack()">
+          <ion-icon name="arrow-back" slot="start"></ion-icon>
+          Go Back
+        </ion-button>
       </div>
     </div>
   </div>

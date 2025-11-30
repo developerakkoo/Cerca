@@ -9,6 +9,8 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.7.2'
         classpath 'com.google.gms:google-services:4.4.2'
+        // Kotlin version to fix removeFirst/removeLast compatibility issue with Android 15
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -21,6 +23,14 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+    
+    // Fix for Kotlin removeFirst/removeLast compatibility with Android 15
+    configurations.all {
+        resolutionStrategy {
+            force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
+        }
     }
 }
 

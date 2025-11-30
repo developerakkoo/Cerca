@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, firstValueFrom, Subscription } from 'rxjs';
 import { SocketService } from './socket.service';
 import { Storage } from '@ionic/storage-angular';
 import { Router } from '@angular/router';
@@ -85,6 +85,9 @@ export class RideService {
   private driverETA$ = new BehaviorSubject<number>(0);
   private rideErrors$ = new Subject<string>();
 
+  // Store all socket subscriptions for cleanup
+  private socketSubscriptions: Subscription[] = [];
+
   constructor(
     private socketService: SocketService,
     private storage: Storage,
@@ -104,17 +107,41 @@ export class RideService {
    * Setup all socket event listeners
    */
   private setupSocketListeners(): void {
+    // Clean up any existing subscriptions first
+    this.cleanupSocketListeners();
+
     // Ride request confirmation
-    this.socketService.on<Ride>('rideRequested').subscribe((ride) => {
+    const rideRequestedSub = this.socketService.on<Ride>('rideRequested').subscribe((ride) => {
       console.log('✅ Ride requested successfully:', ride);
       this.currentRide$.next(ride);
       this.rideStatus$.next('searching');
       this.storeRide(ride);
       this.showToast('🔍 Searching for nearby drivers...');
     });
+    this.socketSubscriptions.push(rideRequestedSub);
+
+    // No driver found event
+    const noDriverFoundSub = this.socketService
+      .on<{ rideId: string; message: string }>('noDriverFound')
+      .subscribe((data) => {
+        console.warn('⚠️ No driver found:', data);
+        // Emit error message FIRST so UI can set showNoDriverFound flag
+        // before status change handler runs
+        this.rideErrors$.next(data.message || 'No drivers found nearby. Please try again later.');
+        // Use setTimeout to ensure error subscription processes first
+        setTimeout(() => {
+          // Update ride status to cancelled/idle
+          this.rideStatus$.next('cancelled');
+          // Clear the current ride
+          this.currentRide$.next(null);
+          this.clearRide();
+        }, 0);
+        // Don't navigate - let the UI component handle it
+      });
+    this.socketSubscriptions.push(noDriverFoundSub);
 
     // Driver accepted ride
-    this.socketService.on<Ride>('rideAccepted').subscribe((ride) => {
+    const rideAcceptedSub = this.socketService.on<Ride>('rideAccepted').subscribe((ride) => {
       console.log('✅ Driver accepted ride:', ride);
       console.log('📦 Full ride object:', ride);
       this.currentRide$.next(ride);
@@ -128,9 +155,10 @@ export class RideService {
         replaceUrl: true, // Replace history so back goes to tab1
       });
     });
+    this.socketSubscriptions.push(rideAcceptedSub);
 
     // Driver location updates
-    this.socketService
+    const driverLocationSub = this.socketService
       .on<{ location: Location; estimatedTime: number }>('driverLocationUpdate')
       .subscribe((data) => {
         console.log('📍 Driver location update:', data);
@@ -139,18 +167,20 @@ export class RideService {
           this.driverETA$.next(data.estimatedTime);
         }
       });
+    this.socketSubscriptions.push(driverLocationSub);
 
     // Driver arrived at pickup
-    this.socketService.on<Ride>('driverArrived').subscribe((ride) => {
+    const driverArrivedSub = this.socketService.on<Ride>('driverArrived').subscribe((ride) => {
       console.log('✅ Driver arrived:', ride);
       this.currentRide$.next(ride);
       this.rideStatus$.next('arrived');
       this.storeRide(ride);
       this.showDriverArrivedAlert(ride);
     });
+    this.socketSubscriptions.push(driverArrivedSub);
 
     // Ride started
-    this.socketService.on<Ride>('rideStarted').subscribe((ride) => {
+    const rideStartedSub = this.socketService.on<Ride>('rideStarted').subscribe((ride) => {
       console.log('✅ Ride started:', ride);
       console.log('📦 Full ride object:', ride);
       this.currentRide$.next(ride);
@@ -159,17 +189,19 @@ export class RideService {
       this.showToast('🎉 Ride started! Have a safe journey');
       // Already on active-ordere, just update state
     });
+    this.socketSubscriptions.push(rideStartedSub);
 
     // Live ride location updates
-    this.socketService
+    const rideLocationSub = this.socketService
       .on<{ location: Location }>('rideLocationUpdate')
       .subscribe((data) => {
         console.log('📍 Ride location update:', data);
         this.driverLocation$.next(data.location);
       });
+    this.socketSubscriptions.push(rideLocationSub);
 
     // Ride completed
-    this.socketService.on<Ride>('rideCompleted').subscribe((ride) => {
+    const rideCompletedSub = this.socketService.on<Ride>('rideCompleted').subscribe((ride) => {
       console.log('✅ Ride completed:', ride);
       this.currentRide$.next(ride);
       this.rideStatus$.next('completed');
@@ -177,9 +209,10 @@ export class RideService {
       this.showToast('✅ Ride completed!');
       // Active order page will show rating UI automatically
     });
+    this.socketSubscriptions.push(rideCompletedSub);
 
     // Ride cancelled
-    this.socketService
+    const rideCancelledSub = this.socketService
       .on<{ ride: Ride; reason: string }>('rideCancelled')
       .subscribe((data) => {
         console.log('❌ Ride cancelled:', data);
@@ -191,18 +224,20 @@ export class RideService {
           replaceUrl: true, // Clear navigation stack
         });
       });
+    this.socketSubscriptions.push(rideCancelledSub);
 
     // Ride errors
-    this.socketService
+    const rideErrorSub = this.socketService
       .on<{ message: string }>('rideError')
       .subscribe((error) => {
         console.error('❌ Ride error:', error);
         this.rideErrors$.next(error.message);
         this.showToast(`Error: ${error.message}`, 'danger');
       });
+    this.socketSubscriptions.push(rideErrorSub);
 
     // Rating submitted
-    this.socketService.on<any>('ratingSubmitted').subscribe((data) => {
+    const ratingSubmittedSub = this.socketService.on<any>('ratingSubmitted').subscribe((data) => {
       console.log('⭐ Rating submitted:', data);
       this.showToast('Thank you for your feedback!');
       this.clearRide();
@@ -210,72 +245,93 @@ export class RideService {
         replaceUrl: true, // Clear navigation stack
       });
     });
+    this.socketSubscriptions.push(ratingSubmittedSub);
 
     // Message sent confirmation
-    this.socketService.on<any>('messageSent').subscribe((data) => {
+    const messageSentSub = this.socketService.on<any>('messageSent').subscribe((data) => {
       console.log('💬 Message sent:', data);
     });
+    this.socketSubscriptions.push(messageSentSub);
 
     // Receive message from driver
-    this.socketService.on<any>('receiveMessage').subscribe((message) => {
+    const receiveMessageSub = this.socketService.on<any>('receiveMessage').subscribe((message) => {
       console.log('📨 New message from driver:', message);
       // This will be handled by the driver-chat page
     });
+    this.socketSubscriptions.push(receiveMessageSub);
 
     // Ride messages (all chat history)
-    this.socketService.on<any[]>('rideMessages').subscribe((messages) => {
+    const rideMessagesSub = this.socketService.on<any[]>('rideMessages').subscribe((messages) => {
       console.log('📚 Ride messages loaded:', messages);
       // This will be handled by the driver-chat page
     });
+    this.socketSubscriptions.push(rideMessagesSub);
 
     // Emergency alert confirmation
-    this.socketService.on<any>('emergencyAlertCreated').subscribe((data) => {
+    const emergencyAlertSub = this.socketService.on<any>('emergencyAlertCreated').subscribe((data) => {
       console.log('🚨 Emergency alert created:', data);
       this.showToast('Emergency alert sent successfully!', 'success');
     });
+    this.socketSubscriptions.push(emergencyAlertSub);
 
     // Notifications
-    this.socketService.on<any[]>('notifications').subscribe((notifications) => {
+    const notificationsSub = this.socketService.on<any[]>('notifications').subscribe((notifications) => {
       console.log('🔔 Notifications received:', notifications);
       // This will be handled by the notifications page
     });
+    this.socketSubscriptions.push(notificationsSub);
 
     // Notification marked as read
-    this.socketService.on<any>('notificationMarkedRead').subscribe((data) => {
+    const notificationMarkedReadSub = this.socketService.on<any>('notificationMarkedRead').subscribe((data) => {
       console.log('✅ Notification marked as read:', data);
     });
+    this.socketSubscriptions.push(notificationMarkedReadSub);
 
     // Message errors
-    this.socketService
+    const messageErrorSub = this.socketService
       .on<{ message: string }>('messageError')
       .subscribe((error) => {
         console.error('❌ Message error:', error);
         this.showToast(`Message error: ${error.message}`, 'danger');
       });
+    this.socketSubscriptions.push(messageErrorSub);
 
     // Emergency errors
-    this.socketService
+    const emergencyErrorSub = this.socketService
       .on<{ message: string }>('emergencyError')
       .subscribe((error) => {
         console.error('❌ Emergency error:', error);
         this.showToast(`Emergency error: ${error.message}`, 'danger');
       });
+    this.socketSubscriptions.push(emergencyErrorSub);
 
     // Rating errors
-    this.socketService
+    const ratingErrorSub = this.socketService
       .on<{ message: string }>('ratingError')
       .subscribe((error) => {
         console.error('❌ Rating error:', error);
         this.showToast(`Rating error: ${error.message}`, 'danger');
       });
+    this.socketSubscriptions.push(ratingErrorSub);
 
     // General error event
-    this.socketService
+    const errorEventSub = this.socketService
       .on<{ message: string }>('errorEvent')
       .subscribe((error) => {
         console.error('❌ General error:', error);
         this.showToast(`Error: ${error.message}`, 'danger');
       });
+    this.socketSubscriptions.push(errorEventSub);
+  }
+
+  /**
+   * Cleanup all socket subscriptions
+   */
+  private cleanupSocketListeners(): void {
+    this.socketSubscriptions.forEach((subscription) => {
+      subscription.unsubscribe();
+    });
+    this.socketSubscriptions = [];
   }
 
   /**

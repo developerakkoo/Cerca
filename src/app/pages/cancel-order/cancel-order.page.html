@@ -1,41 +1,67 @@
 <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>Cancel Cab</ion-title>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/cab-searching" text=""></ion-back-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="ion-padding">
+<ion-content [fullscreen]="true" class="cancel-content">
   <ion-header collapse="condense">
     <ion-toolbar>
-      <ion-title size="large">Cancel Cab</ion-title>
+      <ion-title size="large">Cancel Ride</ion-title>
     </ion-toolbar>
   </ion-header>
 
-  <ion-list>
-    <ion-list-header>
-      <ion-label>Please select the reason for cancelling the cab</ion-label>
-    </ion-list-header>
-    <ion-item lines="none">
-      <ion-checkbox color="success" labelPlacement="end">Waiting for too long</ion-checkbox>
-    </ion-item>
-    <ion-item lines="none">
-      <ion-checkbox color="success" labelPlacement="end">Unable to find the cab</ion-checkbox>
-    </ion-item>
-    <ion-item lines="none">
-      <ion-checkbox color="success" labelPlacement="end">Other</ion-checkbox>
-    </ion-item>
-  </ion-list>
+  <div class="cancel-container">
+    <div class="header-section">
+      <h2>Why are you cancelling?</h2>
+      <p>Please help us improve by selecting a reason</p>
+    </div>
 
-  <ion-list>
-    <ion-item lines="none">
-      <ion-label position="floating">
-        Reason 
-      </ion-label>
-      <ion-textarea rows="5" placeholder="Enter your reason" class="textarea-custom"></ion-textarea>
-    </ion-item>
-  </ion-list>
+    <ion-list class="reasons-list">
+      <ion-item 
+        lines="none" 
+        class="reason-item"
+        *ngFor="let reason of cancellationReasons"
+        (click)="selectReason(reason)">
+        <ion-checkbox 
+          slot="start"
+          [checked]="selectedReason === reason"
+          color="primary">
+        </ion-checkbox>
+        <ion-label class="reason-label">{{ reason }}</ion-label>
+      </ion-item>
+    </ion-list>
 
-  <ion-button expand="block" color="primary" mode="ios" (click)="submit()">Submit</ion-button>
+    <div class="custom-reason-section" *ngIf="selectedReason === 'Other'">
+      <ion-item lines="none" class="custom-reason-item">
+        <ion-label position="stacked" class="custom-label">
+          Please specify your reason
+        </ion-label>
+        <ion-textarea 
+          rows="4" 
+          placeholder="Tell us why you're cancelling..." 
+          class="textarea-custom"
+          [(ngModel)]="customReason"
+          (ionFocus)="onTextareaFocus()"
+          (ionBlur)="onTextareaBlur()">
+        </ion-textarea>
+      </ion-item>
+    </div>
+
+    <div class="button-section">
+      <ion-button 
+        expand="block" 
+        color="primary" 
+        class="submit-button"
+        (click)="submit()"
+        [disabled]="!selectedReason || (selectedReason === 'Other' && !customReason.trim())">
+        Cancel Ride
+      </ion-button>
+    </div>
+  </div>
   
   <!-- Cancellation Alert -->
   <div class="cancellation-alert" *ngIf="showAlert" [class.show]="showAlert">

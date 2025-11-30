@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
     namespace "io.techlapse.Cerca"
@@ -7,8 +8,8 @@ android {
         applicationId "io.techlapse.Cerca"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "3.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -21,6 +22,15 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+        // Fix for removeFirst/removeLast compatibility with Android 15
+        freeCompilerArgs += ['-Xjvm-default=all']
     }
 }
 
@@ -40,6 +50,10 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    
+    // Fix for Kotlin removeFirst/removeLast compatibility with Android 15
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
 }
 
 apply from: 'capacitor.build.gradle'

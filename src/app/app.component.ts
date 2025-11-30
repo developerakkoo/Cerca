@@ -6,6 +6,7 @@ import { Platform } from '@ionic/angular';
 import { TranslateService } from '@ngx-translate/core';
 import { SocketService } from './services/socket.service';
 import { RideService } from './services/ride.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -15,6 +16,7 @@ import { RideService } from './services/ride.service';
 })
 export class AppComponent implements OnDestroy {
   user: any;
+  private userSubscription?: Subscription;
 
   constructor(
     private userService: UserService,
@@ -37,7 +39,7 @@ export class AppComponent implements OnDestroy {
     await this.userService.loadUserFromStorage();
 
     // Subscribe to user changes
-    this.userService.user$.subscribe(async (user) => {
+    this.userSubscription = this.userService.user$.subscribe(async (user) => {
       console.log('User:', user);
       this.user = user;
 
@@ -103,6 +105,11 @@ export class AppComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
+    // Unsubscribe from user subscription
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
+      this.userSubscription = undefined;
+    }
     // Cleanup socket connection on app destroy
     this.socketService.disconnect();
   }

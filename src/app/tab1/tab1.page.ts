@@ -48,6 +48,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   private updateInterval: any;
   private currentLocationMarker: string | undefined;
   private pickupSubscription: Subscription | null = null;
+  private destinationSubscription: Subscription | null = null;
 
   constructor(
     private notification: NotificationService,
@@ -83,15 +84,30 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   async ionViewWillLeave() {
     console.log('🗺️ Tab1 leaving, cleaning up map...');
-    await this.presentToast('🗺️ Tab1: Leaving, destroying map');
+    // Don't show toast when navigating away (it can be annoying)
+    // await this.presentToast('🗺️ Tab1: Leaving, destroying map');
     await this.cleanupMap();
   }
 
   ngOnDestroy() {
+    // Unsubscribe from all subscriptions
     if (this.pickupSubscription) {
       this.pickupSubscription.unsubscribe();
+      this.pickupSubscription = null;
     }
-    // this.cleanupMap();
+    if (this.destinationSubscription) {
+      this.destinationSubscription.unsubscribe();
+      this.destinationSubscription = null;
+    }
+
+    // Clear interval if it exists
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+
+    // Cleanup map as fallback (in case ionViewWillLeave wasn't called)
+    this.cleanupMap();
   }
 
   ngOnInit() {
@@ -171,7 +187,12 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   getPickUpAddress() {
-    this.userService.pickup$.subscribe((pickup) => {
+    // Unsubscribe from existing subscription if any
+    if (this.pickupSubscription) {
+      this.pickupSubscription.unsubscribe();
+    }
+    // Store subscription for cleanup
+    this.pickupSubscription = this.userService.pickup$.subscribe((pickup) => {
       this.pickupAddress = pickup;
       console.log('Pickup Address On Tab1');
       console.log(this.pickupAddress);
@@ -179,7 +200,12 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   getDestinationAddress() {
-    this.userService.destination$.subscribe((destination) => {
+    // Unsubscribe from existing subscription if any
+    if (this.destinationSubscription) {
+      this.destinationSubscription.unsubscribe();
+    }
+    // Store subscription for cleanup
+    this.destinationSubscription = this.userService.destination$.subscribe((destination) => {
       this.destinationAddress = destination;
     });
     console.log('Destination Address On Tab1');
@@ -195,13 +221,25 @@ export class Tab1Page implements OnInit, OnDestroy {
         id: 'tab1-map', // Unique ID for tab1 page
         element: this.mapRef.nativeElement,
         apiKey: environment.apiKey,
+
         config: {
+          fullscreenControl:false,
+          mapTypeControl:false,
+          streetViewControl:false,
+          zoomControl:false,
+          gestureHandling:'greedy',
+          keyboardShortcuts:false,
+          scrollwheel:false,
+          disableDoubleClickZoom:true,
+          androidLiteMode:true,
+          
           center: {
             lat: lat,
             lng: lng,
           },
           mapId: environment.mapId,
           zoom: 18,
+    
         },
       });
 
