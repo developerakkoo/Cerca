@@ -8,8 +8,8 @@ export const environment = {
   mapId: '43781947b4a15d204123e069',
   // Production backend
   apiUrl: 'https://api.myserverdevops.com',
-  // Local backend (for development)
-  // apiUrl: 'http://192.168.1.10:3000',
+  // Local backend (for development)  
+  // apiUrl: 'http://192.168.1.14:3000',
 };
 
 /*

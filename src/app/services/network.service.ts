@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Network } from '@capacitor/network';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 import { Platform } from '@ionic/angular';
 import { NotificationService } from './notification.service';
 import { Device } from '@capacitor/device';
@@ -27,54 +27,72 @@ export class NetworkService {
 
   public networkStatus$ = this.networkStatus.asObservable();
   private networkAlertShown = false;
-  private lastConnectionCheck = 0;
-  private readonly CONNECTION_CHECK_INTERVAL = 5000; // 5 seconds
+  private cachedDeviceInfo: any = null;
+  private cachedBatteryInfo: any = null;
+  private isInitialized = false;
 
   constructor(
     private platform: Platform,
     private notificationService: NotificationService
   ) {
-    this.initializeNetworkListener();
+    this.initializeNetworkSnapshot();
   }
 
-  private async initializeNetworkListener() {
+  private async initializeNetworkSnapshot() {
+    if (this.isInitialized) {
+      console.log('⚠️ NetworkService already initialized, skipping snapshot...');
+      return;
+    }
+
     if (this.platform.is('capacitor')) {
-      // Get initial device info
-      const deviceInfo = await Device.getInfo();
-      const batteryInfo = await Device.getBatteryInfo();
+      try {
+        this.isInitialized = true;
 
-      // Initial network status
-      const status = await Network.getStatus();
-      this.updateNetworkStatus(status, deviceInfo.platform, batteryInfo);
-
-      // Listen for network status changes
-      Network.addListener('networkStatusChange', async (status) => {
-        const batteryInfo = await Device.getBatteryInfo();
-        this.updateNetworkStatus(status, deviceInfo.platform, batteryInfo);
-      });
-
-      // Periodic connection quality check
-      setInterval(async () => {
-        const now = Date.now();
-        if (now - this.lastConnectionCheck >= this.CONNECTION_CHECK_INTERVAL) {
-          this.lastConnectionCheck = now;
-          const status = await Network.getStatus();
-          const batteryInfo = await Device.getBatteryInfo();
-          this.updateNetworkStatus(status, deviceInfo.platform, batteryInfo);
+        // Get device and battery info once
+        if (!this.cachedDeviceInfo) {
+          this.cachedDeviceInfo = await Device.getInfo();
         }
-      }, this.CONNECTION_CHECK_INTERVAL);
+        if (!this.cachedBatteryInfo) {
+          this.cachedBatteryInfo = await Device.getBatteryInfo();
+        }
+
+        // Single network status snapshot
+        const status = await Network.getStatus();
+        this.updateNetworkStatus(
+          status,
+          this.cachedDeviceInfo.platform,
+          this.cachedBatteryInfo
+        );
+      } catch (e) {
+        console.error('Error initializing network snapshot:', e);
+      }
     }
   }
 
+  /// Cleanup method placeholder (no listeners/intervals to clear in single-run mode)
+  public cleanup() {
+    console.log('🧹 NetworkService cleanup (single-run mode) - no active listeners');
+  }
+
   private updateNetworkStatus(status: any, platform: string, batteryInfo: any) {
+    // ✅ Use cached battery info if provided batteryInfo is empty or invalid
+    const battery = (batteryInfo && Object.keys(batteryInfo).length > 0 && batteryInfo.batteryLevel !== undefined)
+      ? batteryInfo 
+      : (this.cachedBatteryInfo || {});
+    
     const newStatus: NetworkStatus = {
       connected: status.connected,
       connectionType: status.connectionType || 'unknown',
-      connectionQuality: this.determineConnectionQuality(status, platform, batteryInfo),
+      connectionQuality: this.determineConnectionQuality(status, platform, battery),
       platform: platform as 'ios' | 'android' | 'web',
-      batteryLevel: batteryInfo.batteryLevel,
-      isCharging: batteryInfo.isCharging
+      batteryLevel: battery.batteryLevel,
+      isCharging: battery.isCharging
     };
+
+    // ✅ Update cached battery info if valid
+    if (battery && Object.keys(battery).length > 0 && battery.batteryLevel !== undefined) {
+      this.cachedBatteryInfo = battery;
+    }
 
     this.networkStatus.next(newStatus);
     this.handleNetworkChange(newStatus);

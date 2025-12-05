@@ -6,6 +6,7 @@ import { Platform } from '@ionic/angular';
 import { TranslateService } from '@ngx-translate/core';
 import { SocketService } from './services/socket.service';
 import { RideService } from './services/ride.service';
+import { NetworkService } from './services/network.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -25,7 +26,8 @@ export class AppComponent implements OnDestroy {
     private platform: Platform,
     private translate: TranslateService,
     private socketService: SocketService,
-    private rideService: RideService
+    private rideService: RideService,
+    private networkService: NetworkService
   ) {}
 
   async ngOnInit() {
@@ -112,5 +114,7 @@ export class AppComponent implements OnDestroy {
     }
     // Cleanup socket connection on app destroy
     this.socketService.disconnect();
+    // Cleanup network service (stops polling and removes listeners)
+    this.networkService.cleanup();
   }
 }

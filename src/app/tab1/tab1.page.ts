@@ -82,7 +82,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     }, 500);
   }
 
-  async ionViewWillLeave() {
+  async ionViewDidLeave() {
     console.log('🗺️ Tab1 leaving, cleaning up map...');
     // Don't show toast when navigating away (it can be annoying)
     // await this.presentToast('🗺️ Tab1: Leaving, destroying map');
@@ -107,7 +107,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
 
     // Cleanup map as fallback (in case ionViewWillLeave wasn't called)
-    this.cleanupMap();
+    //this.cleanupMap();
   }
 
   ngOnInit() {
@@ -231,7 +231,7 @@ export class Tab1Page implements OnInit, OnDestroy {
           keyboardShortcuts:false,
           scrollwheel:false,
           disableDoubleClickZoom:true,
-          androidLiteMode:true,
+          androidLiteMode:false,
           
           center: {
             lat: lat,
@@ -251,14 +251,24 @@ export class Tab1Page implements OnInit, OnDestroy {
       await this.newMap.setMapType(MapType.Normal);
       console.log('Map type set');
 
-      await this.newMap.enableClustering();
-      console.log('Clustering enabled');
+      // await this.newMap.enableClustering();
+      // console.log('Clustering enabled');
 
-      await this.newMap.enableCurrentLocation(true);
-      console.log('Current location enabled');
+      // Disable native current location to use accurate GPS coordinates instead
+      // The native location might use less accurate network-based location
+      await this.newMap.enableCurrentLocation(false);
+      console.log('Native current location disabled - using accurate GPS coordinates');
+
+      // Explicitly set camera to accurate location to ensure map centers correctly
+      await this.newMap.setCamera({
+        coordinate: { lat: lat, lng: lng },
+        zoom: 18,
+        animate: false,
+      });
+      console.log('Camera set to accurate location:', lat, lng);
 
       await this.setCurrentLocationMarker(lat, lng);
-      console.log('Location marker set');
+      console.log('Location marker set at accurate coordinates');
 
       this.zone.run(() => {
         this.isMapReady = true;
@@ -425,14 +435,15 @@ export class Tab1Page implements OnInit, OnDestroy {
       console.log('Permission granted, fetching location...');
 
       // Permission granted - get location with timeout handling
+      // Using longer timeout to allow GPS to get accurate fix
       const locationPromise = Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 15000, // Increased to 15 seconds for better GPS accuracy
+        maximumAge: 0, // Always get fresh location, no cache
       });
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Location request timeout')), 15000)
+        setTimeout(() => reject(new Error('Location request timeout')), 20000) // Increased to 20 seconds
       );
 
       const coordinates = await Promise.race([locationPromise, timeoutPromise]);
@@ -509,8 +520,8 @@ export class Tab1Page implements OnInit, OnDestroy {
 
       const coordinates = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 15000, // Increased to 15 seconds for better GPS accuracy
+        maximumAge: 0, // Always get fresh location, no cache
       });
 
       const { latitude, longitude } = coordinates.coords;
