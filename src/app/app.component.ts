@@ -70,9 +70,8 @@ export class AppComponent implements OnDestroy {
               this.socketService.isConnected()
             );
 
-            // Restore any active ride
-            console.log('🔄 Restoring any active rides...');
-            await this.rideService.restoreRide();
+            // Ride restoration disabled - rides will not be automatically restored on app refresh
+            // await this.rideService.restoreRide();
 
             console.log('✅ Socket.IO initialization sequence complete');
             console.log('========================================');

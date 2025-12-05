@@ -64,6 +64,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   isDriverArrived = false;
   currentRideStatus: RideStatus = 'idle';
   statusText = 'Preparing...';
+  isDriverModalOpen = true;
 
   // Rating properties
   showRating = false;
@@ -87,6 +88,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    this.isDriverModalOpen = true;
     // Get ride ID from route params (if navigated with params)
     const rideId = this.route.snapshot.paramMap.get('rideId');
 
@@ -214,7 +216,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
   }
 
+  ionViewWillLeave() {
+    this.isDriverModalOpen = false;
+  }
+
+  ionViewDidLeave() {
+    this.isDriverModalOpen = false;
+  }
+
   ngOnDestroy() {
+    this.isDriverModalOpen = false;
     // Unsubscribe from all subscriptions
     this.rideSubscription?.unsubscribe();
     this.rideStatusSubscription?.unsubscribe();
@@ -291,10 +302,24 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         this.statusText = 'Driver Arrived';
         this.isDriverArrived = true;
         this.arrivalTime = '0';
+        // Ensure start OTP is shown when driver arrives
+        if (this.currentRide && this.driver) {
+          this.driver = {
+            ...this.driver,
+            otp: this.currentRide.startOtp || 'N/A',
+          };
+        }
         break;
       case 'in_progress':
         this.statusText = 'Ride in Progress';
         this.isDriverArrived = false; // Hide OTP section during ride
+        // Show stop OTP during ride
+        if (this.currentRide && this.driver) {
+          this.driver = {
+            ...this.driver,
+            otp: this.currentRide.stopOtp || 'N/A',
+          };
+        }
         // Add destination marker when ride starts
         await this.addDestinationMarker();
         break;

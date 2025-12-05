@@ -21,26 +21,22 @@ ion-content{
   background: #f0f0f0; // Light gray background to show map container
 }
 
-.driver-modal {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+/* Ionic sheet modal styling for driver details */
+ion-modal.driver-sheet-modal::part(content) {
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  background: var(--ion-color-light);
+  max-height: 80vh;
+}
+
+.driver-modal-shell {
   background: var(--ion-color-light);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-  z-index: 2;
-  transform: translateY(0);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   max-height: 80vh;
   overflow-y: auto;
-
-  &.arrived {
-    .modal-content {
-      transform: translateY(0);
-    }
-  }
 
   &.in-progress {
     .modal-header {
@@ -81,8 +77,6 @@ ion-content{
 
 .modal-content {
   padding: 20px;
-  transform: translateY(0);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .driver-info {
@@ -280,7 +274,7 @@ ion-content{
 
 // Dark theme adjustments
 @media (prefers-color-scheme: dark) {
-  .driver-modal {
+  .driver-modal-shell {
     background: var(--ion-color-dark);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
   }
@@ -320,7 +314,7 @@ ion-content{
   }
 }
 
-.driver-modal {
+.driver-modal-shell {
   animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

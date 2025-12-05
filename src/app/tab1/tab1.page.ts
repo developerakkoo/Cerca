@@ -49,6 +49,8 @@ export class Tab1Page implements OnInit, OnDestroy {
   private currentLocationMarker: string | undefined;
   private pickupSubscription: Subscription | null = null;
   private destinationSubscription: Subscription | null = null;
+  private isCleanupInProgress = false;
+  private isMapCreationInProgress = false;
 
   constructor(
     private notification: NotificationService,
@@ -140,6 +142,14 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
     toast.present();
   }
+  private clearUpdateInterval() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+      console.log('✅ Update interval cleared');
+    }
+  }
+
   private async cleanupMap() {
     if (this.newMap) {
       try {
@@ -168,6 +178,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     }
   }
+
 
   private async clearCabMarkers() {
     if (!this.newMap) {
@@ -218,7 +229,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       console.log('Map ID:', environment.mapId);
 
       const newMap = await GoogleMap.create({
-        id: 'tab1-map', // Unique ID for tab1 page
+        id: 'map', // Unique ID for tab1 page
         element: this.mapRef.nativeElement,
         apiKey: environment.apiKey,
 
@@ -244,34 +255,39 @@ export class Tab1Page implements OnInit, OnDestroy {
       });
 
       console.log('Map created successfully');
-      this.zone.run(() => {
-        this.newMap = newMap;
-      });
 
-      await this.newMap.setMapType(MapType.Normal);
+      // Use local newMap variable for operations to avoid TypeScript issues
+      await newMap.setMapType(MapType.Normal);
       console.log('Map type set');
 
-      // await this.newMap.enableClustering();
+      // await newMap.enableClustering();
       // console.log('Clustering enabled');
 
       // Disable native current location to use accurate GPS coordinates instead
       // The native location might use less accurate network-based location
-      await this.newMap.enableCurrentLocation(false);
+      await newMap.enableCurrentLocation(false);
       console.log('Native current location disabled - using accurate GPS coordinates');
 
       // Explicitly set camera to accurate location to ensure map centers correctly
-      await this.newMap.setCamera({
+      await newMap.setCamera({
         coordinate: { lat: lat, lng: lng },
         zoom: 18,
         animate: false,
       });
       console.log('Camera set to accurate location:', lat, lng);
 
+      // Assign to instance variable after operations
+      this.zone.run(() => {
+        this.newMap = newMap;
+      });
+
       await this.setCurrentLocationMarker(lat, lng);
       console.log('Location marker set at accurate coordinates');
 
       this.zone.run(() => {
         this.isMapReady = true;
+        // Reset flag after successful map creation
+        this.isMapCreationInProgress = false;
       });
       await this.presentToast('✅ Tab1: Map created & ready!');
     } catch (error: any) {
@@ -311,39 +327,59 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.currentLocationMarker = marker;
   }
 
+  // Disabled: Cab updates interval is not used and causes performance issues
+  // If needed in the future, ensure proper lifecycle management:
+  // - Start in ionViewDidEnter after map is ready
+  // - Stop in ionViewDidLeave and cleanupMap
+  // - Clear interval in ngOnDestroy
+  /*
   private async startCabUpdates() {
+    // Ensure interval is cleared before starting new one
+    this.clearUpdateInterval();
+    
+    if (!this.newMap || !this.isMapReady) {
+      console.log('⚠️ Cannot start cab updates: map not ready');
+      return;
+    }
+    
     await this.updateCabMarkers();
     this.updateInterval = setInterval(() => {
+      if (this.newMap && this.isMapReady) {
       this.zone.run(() => this.updateCabMarkers());
+      } else {
+        // Map destroyed, stop interval
+        this.clearUpdateInterval();
+      }
     }, 5000);
   }
+  */
 
-  private async updateCabMarkers() {
-    await this.clearCabMarkers();
-    const numCabs = 5;
-    for (let i = 0; i < numCabs; i++) {
-      const cabPosition = this.generateRandomCabPosition();
-      const previousPosition =
-        this.cabMarkers.find((cab) => cab.id === `cab-${i}`)?.position ||
-        cabPosition;
-      const direction = this.calculateDirection(previousPosition, cabPosition);
-      const iconUrl = this.getDirectionalCabIcon(direction);
+  // private async updateCabMarkers() {
+  //   await this.clearCabMarkers();
+  //   const numCabs = 5;
+  //   for (let i = 0; i < numCabs; i++) {
+  //     const cabPosition = this.generateRandomCabPosition();
+  //     const previousPosition =
+  //       this.cabMarkers.find((cab) => cab.id === `cab-${i}`)?.position ||
+  //       cabPosition;
+  //     const direction = this.calculateDirection(previousPosition, cabPosition);
+  //     const iconUrl = this.getDirectionalCabIcon(direction);
 
-      const cabMarker = await this.newMap.addMarker({
-        coordinate: cabPosition,
-        title: `Cab ${i + 1}`,
-        snippet: 'Available',
-        iconUrl: iconUrl,
-      });
+  //     const cabMarker = await this.newMap.addMarker({
+  //       coordinate: cabPosition,
+  //       title: `Cab ${i + 1}`,
+  //       snippet: 'Available',
+  //       iconUrl: iconUrl,
+  //     });
 
-      this.cabMarkers.push({
-        id: `cab-${i}`,
-        marker: cabMarker,
-        position: cabPosition,
-        previousPosition: previousPosition,
-      });
-    }
-  }
+  //     this.cabMarkers.push({
+  //       id: `cab-${i}`,
+  //       marker: cabMarker,
+  //       position: cabPosition,
+  //       previousPosition: previousPosition,
+  //     });
+  //   }
+  // }
 
   private calculateDirection(previous: LatLng, current: LatLng): string {
     const dx = current.lng - previous.lng;
@@ -363,23 +399,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     return `assets/cab-${direction}.png`;
   }
 
-  private generateRandomCabPosition(): LatLng {
-    const radius = 0.01;
-    const angle = Math.random() * 2 * Math.PI;
-    const distance = Math.random() * radius;
-    const movementFactor = 0.0001;
-    const movementAngle = Math.random() * 2 * Math.PI;
-    return {
-      lat:
-        this.currentLocation.lat +
-        distance * Math.cos(angle) +
-        movementFactor * Math.cos(movementAngle),
-      lng:
-        this.currentLocation.lng +
-        distance * Math.sin(angle) +
-        movementFactor * Math.sin(movementAngle),
-    };
-  }
+ 
 
   async getCurrentPosition() {
     try {

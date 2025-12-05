@@ -3,7 +3,9 @@ import { BehaviorSubject, Observable, Subject, firstValueFrom, Subscription } fr
 import { SocketService } from './socket.service';
 import { Storage } from '@ionic/storage-angular';
 import { Router } from '@angular/router';
-import { ToastController, AlertController } from '@ionic/angular';
+import { ToastController } from '@ionic/angular';
+import { HttpClient } from '@angular/common/http';
+import { environment } from 'src/environments/environment';
 
 export interface Location {
   latitude: number;
@@ -93,7 +95,7 @@ export class RideService {
     private storage: Storage,
     private router: Router,
     private toastCtrl: ToastController,
-    private alertCtrl: AlertController
+    private http: HttpClient
   ) {
     this.initStorage();
     this.setupSocketListeners();
@@ -148,7 +150,6 @@ export class RideService {
       this.rideStatus$.next('accepted');
       this.storeRide(ride);
       this.showToast(`🚗 Driver found! ${ride.driver?.name} is on the way`);
-      this.showDriverAcceptedAlert(ride.driver!);
       
       // Navigate to active-ordere page (not driver-details)
       this.router.navigate(['/active-ordere'], {
@@ -175,7 +176,6 @@ export class RideService {
       this.currentRide$.next(ride);
       this.rideStatus$.next('arrived');
       this.storeRide(ride);
-      this.showDriverArrivedAlert(ride);
     });
     this.socketSubscriptions.push(driverArrivedSub);
 
@@ -525,9 +525,9 @@ export class RideService {
         description: description || '',
       });
 
-      await this.showAlert(
-        '🚨 Emergency Alert Sent',
-        'Emergency services and support team have been notified. Help is on the way.'
+      await this.showToast(
+        '🚨 Emergency alert sent. Help is on the way.',
+        'primary'
       );
     } catch (error) {
       console.error('Error triggering emergency:', error);
@@ -627,6 +627,15 @@ export class RideService {
   }
 
   /**
+   * Get all rides for a specific user
+   * @param userId - The user ID to fetch rides for
+   * @returns Observable of Ride array
+   */
+  getUserRides(userId: string): Observable<Ride[]> {
+    return this.http.get<Ride[]>(`${environment.apiUrl}/rides/rides/user/${userId}`);
+  }
+
+  /**
    * Restore ride from storage (on app restart)
    */
   async restoreRide(): Promise<void> {
@@ -668,62 +677,6 @@ export class RideService {
       color,
     });
     await toast.present();
-  }
-
-  /**
-   * Show driver accepted alert
-   */
-  private async showDriverAcceptedAlert(driver: DriverInfo): Promise<void> {
-    const alert = await this.alertCtrl.create({
-      header: '🚗 Driver Found!',
-      message: `
-        <strong>${driver.name}</strong> is coming to pick you up<br><br>
-        <strong>Vehicle:</strong> ${driver.vehicleInfo.color} ${driver.vehicleInfo.make} ${driver.vehicleInfo.model}<br>
-        <strong>Plate:</strong> ${driver.vehicleInfo.licensePlate}<br>
-        <strong>Rating:</strong> ⭐ ${driver.rating}
-      `,
-      buttons: ['OK'],
-    });
-    await alert.present();
-  }
-
-  /**
-   * Show driver arrived alert
-   */
-  private async showDriverArrivedAlert(ride: Ride): Promise<void> {
-    const alert = await this.alertCtrl.create({
-      header: '🎉 Driver Arrived!',
-      message: `
-        Your driver is waiting for you.<br><br>
-        <strong>Share this OTP to start your ride:</strong><br>
-        <div style="font-size: 32px; font-weight: bold; color: #0984E3; text-align: center; margin: 16px 0;">
-          ${ride.startOtp}
-        </div>
-      `,
-      buttons: [
-        {
-          text: 'Copy OTP',
-          handler: () => {
-            this.copyToClipboard(ride.startOtp);
-            this.showToast('OTP copied to clipboard');
-          },
-        },
-        'OK',
-      ],
-    });
-    await alert.present();
-  }
-
-  /**
-   * Show alert
-   */
-  private async showAlert(header: string, message: string): Promise<void> {
-    const alert = await this.alertCtrl.create({
-      header,
-      message,
-      buttons: ['OK'],
-    });
-    await alert.present();
   }
 
   /**

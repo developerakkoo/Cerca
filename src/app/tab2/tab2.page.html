@@ -14,7 +14,7 @@
   </ion-header>
 
   <div class="segment-container">
-    <ion-segment color="primary" value="active" (ionChange)="segmentChanged($event)" class="scrollable-segment">
+    <ion-segment color="primary" value="active" (ionChange)="segmentChanged($event)" >
       <ion-segment-button value="active" content-id="active">
         <ion-label>Active Now</ion-label>
       </ion-segment-button>
@@ -24,60 +24,92 @@
     </ion-segment>
   </div>
 
-  <ion-segment-view id="active" *ngIf="isActive">
-    <ion-list >
-      <!-- active-booking-card.component.html -->
-      <ion-card *ngFor="let booking of activeBookings">
+  <!-- Active Rides Section -->
+  <div *ngIf="isActive">
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="ion-text-center ion-padding">
+      <ion-spinner></ion-spinner>
+      <p>Loading rides...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && activeBookings.length === 0" class="ion-text-center ion-padding">
+      <ion-icon name="car-outline" size="large" color="medium"></ion-icon>
+      <h3>No Active Rides</h3>
+      <p>You don't have any active rides at the moment.</p>
+    </div>
+
+    <!-- Active Rides List -->
+    <ion-list *ngIf="!isLoading && activeBookings.length > 0" class="rides-list">
+      <ion-card *ngFor="let booking of displayedActiveBookings">
         <ion-card-header>
           <ion-card-title>
-            Active Booking #{{ booking.id }}
+            Ride #{{ booking._id.slice(-6) }}
           </ion-card-title>
+          <ion-card-subtitle>
+            {{ formatDate(booking.createdAt) }} at {{ formatTime(booking.createdAt) }}
+          </ion-card-subtitle>
         </ion-card-header>
       
         <ion-card-content>
           <ion-grid>
             <ion-row>
               <ion-col size="6">
-                <ion-label>Driver:</ion-label>
-                <ion-text>{{ booking.driverName }}</ion-text>
+                <ion-label><strong>Driver:</strong></ion-label>
+                <ion-text>{{ getDriverName(booking) }}</ion-text>
               </ion-col>
               <ion-col size="6">
-                <ion-label>Car:</ion-label>
-                <ion-text>{{ booking.carType }}</ion-text>
+                <ion-label><strong>Vehicle:</strong></ion-label>
+                <ion-text>{{ getVehicleInfo(booking) }}</ion-text>
+              </ion-col>
+            </ion-row>
+      
+            <ion-row>
+              <ion-col size="12">
+                <ion-label><strong>Pickup:</strong></ion-label>
+                <ion-text>{{ booking.pickupAddress || 'N/A' }}</ion-text>
+              </ion-col>
+            </ion-row>
+      
+            <ion-row>
+              <ion-col size="12">
+                <ion-label><strong>Destination:</strong></ion-label>
+                <ion-text>{{ booking.dropoffAddress || 'N/A' }}</ion-text>
               </ion-col>
             </ion-row>
       
             <ion-row>
               <ion-col size="6">
-                <ion-label>Pickup:</ion-label>
-                <ion-text>{{ booking.pickupLocation }}</ion-text>
+                <ion-label><strong>Fare:</strong></ion-label>
+                <ion-text>₹{{ booking.fare || 'N/A' }}</ion-text>
               </ion-col>
               <ion-col size="6">
-                <ion-label>Drop:</ion-label>
-                <ion-text>{{ booking.dropLocation }}</ion-text>
-              </ion-col>
-            </ion-row>
-      
-            <ion-row>
-              <ion-col size="6">
-                <ion-label>ETA:</ion-label>
-                <ion-text>{{ booking.estimatedArrivalTime }}</ion-text>
-              </ion-col>
-              <ion-col size="6">
-                <ion-label>Status:</ion-label>
-                <ion-text [color]="booking.status === 'Active' ? 'success' : 'danger'">{{ booking.status }}</ion-text>
+                <ion-label><strong>Status:</strong></ion-label>
+                <ion-text [color]="getStatusColor(booking.status)">
+                  {{ getStatusText(booking.status) }}
+                </ion-text>
               </ion-col>
             </ion-row>
       
             <ion-row>
               <ion-col size="6">
-                <ion-button expand="block" mode="ios" [routerLink]="['/active-ordere']" class="view-details-btn">
+                <ion-button 
+                  expand="block" 
+                  mode="ios" 
+                  (click)="navigateToActiveRide(booking._id)" 
+                  class="view-details-btn"
+                  [disabled]="booking.status === 'requested'">
                   <ion-icon name="information-circle-outline" slot="start"></ion-icon>
                   View
                 </ion-button>
               </ion-col>
               <ion-col size="6">
-                <ion-button expand="block" mode="ios" (click)="callDriver()" class="call-driver-btn">
+                <ion-button 
+                  expand="block" 
+                  mode="ios" 
+                  (click)="callDriver(booking.driver?.phone)" 
+                  class="call-driver-btn"
+                  [disabled]="!booking.driver?.phone">
                   <ion-icon name="call-outline" slot="start"></ion-icon>
                   Call Driver
                 </ion-button>
@@ -88,34 +120,106 @@
       </ion-card>
     </ion-list>
 
+    <!-- Load More Button for Active Rides -->
+    <div *ngIf="!isLoading && hasMoreActive()" class="ion-text-center ion-padding">
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        (click)="loadMoreActive()"
+        class="load-more-btn">
+        <ion-icon name="chevron-down-outline" slot="end"></ion-icon>
+        Load More ({{ activeBookings.length - activeDisplayCount }} remaining)
+      </ion-button>
+    </div>
+  </div>
 
-  </ion-segment-view>
+  <!-- Past Rides Section -->
+  <div *ngIf="!isActive">
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="ion-text-center ion-padding">
+      <ion-spinner></ion-spinner>
+      <p>Loading rides...</p>
+    </div>
 
-  <ion-segment-view id="past" *ngIf="!isActive">
-    <ion-list >
-      <ion-card *ngFor="let booking of pastBookings">
-        <ion-card-header>
-          <ion-card-title color="light">
-            Past Booking #{{ booking.id }}
-          </ion-card-title>
-        </ion-card-header>
-        <ion-card-content>
-          <ion-grid>
-            <ion-row>
-              <ion-col size="6">
-                <ion-label>Driver:</ion-label>
-                <ion-text>{{ booking.driverName }}</ion-text>
-              </ion-col>
-              <ion-col size="6">
-                <ion-label>Car:</ion-label>
-                <ion-text>{{ booking.carType }}</ion-text>
-              </ion-col>
-              .
-            </ion-row>
-          </ion-grid>
-          .
-        </ion-card-content>
-      </ion-card>
-    </ion-list>
-  </ion-segment-view>
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && pastBookings.length === 0" class="ion-text-center ion-padding">
+      <ion-icon name="time-outline" size="large" color="medium"></ion-icon>
+      <h3>No Past Rides</h3>
+      <p>Your completed and cancelled rides will appear here.</p>
+    </div>
+
+    <!-- Past Rides List -->
+    <ion-list *ngIf="!isLoading && pastBookings.length > 0" class="rides-list">
+  <ion-card *ngFor="let booking of displayedPastBookings">
+    <ion-card-header>
+      <ion-card-title color="light">
+        Ride #{{ booking._id.slice(-6) }}
+      </ion-card-title>
+      <ion-card-subtitle>
+        {{ formatDate(booking.createdAt) }} at {{ formatTime(booking.createdAt) }}
+      </ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-grid>
+        <ion-row>
+          <ion-col size="6">
+            <ion-label><strong>Driver:</strong></ion-label>
+            <ion-text>{{ getDriverName(booking) }}</ion-text>
+          </ion-col>
+          <ion-col size="6">
+            <ion-label><strong>Vehicle:</strong></ion-label>
+            <ion-text>{{ getVehicleInfo(booking) }}</ion-text>
+          </ion-col>
+        </ion-row>
+  
+        <ion-row>
+          <ion-col size="12">
+            <ion-label><strong>Pickup:</strong></ion-label>
+            <ion-text>{{ booking.pickupAddress || 'N/A' }}</ion-text>
+          </ion-col>
+        </ion-row>
+  
+        <ion-row>
+          <ion-col size="12">
+            <ion-label><strong>Destination:</strong></ion-label>
+            <ion-text>{{ booking.dropoffAddress || 'N/A' }}</ion-text>
+          </ion-col>
+        </ion-row>
+  
+        <ion-row>
+          <ion-col size="6">
+            <ion-label><strong>Fare:</strong></ion-label>
+            <ion-text>₹{{ booking.fare || 'N/A' }}</ion-text>
+          </ion-col>
+          <ion-col size="6">
+            <ion-label><strong>Status:</strong></ion-label>
+            <ion-text [color]="getStatusColor(booking.status)">
+              {{ getStatusText(booking.status) }}
+            </ion-text>
+          </ion-col>
+        </ion-row>
+
+        <ion-row *ngIf="booking.actualEndTime">
+          <ion-col size="12">
+            <ion-label><strong>Completed:</strong></ion-label>
+            <ion-text>{{ formatDate(booking.actualEndTime) }} at {{ formatTime(booking.actualEndTime) }}</ion-text>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+    </ion-card-content>
+  </ion-card>
+</ion-list>
+
+    <!-- Load More Button for Past Rides -->
+    <div *ngIf="!isLoading && hasMorePast()" class="ion-text-center ion-padding">
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        (click)="loadMorePast()"
+        class="load-more-btn">
+        <ion-icon name="chevron-down-outline" slot="end"></ion-icon>
+        Load More ({{ pastBookings.length - pastDisplayCount }} remaining)
+      </ion-button>
+    </div>
+  </div>
 </ion-content>

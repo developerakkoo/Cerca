@@ -211,8 +211,26 @@ ion-text[color="danger"] {
   animation: pulse 2s infinite;
 }
 
-ion-list{
-    width: 100%;
+
+
+.rides-list {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+.load-more-btn {
+  margin: 16px;
+  --border-radius: 12px;
+  --border-width: 2px;
+  --border-color: var(--ion-color-primary);
+  --color: var(--ion-color-primary);
+  font-weight: 500;
+  height: 48px;
+  
+  ion-icon {
+    font-size: 1.2rem;
+  }
 }
 .segment-container {
     width: 100%;
