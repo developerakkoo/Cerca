@@ -57,6 +57,8 @@ export class Tab2Page implements OnInit {
         this.rideService.getUserRides(user._id)
       );
 
+      console.log(rides);
+      
       // Filter rides into active and past
       this.activeBookings = rides.filter(
         (ride) =>
@@ -148,6 +150,7 @@ export class Tab2Page implements OnInit {
   }
 
   navigateToActiveRide(rideId: string) {
+    console.log(rideId);
     this.router.navigate(['/active-ordere', rideId]);
   }
 

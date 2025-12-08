@@ -160,10 +160,24 @@ export class RideService {
 
     // Driver location updates
     const driverLocationSub = this.socketService
-      .on<{ location: Location; estimatedTime: number }>('driverLocationUpdate')
+      .on<{ location: Location | { coordinates: [number, number] }; estimatedTime?: number }>('driverLocationUpdate')
       .subscribe((data) => {
         console.log('📍 Driver location update:', data);
-        this.driverLocation$.next(data.location);
+        
+        // Transform location format if needed
+        let location: Location;
+        if ('coordinates' in data.location) {
+          // Backend sends {coordinates: [lng, lat]}
+          location = {
+            latitude: data.location.coordinates[1],
+            longitude: data.location.coordinates[0],
+          };
+        } else {
+          // Already in correct format
+          location = data.location as Location;
+        }
+        
+        this.driverLocation$.next(location);
         if (data.estimatedTime) {
           this.driverETA$.next(data.estimatedTime);
         }
@@ -193,10 +207,24 @@ export class RideService {
 
     // Live ride location updates
     const rideLocationSub = this.socketService
-      .on<{ location: Location }>('rideLocationUpdate')
+      .on<{ location: Location | { coordinates: [number, number] } }>('rideLocationUpdate')
       .subscribe((data) => {
         console.log('📍 Ride location update:', data);
-        this.driverLocation$.next(data.location);
+        
+        // Transform location format if needed
+        let location: Location;
+        if ('coordinates' in data.location) {
+          // Backend sends {coordinates: [lng, lat]}
+          location = {
+            latitude: data.location.coordinates[1],
+            longitude: data.location.coordinates[0],
+          };
+        } else {
+          // Already in correct format
+          location = data.location as Location;
+        }
+        
+        this.driverLocation$.next(location);
       });
     this.socketSubscriptions.push(rideLocationSub);
 

@@ -1,8 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Storage } from '@ionic/storage-angular';
-import { BehaviorSubject, Observable, tap, of } from 'rxjs';
+import { BehaviorSubject, Observable, tap, of, switchMap } from 'rxjs';
 import { environment } from 'src/environments/environment';
+import { WalletService } from './wallet.service';
 
 export interface User {
   id?: string;
@@ -59,10 +60,19 @@ export class UserService {
   private pendingRideDetailsSubject = new BehaviorSubject<any>(null);
   public pendingRideDetails$ = this.pendingRideDetailsSubject.asObservable();
 
-  constructor(private http: HttpClient, private storage: Storage) {
+  constructor(
+    private http: HttpClient,
+    private storage: Storage,
+    private walletService: WalletService
+  ) {
     this.storage.create();
     // Load user data from storage on service initialization
     this.loadUserFromStorage();
+    
+    // Subscribe to wallet balance updates from WalletService
+    this.walletService.walletBalance$.subscribe((balance) => {
+      this.walletBalanceSubject.next(balance);
+    });
   }
 
   loadUserFromStorage() {
@@ -228,19 +238,81 @@ export class UserService {
     return this.walletBalanceSubject.asObservable();
   }
 
-  deductFromWallet(amount: number): Observable<boolean> {
-    const currentBalance = this.walletBalanceSubject.value;
-    if (currentBalance >= amount) {
-      this.walletBalanceSubject.next(currentBalance - amount);
-      return of(true);
-    }
-    return of(false);
+  /**
+   * Deduct from wallet using WalletService
+   * Note: This method now requires userId and should be called with proper context
+   */
+  deductFromWallet(amount: number, userId?: string, rideId?: string): Observable<boolean> {
+    return new Observable((observer) => {
+      if (!userId) {
+        // Fallback to local behavior if no userId provided (for backward compatibility)
+        const currentBalance = this.walletBalanceSubject.value;
+        if (currentBalance >= amount) {
+          this.walletBalanceSubject.next(currentBalance - amount);
+          observer.next(true);
+        } else {
+          observer.next(false);
+        }
+        observer.complete();
+        return;
+      }
+
+      // Use WalletService for API call
+      this.walletService
+        .deductFromWallet(userId, { amount, rideId, description: `Ride payment of ₹${amount}` })
+        .subscribe({
+          next: (response) => {
+            observer.next(response.success);
+            observer.complete();
+          },
+          error: (error) => {
+            console.error('Error deducting from wallet:', error);
+            observer.next(false);
+            observer.complete();
+          },
+        });
+    });
   }
 
-  addToWallet(amount: number): Observable<boolean> {
-    const currentBalance = this.walletBalanceSubject.value;
-    this.walletBalanceSubject.next(currentBalance + amount);
-    return of(true);
+  /**
+   * Add to wallet using WalletService
+   * Note: This method now requires userId and payment details
+   */
+  addToWallet(
+    amount: number,
+    userId?: string,
+    paymentGatewayTransactionId?: string
+  ): Observable<boolean> {
+    return new Observable((observer) => {
+      if (!userId) {
+        // Fallback to local behavior if no userId provided (for backward compatibility)
+        const currentBalance = this.walletBalanceSubject.value;
+        this.walletBalanceSubject.next(currentBalance + amount);
+        observer.next(true);
+        observer.complete();
+        return;
+      }
+
+      // Use WalletService for API call
+      this.walletService
+        .topUpWallet(userId, {
+          amount,
+          paymentMethod: 'RAZORPAY',
+          paymentGatewayTransactionId,
+          description: `Wallet top-up of ₹${amount}`,
+        })
+        .subscribe({
+          next: (response) => {
+            observer.next(response.success);
+            observer.complete();
+          },
+          error: (error) => {
+            console.error('Error adding to wallet:', error);
+            observer.next(false);
+            observer.complete();
+          },
+        });
+    });
   }
 
   // Pending ride details management

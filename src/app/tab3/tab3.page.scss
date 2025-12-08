@@ -152,3 +152,74 @@
   animation: fadeIn 0.3s ease-out forwards;
   animation-delay: calc(var(--index) * 0.1s);
 }
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+
+  p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+
+  ion-icon {
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  p {
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin: 8px 0;
+    font-weight: 500;
+
+    &.empty-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 400;
+      margin-top: 4px;
+    }
+  }
+}
+
+.transaction-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+
+  .amount {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .status-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 2px 6px;
+  }
+}
+
+.transaction-date {
+  font-size: 0.75rem !important;
+  color: var(--text-secondary) !important;
+  margin-top: 4px !important;
+}

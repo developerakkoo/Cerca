@@ -13,18 +13,28 @@
     </ion-toolbar>
   </ion-header>
 
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading && !isRefreshing" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading wallet data...</p>
+  </div>
+
   <!-- Balance Card -->
-  <ion-card class="balance-card">
+  <ion-card class="balance-card" *ngIf="!isLoading || isRefreshing">
     <ion-card-content>
       <div class="balance-container">
         <h2 class="balance-label">Available Balance</h2>
-        <h1 class="balance-amount">₹{{ balance.toFixed(2) }}</h1>
+        <h1 class="balance-amount">₹{{ (balance || 0).toFixed(2) }}</h1>
         <div class="action-buttons">
-          <ion-button expand="block" fill="solid" (click)="addMoney()">
+          <ion-button expand="block" fill="solid" (click)="addMoney()" [disabled]="isLoading">
             <ion-icon name="add-circle-outline" slot="start"></ion-icon>
             Add Money
           </ion-button>
-          <ion-button expand="block" fill="outline" (click)="useMoney()">
+          <ion-button expand="block" fill="outline" (click)="useMoney()" [disabled]="isLoading">
             <ion-icon name="wallet-outline" slot="start"></ion-icon>
             Use Money
           </ion-button>
@@ -34,25 +44,50 @@
   </ion-card>
 
   <!-- Recent Transactions -->
-  <div class="transactions-section">
+  <div class="transactions-section" *ngIf="!isLoading || isRefreshing">
     <h2 class="section-title">Recent Transactions</h2>
-    <ion-list>
+    
+    <!-- Empty State -->
+    <div *ngIf="transactions.length === 0" class="empty-state">
+      <ion-icon name="receipt-outline" size="large" color="medium"></ion-icon>
+      <p>No transactions yet</p>
+      <p class="empty-subtitle">Your transaction history will appear here</p>
+    </div>
+
+    <!-- Transactions List -->
+    <ion-list *ngIf="transactions.length > 0">
       <ion-item *ngFor="let transaction of transactions" class="transaction-item">
-        <ion-icon [name]="transaction.type === 'credit' ? 'arrow-down-circle' : 'arrow-up-circle'"
-                 [color]="transaction.type === 'credit' ? 'success' : 'danger'"
-                 slot="start">
+        <ion-icon 
+          [name]="isCreditTransaction(transaction.transactionType) ? 'arrow-down-circle' : 'arrow-up-circle'"
+          [color]="isCreditTransaction(transaction.transactionType) ? 'success' : 'danger'"
+          slot="start">
         </ion-icon>
         <ion-label>
-          <h3>{{ transaction.description }}</h3>
-          <p>{{ transaction.date | date:'mediumDate' }}</p>
+          <h3>{{ getTransactionTypeDisplay(transaction.transactionType) }}</h3>
+          <p>{{ transaction.description || getTransactionTypeDisplay(transaction.transactionType) }}</p>
+          <p class="transaction-date">{{ transaction.createdAt | date:'medium' }}</p>
         </ion-label>
-        <ion-note slot="end" [color]="transaction.type === 'credit' ? 'success' : 'danger'">
-          {{ transaction.type === 'credit' ? '+' : '-' }}₹{{ transaction.amount.toFixed(2) }}
-        </ion-note>
-        <ion-badge slot="end" [color]="getStatusColor(transaction.status)">
-          {{ transaction.status }}
-        </ion-badge>
+        <div slot="end" class="transaction-amounts">
+          <ion-note [color]="isCreditTransaction(transaction.transactionType) ? 'success' : 'danger'" class="amount">
+            {{ isCreditTransaction(transaction.transactionType) ? '+' : '-' }}₹{{ transaction.amount.toFixed(2) }}
+          </ion-note>
+          <ion-badge [color]="getStatusColor(transaction.status)" class="status-badge">
+            {{ transaction.status }}
+          </ion-badge>
+        </div>
       </ion-item>
     </ion-list>
+
+    <!-- View All Button -->
+    <div *ngIf="transactions.length > 0" class="ion-text-center ion-padding-top">
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        (click)="viewAllTransactions()"
+        [disabled]="isLoading">
+        <ion-icon name="list-outline" slot="start"></ion-icon>
+        View All Transactions
+      </ion-button>
+    </div>
   </div>
 </ion-content>

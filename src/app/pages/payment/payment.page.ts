@@ -9,6 +9,9 @@ import {
 import { CommonModule } from '@angular/common';
 import { UserService } from '../../services/user.service';
 import { RideService } from '../../services/ride.service';
+import { PaymentService } from '../../services/payment.service';
+import { WalletService } from '../../services/wallet.service';
+import { Storage } from '@ionic/storage-angular';
 
 @Component({
   selector: 'app-payment',
@@ -34,16 +37,24 @@ export class PaymentPage implements OnInit {
   // Pending ride details
   private pendingRideDetails: any = null;
 
+  private userId: string | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private userService: UserService,
     private rideService: RideService,
+    private paymentService: PaymentService,
+    private walletService: WalletService,
+    private storage: Storage,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
+    // Load user ID
+    await this.loadUserId();
+    
     // Get pending ride details
     this.pendingRideDetails = this.userService.getPendingRideDetails();
 
@@ -80,6 +91,13 @@ export class PaymentPage implements OnInit {
         this.calculateTotal();
       }
     });
+  }
+
+  private async loadUserId() {
+    this.userId = await this.storage.get('userId');
+    if (!this.userId) {
+      console.warn('User ID not found');
+    }
   }
 
   onPaymentMethodChange(event: any) {
@@ -137,27 +155,6 @@ export class PaymentPage implements OnInit {
     await loading.present();
 
     try {
-      // Process payment
-      if (this.isWalletSelected) {
-        // Deduct amount from wallet
-        const success = await this.userService
-          .deductFromWallet(this.totalAmount)
-          .toPromise();
-        if (!success) {
-          throw new Error('Failed to deduct from wallet');
-        }
-      }
-
-      console.log('✅ Payment processed:', {
-        amount: this.totalAmount,
-        method: this.selectedPaymentMethod,
-        promoApplied: this.promoApplied,
-        discountAmount: this.discountAmount,
-      });
-
-      // TODO: Calculate actual fare based on distance
-      const estimatedDistance = 5.2;
-
       // Convert payment method to backend format
       let paymentMethod: 'CASH' | 'RAZORPAY' | 'WALLET' = 'CASH';
       if (this.selectedPaymentMethod === 'wallet') {
@@ -165,6 +162,89 @@ export class PaymentPage implements OnInit {
       } else if (this.selectedPaymentMethod === 'razorpay') {
         paymentMethod = 'RAZORPAY';
       }
+
+      // Process payment based on method
+      if (this.selectedPaymentMethod === 'wallet') {
+        // Deduct amount from wallet
+        const success = await this.userService
+          .deductFromWallet(this.totalAmount)
+          .toPromise();
+        if (!success) {
+          throw new Error('Failed to deduct from wallet');
+        }
+        console.log('✅ Wallet payment processed');
+      } else if (this.selectedPaymentMethod === 'razorpay') {
+        // Process Razorpay payment: initiate -> checkout -> handle result
+        await this.paymentService.processPayment(
+          this.totalAmount,
+          async (paymentResponse) => {
+            // Payment successful - refresh wallet balance and proceed with ride request
+            console.log('✅ Razorpay payment successful:', paymentResponse);
+            
+            // Refresh wallet balance after successful payment
+            if (this.userId) {
+              try {
+                await this.walletService.getWalletBalance(this.userId).toPromise();
+                console.log('✅ Wallet balance refreshed after Razorpay payment');
+              } catch (error) {
+                console.warn('⚠️ Failed to refresh wallet balance:', error);
+                // Continue with ride request even if wallet refresh fails
+              }
+            }
+            
+            await this.requestRideAfterPayment(paymentMethod, paymentResponse.razorpay_payment_id);
+          },
+          async (error) => {
+            // Payment failed
+            console.error('❌ Razorpay payment failed:', error);
+            await loading.dismiss();
+            await this.showToast('Payment failed. Please try again.', 'danger');
+          },
+          {
+            name: 'Cerca',
+            description: `Ride payment of ₹${this.totalAmount}`,
+            prefill: {
+              // You can add user details here if available
+            },
+            notes: {
+              rideId: 'pending', // Will be updated after ride is created
+            },
+          }
+        );
+        
+        // Dismiss loading here as Razorpay modal will handle the UI
+        await loading.dismiss();
+        return; // Exit early as ride request will be handled in payment success callback
+      }
+
+      // For cash and wallet payments, proceed directly to ride request
+      await this.requestRideAfterPayment(paymentMethod);
+      await loading.dismiss();
+    } catch (error) {
+      await loading.dismiss();
+      console.error('❌ Payment or ride request failed:', error);
+      await this.showToast(
+        'Failed to process payment. Please try again.',
+        'danger'
+      );
+    }
+  }
+
+  private async requestRideAfterPayment(
+    paymentMethod: 'CASH' | 'RAZORPAY' | 'WALLET',
+    razorpayPaymentId?: string
+  ) {
+    try {
+      console.log('✅ Payment processed:', {
+        amount: this.totalAmount,
+        method: paymentMethod,
+        promoApplied: this.promoApplied,
+        discountAmount: this.discountAmount,
+        razorpayPaymentId: razorpayPaymentId || 'N/A',
+      });
+
+      // TODO: Calculate actual fare based on distance
+      const estimatedDistance = 5.2;
 
       // Request ride via Socket.IO
       await this.rideService.requestRide({
@@ -175,28 +255,20 @@ export class PaymentPage implements OnInit {
         fare: this.totalAmount,
         distanceInKm: estimatedDistance,
         service: 'Sedan',
-        // service:
-        //   this.pendingRideDetails.selectedVehicle === 'small'
-        //     ? 'sedan'
-        //     : this.pendingRideDetails.selectedVehicle,
         rideType: 'normal',
         paymentMethod: paymentMethod,
+        // Store Razorpay payment ID if available
+        ...(razorpayPaymentId && { razorpayPaymentId }),
       });
 
       // Clear pending ride details
       this.userService.clearPendingRideDetails();
 
-      await loading.dismiss();
-
       // Navigation to cab-searching is handled by RideService
       console.log('🚗 Ride request sent, navigating to cab-searching...');
     } catch (error) {
-      await loading.dismiss();
-      console.error('❌ Payment or ride request failed:', error);
-      await this.showToast(
-        'Failed to process payment. Please try again.',
-        'danger'
-      );
+      console.error('❌ Ride request failed:', error);
+      await this.showToast('Failed to request ride. Please try again.', 'danger');
     }
   }
 

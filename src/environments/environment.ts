@@ -4,12 +4,19 @@
 
 export const environment = {
   production: false,
-  apiKey: 'AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono',
-  mapId: '43781947b4a15d204123e069',
+  apiKey: 'AIzaSyDQq0QpnwQKzDR99ObP1frWj_uRTQ54pbo',
+  mapId: '9b3666d396ff32ac93b8dc29',
   // Production backend
   apiUrl: 'https://api.myserverdevops.com',
   // Local backend (for development)  
   // apiUrl: 'http://192.168.1.14:3000',
+  // Razorpay configuration
+  razorpay: {
+    key: 'rzp_test_Rp3ejYlVfY449V',
+    name: 'Cerca',
+    description: 'Taxi Booking Service',
+    theme: { color: '#FF4C5A' }
+  }
 };
 
 /*

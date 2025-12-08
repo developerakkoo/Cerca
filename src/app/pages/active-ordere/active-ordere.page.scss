@@ -22,27 +22,18 @@ ion-content{
 }
 
 /* Ionic sheet modal styling for driver details */
-ion-modal.driver-sheet-modal::part(content) {
+ion-modal::part(content) {
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   background: var(--ion-color-light);
-  max-height: 80vh;
+  pointer-events: none; // Let touches pass through to map
 }
 
-.driver-modal-shell {
-  background: var(--ion-color-light);
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-  max-height: 80vh;
-  overflow-y: auto;
-
-  &.in-progress {
-    .modal-header {
-      background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.1) 0%, rgba(var(--ion-color-secondary-rgb), 0.1) 100%);
-    }
-  }
+/* Make modal content interactive */
+ion-modal ion-content {
+  pointer-events: auto; // But keep modal content interactive
+  --background: var(--ion-color-light);
 }
 
 .modal-header {
@@ -314,9 +305,7 @@ ion-modal.driver-sheet-modal::part(content) {
   }
 }
 
-.driver-modal-shell {
-  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+
 
 .modal-content {
   animation: fadeIn 0.3s ease-out;

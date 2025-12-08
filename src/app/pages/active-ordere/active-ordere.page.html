@@ -1,7 +1,11 @@
 <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
-    <ion-buttons (click)="isDriverModalOpen = false" slot="start">
-      <ion-back-button defaultHref="/tabs/tab1" text=""></ion-back-button>
+    <ion-buttons slot="start">
+      <ion-back-button 
+        defaultHref="/tabs/tab1" 
+        text=""
+        (click)="handleBackButton()">
+      </ion-back-button>
     </ion-buttons>
     <ion-title>Track Ride</ion-title>
   </ion-toolbar>
@@ -11,127 +15,116 @@
   <!-- Google Map -->
   <capacitor-google-map id="mymap" #mymap></capacitor-google-map>
 
+  
   <!-- Driver Details Modal (Sheet) -->
   <ion-modal
-    class="driver-sheet-modal"
     [isOpen]="isDriverModalOpen"
     [initialBreakpoint]="0.5"
     [breakpoints]="[0.3, 0.5, 0.9]"
     [backdropDismiss]="false"
-    handleBehavior="cycle"
-   
     [showBackdrop]="false"
-
   >
     <ng-template>
-      <div
-        class="driver-modal-shell"
-        [class.arrived]="isDriverArrived"
-        [class.in-progress]="currentRideStatus === 'in_progress'"
-      >
-        <div class="modal-header">
-          <div class="arrival-status">
-            <h2>{{statusText}}</h2>
-            <p
-              *ngIf="!isDriverArrived && currentRideStatus !== 'in_progress' && arrivalTime !== '0'"
-              class="arrival-time"
-            >
-              ETA: {{arrivalTime}} mins
-            </p>
-            <p *ngIf="currentRideStatus === 'in_progress'" class="ride-message">
-              Enjoy your ride! 🚗
-            </p>
-          </div>
-        </div>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>{{statusText}}</ion-title>
+        </ion-toolbar>
+      </ion-header>
 
-        <div class="modal-content">
-          <!-- Driver Info Section -->
-          <div
-            class="driver-info"
-            (click)="navigateToDriverDetails()"
-            *ngIf="driver"
-          >
-            <div class="driver-profile">
-              <ion-avatar>
-                <img src="assets/user.png" alt="Driver Profile" />
-              </ion-avatar>
-              <div class="driver-details">
-                <h3>{{driver?.name}}</h3>
-                <div class="rating">
-                  <ion-icon name="star"></ion-icon>
-                  <span>{{driver?.rating}}</span>
-                </div>
-              </div>
-            </div>
-            <div class="car-details">
-              <p class="car-number">{{driver?.carNumber || "MHXXXX"}}</p>
-              <p class="car-type">{{driver?.carType || "XXXX"}}</p>
-            </div>
-          </div>
+      <ion-content>
+        <ion-item lines="none" *ngIf="!isDriverArrived && currentRideStatus !== 'in_progress'">
+          <ion-label color="primary">
+            <h2>ETA: {{arrivalTime}} mins</h2>
+          </ion-label>
+        </ion-item>
+        <ion-item lines="none" *ngIf="currentRideStatus === 'in_progress'">
+          <ion-label color="success">
+            <h2>Enjoy your ride! 🚗</h2>
+          </ion-label>
+        </ion-item>
+        <ion-list *ngIf="driver">
+          <ion-item button (click)="navigateToDriverDetails()">
+            <ion-avatar slot="start">
+              <img src="assets/user.png" alt="Driver Profile" />
+            </ion-avatar>
+            <ion-label>
+              <h2>{{driver?.name}}</h2>
+              <p>
+                <ion-icon name="star" color="warning"></ion-icon>
+                {{driver?.rating}}
+              </p>
+            </ion-label>
+            <ion-label slot="end" text-end>
+              <h3>{{driver?.carNumber || "MHXXXX"}}</h3>
+              <p>{{driver?.carType || "XXXX"}}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
 
-          <!-- Action Buttons -->
-          <div
-            class="action-buttons"
-            *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled'"
-          >
-            <ion-button fill="clear" class="action-btn" (click)="chatWithDriver()">
-              <ion-icon name="chatbubble-outline"></ion-icon>
-              Chat
-            </ion-button>
-            <ion-button fill="clear" class="action-btn">
-              <ion-icon name="call-outline"></ion-icon>
-              Call
-            </ion-button>
-          </div>
+        <ion-grid *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled'">
+          <ion-row>
+            <ion-col size="6">
+              <ion-button expand="block" fill="clear" (click)="chatWithDriver()">
+                <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
+                Chat
+              </ion-button>
+            </ion-col>
+            <ion-col size="6">
+              <ion-button expand="block" fill="clear">
+                <ion-icon name="call-outline" slot="start"></ion-icon>
+                Call
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
 
-          <!-- OTP Section (shown when driver arrives) -->
-          <div
-            class="otp-section"
-            *ngIf="isDriverArrived && !showRating && driver && currentRideStatus === 'arrived'"
-          >
-            <div class="otp-container">
-              <h3>Share OTP with Driver</h3>
-              <div class="otp-code">{{driver?.otp}}</div>
-              <p class="otp-instruction">Share this OTP to start your ride</p>
-            </div>
-          </div>
+        <ion-card *ngIf="!showRating && driver && (currentRideStatus === 'arrived' || currentRideStatus === 'in_progress')">
+          <ion-card-header>
+            <ion-card-title>Share OTP with Driver</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-text color="primary">
+              <h1 style="font-size: 2em; letter-spacing: 0.2em; text-align: center; margin: 16px 0;">
+                {{driver?.otp}}
+              </h1>
+            </ion-text>
+            <ion-text color="medium">
+              <p style="text-align: center; font-style: italic;">
+                <span *ngIf="currentRideStatus === 'arrived'">Share this OTP to start your ride</span>
+                <span *ngIf="currentRideStatus === 'in_progress'">Share this OTP to end your ride</span>
+              </p>
+            </ion-text>
+          </ion-card-content>
+        </ion-card>
 
-          <!-- Trip Details -->
-          <div class="trip-details" *ngIf="!showRating">
-            <div class="location-row">
-              <div class="location-icon pickup">
-                <ion-icon name="location"></ion-icon>
-              </div>
-              <div class="location-info">
-                <p class="location-type">Pickup</p>
-                <p class="location-address">{{pickupLocation}}</p>
-              </div>
-            </div>
-            <div class="location-connector"></div>
-            <div class="location-row">
-              <div class="location-icon destination">
-                <ion-icon name="location"></ion-icon>
-              </div>
-              <div class="location-info">
-                <p class="location-type">Destination</p>
-                <p class="location-address">{{destinationLocation}}</p>
-              </div>
-            </div>
-          </div>
+        <ion-list *ngIf="!showRating">
+          <ion-item>
+            <ion-icon name="location" slot="start" color="success"></ion-icon>
+            <ion-label>
+              <h3>Pickup</h3>
+              <p>{{pickupLocation}}</p>
+            </ion-label>
+          </ion-item>
+          <ion-item>
+            <ion-icon name="location" slot="start" color="danger"></ion-icon>
+            <ion-label>
+              <h3>Destination</h3>
+              <p>{{destinationLocation}}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
 
-          <!-- Emergency Button -->
-          <ion-button
-            expand="block"
-            fill="clear"
-            class="emergency-btn"
-            *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled' && currentRideStatus !== 'idle'"
-            (click)="triggerEmergency()"
-          >
-            <ion-icon name="warning-outline"></ion-icon>
-            Emergency
-          </ion-button>
-        </div>
-      </div>
+        <ion-button
+          expand="block"
+          fill="clear"
+          color="danger"
+          *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled' && currentRideStatus !== 'idle'"
+          (click)="triggerEmergency()"
+        >
+          <ion-icon name="warning-outline" slot="start"></ion-icon>
+          Emergency
+        </ion-button>
+      </ion-content>
     </ng-template>
   </ion-modal>
 

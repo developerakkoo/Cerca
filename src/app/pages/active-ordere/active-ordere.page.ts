@@ -16,7 +16,7 @@ import {
   Location,
   DriverInfo,
 } from 'src/app/services/ride.service';
-import { AlertController } from '@ionic/angular';
+import { AlertController, Platform } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
@@ -39,6 +39,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private rideStatusSubscription?: Subscription;
   private driverLocationSubscription?: Subscription;
   private driverETASubscription?: Subscription;
+  private backButtonSubscription?: Subscription;
 
   // Timeout references for cleanup
   private ratingTimeout?: any;
@@ -57,6 +58,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private realDriver: DriverInfo | null = null;
   private userLocation: Location = { latitude: 0, longitude: 0 };
   private driverLocation: Location = { latitude: 0, longitude: 0 };
+  private isMapInitialized = false;
+  private isMapInitializing = false;
+  private hasLoadedFromAPI = false;
 
   pickupLocation = '';
   destinationLocation = '';
@@ -84,23 +88,32 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     private router: Router,
     private rideService: RideService,
     private alertCtrl: AlertController,
-    private http: HttpClient
+    private http: HttpClient,
+    private platform: Platform
   ) {}
 
   async ngOnInit() {
     this.isDriverModalOpen = true;
+    
+    // Set up Android back button handler
+    this.setupBackButtonHandler();
+    
     // Get ride ID from route params (if navigated with params)
     const rideId = this.route.snapshot.paramMap.get('rideId');
 
     if (rideId) {
       // Fetch ride details via API
       await this.fetchRideDetailsFromAPI(rideId);
+      // Initialize map after API fetch completes
+      if (this.userLocation.latitude && this.userLocation.longitude) {
+        await this.initializeMapIfNeeded();
+      }
     }
 
     // Subscribe to current ride
     this.rideSubscription = this.rideService
       .getCurrentRide()
-      .subscribe((ride) => {
+      .subscribe(async (ride) => {
         if (ride) {
           console.log('📦 Current ride:', ride);
           console.log('📦 ========================================');
@@ -119,15 +132,36 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           this.currentRide = ride;
           this.realDriver = ride.driver || null;
 
+          // Determine which OTP to use based on status
+          const rideStatus = ride.status as RideStatus;
+          // Set status immediately to prevent template issues
+          if (!this.hasLoadedFromAPI) {
+            this.currentRideStatus = rideStatus;
+          }
+          
+          // Update status if it has changed (from socket updates)
+          if (rideStatus !== this.currentRideStatus) {
+            console.log('🔄 Ride status changed from socket:', this.currentRideStatus, '->', rideStatus);
+            await this.handleRideStatusChange(rideStatus);
+          }
+          
+          const otpToUse = (rideStatus === 'in_progress') 
+            ? (ride.stopOtp || 'N/A')
+            : (ride.startOtp || 'N/A');
+
           // Map driver data to simplified format for template
           if (ride.driver) {
+            const vehicleInfo: any = ride.driver.vehicleInfo || {};
             this.driver = {
-              name: ride.driver.name,
-              rating: ride.driver.rating,
-              carNumber: ride.driver.vehicleInfo.licensePlate,
-              carType: `${ride.driver.vehicleInfo.color} ${ride.driver.vehicleInfo.make} ${ride.driver.vehicleInfo.model}`,
-              otp: ride.startOtp || 'N/A',
+              name: ride.driver.name || 'N/A',
+              rating: ride.driver.rating || 0,
+              carNumber: vehicleInfo.licensePlate || 'N/A',
+              carType: vehicleInfo.color && vehicleInfo.make && vehicleInfo.model
+                ? `${vehicleInfo.color} ${vehicleInfo.make} ${vehicleInfo.model}`
+                : (vehicleInfo.vehicleType || 'N/A'),
+              otp: otpToUse,
             };
+            console.log('✅ Driver OTP set from ride subscription:', this.driver.otp, 'for status:', rideStatus);
           }
 
           this.pickupLocation = ride.pickupAddress;
@@ -140,9 +174,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           };
 
           // Initialize map if not already done
-          if (!this.map && this.mapContainer) {
-            this.initializeMap();
-          }
+          await this.initializeMapIfNeeded();
         }
       });
 
@@ -151,6 +183,22 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       .getRideStatus()
       .subscribe((status) => {
         console.log('🔄 Ride status update received:', status);
+        console.log('🔄 Current status:', this.currentRideStatus);
+        console.log('🔄 Has loaded from API:', this.hasLoadedFromAPI);
+        
+        // If we've loaded from API and receive 'idle', ignore it (it's the initial BehaviorSubject value)
+        // Only ignore if we already have a valid non-idle status
+        if (this.hasLoadedFromAPI && status === 'idle' && this.currentRideStatus !== 'idle') {
+          console.log('⚠️ Ignoring initial idle status from subscription (already have status from API)');
+          return;
+        }
+        
+        // Don't override a valid status with idle if we have a current ride
+        if (status === 'idle' && this.currentRide && this.currentRideStatus !== 'idle') {
+          console.log('⚠️ Ignoring idle status update (have active ride with status:', this.currentRideStatus, ')');
+          return;
+        }
+        
         this.handleRideStatusChange(status);
       });
 
@@ -187,14 +235,23 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.currentRide = ride;
       this.realDriver = ride.driver || null;
 
+      // Determine which OTP to use based on status
+      const rideStatus = ride.status as RideStatus;
+      const otpToUse = (rideStatus === 'in_progress') 
+        ? (ride.stopOtp || 'N/A')
+        : (ride.startOtp || 'N/A');
+
       // Map driver data to simplified format for template
       if (ride.driver) {
+        const vehicleInfo: any = ride.driver.vehicleInfo || {};
         this.driver = {
-          name: ride.driver.name,
-          rating: ride.driver.rating,
-          carNumber: ride.driver.vehicleInfo.licensePlate,
-          carType: `${ride.driver.vehicleInfo.color} ${ride.driver.vehicleInfo.make} ${ride.driver.vehicleInfo.model}`,
-          otp: ride.startOtp || 'N/A',
+          name: ride.driver.name || 'N/A',
+          rating: ride.driver.rating || 0,
+          carNumber: vehicleInfo.licensePlate || 'N/A',
+          carType: vehicleInfo.color && vehicleInfo.make && vehicleInfo.model
+            ? `${vehicleInfo.color} ${vehicleInfo.make} ${vehicleInfo.model}`
+            : (vehicleInfo.vehicleType || 'N/A'),
+          otp: otpToUse,
         };
       }
 
@@ -212,7 +269,19 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         this.handleRideStatusChange(status);
       });
 
-      await this.initializeMap();
+      await this.initializeMapIfNeeded();
+    }
+  }
+
+  async ionViewDidEnter() {
+    // Ensure map is initialized when view enters
+    if (!this.isMapInitialized && this.userLocation.latitude && this.userLocation.longitude) {
+      await this.initializeMapIfNeeded();
+    }
+    
+    // Open modal if we have an active ride when returning to this page
+    if (this.currentRide && !this.isDriverModalOpen) {
+      this.isDriverModalOpen = true;
     }
   }
 
@@ -226,11 +295,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.isDriverModalOpen = false;
+    this.isMapInitialized = false;
+    this.isMapInitializing = false;
     // Unsubscribe from all subscriptions
     this.rideSubscription?.unsubscribe();
     this.rideStatusSubscription?.unsubscribe();
     this.driverLocationSubscription?.unsubscribe();
     this.driverETASubscription?.unsubscribe();
+    this.backButtonSubscription?.unsubscribe();
 
     // Clear all timeouts
     if (this.ratingTimeout) {
@@ -245,6 +317,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     // Destroy map
     if (this.map) {
       this.map.destroy();
+      this.map = undefined as any;
     }
   }
 
@@ -256,7 +329,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       console.log('🔍 Fetching ride details via API for ride:', rideId);
 
       const response = await this.http
-        .get(`${environment.apiUrl}/rides/${rideId}`)
+        .get(`${environment.apiUrl}/rides/rides/${rideId}`)
         .toPromise();
 
       console.log('📦 ========================================');
@@ -268,16 +341,52 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       // Update current ride with API data
       if (response) {
         this.currentRide = response as Ride;
+        
+        // Set status immediately so template renders correctly
+        const status = this.currentRide.status as RideStatus;
+        this.currentRideStatus = status;
+        
+        // Determine which OTP to use based on status
+        const otpToUse = (status === 'in_progress') 
+          ? (this.currentRide.stopOtp || 'N/A')
+          : (this.currentRide.startOtp || 'N/A');
+        
+        console.log('🔍 Setting OTP for status:', status, 'OTP:', otpToUse);
+        
         // Process the ride data
         if (this.currentRide.driver) {
           this.realDriver = this.currentRide.driver;
+          const vehicleInfo: any = this.currentRide.driver.vehicleInfo || {};
           this.driver = {
-            name: this.currentRide.driver.name,
-            rating: this.currentRide.driver.rating,
-            carNumber: this.currentRide.driver.vehicleInfo.licensePlate,
-            carType: `${this.currentRide.driver.vehicleInfo.color} ${this.currentRide.driver.vehicleInfo.make} ${this.currentRide.driver.vehicleInfo.model}`,
-            otp: this.currentRide.startOtp || 'N/A',
+            name: this.currentRide.driver.name || 'N/A',
+            rating: this.currentRide.driver.rating || 0,
+            carNumber: vehicleInfo.licensePlate || 'N/A',
+            carType: vehicleInfo.color && vehicleInfo.make && vehicleInfo.model
+              ? `${vehicleInfo.color} ${vehicleInfo.make} ${vehicleInfo.model}`
+              : (vehicleInfo.vehicleType || 'N/A'),
+            otp: otpToUse,
           };
+          console.log('✅ Driver OTP set to:', this.driver.otp);
+          console.log('✅ Current ride status:', this.currentRideStatus);
+        }
+
+        // Set user location from ride
+        if (this.currentRide.pickupLocation?.coordinates) {
+          this.userLocation = {
+            latitude: this.currentRide.pickupLocation.coordinates[1],
+            longitude: this.currentRide.pickupLocation.coordinates[0],
+          };
+        }
+
+        this.pickupLocation = this.currentRide.pickupAddress || '';
+        this.destinationLocation = this.currentRide.dropoffAddress || '';
+
+        // Mark that we've loaded from API
+        this.hasLoadedFromAPI = true;
+
+        // Set initial status (this will also update statusText and other status-related properties)
+        if (this.currentRide.status) {
+          this.handleRideStatusChange(status);
         }
       }
     } catch (error) {
@@ -350,9 +459,45 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     console.log('📊 Status updated:', status, '| Text:', this.statusText);
   }
 
+  /**
+   * Initialize map if needed (with guards to prevent duplicate initialization)
+   */
+  private async initializeMapIfNeeded() {
+    // Prevent duplicate initialization
+    if (this.isMapInitialized || this.isMapInitializing) {
+      console.log('⚠️ Map already initialized or initializing, skipping...');
+      return;
+    }
+
+    if (!this.userLocation.latitude || !this.userLocation.longitude) {
+      console.warn('⚠️ User location not set yet, cannot initialize map');
+      return;
+    }
+
+    // Check if map element exists
+    const mapElement = document.getElementById('mymap');
+    if (!mapElement) {
+      console.warn('⚠️ Map element not found, waiting for view to be ready...');
+      // Retry after a short delay
+      setTimeout(() => this.initializeMapIfNeeded(), 500);
+      return;
+    }
+
+    this.isMapInitializing = true;
+    await this.initializeMap();
+    this.isMapInitialized = true;
+    this.isMapInitializing = false;
+  }
+
   private async initializeMap() {
     if (!this.userLocation.latitude || !this.userLocation.longitude) {
-      console.warn('User location not set yet');
+      console.warn('⚠️ User location not set yet');
+      return;
+    }
+
+    const mapElement = document.getElementById('mymap');
+    if (!mapElement) {
+      console.error('❌ Map element not found');
       return;
     }
 
@@ -368,38 +513,45 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       styles: [],
     };
 
-    this.map = await GoogleMap.create({
-      id: 'active-order-map',
-      element: document.getElementById('mymap')!,
-      apiKey: environment.apiKey,
-      config: {
-        ...mapOptions,
-        mapId: environment.mapId,
-      },
-    });
+    try {
+      this.map = await GoogleMap.create({
+        id: 'active-order-map',
+        element: mapElement,
+        apiKey: environment.apiKey,
+        config: {
+          ...mapOptions,
+          mapId: environment.mapId,
+          
+        },
+      });
 
-    console.log('✅ Active order map created');
+      console.log('✅ Active order map created');
 
-    // Add user marker
-    const userMarkerResult = await this.map.addMarker({
-      coordinate: mapCenter,
-      title: 'Your Location',
-      snippet: 'You are here',
-      iconSize: {
-        width: 40,
-        height: 40,
-      },
-      iconUrl: 'assets/user.png',
-    });
-    this.userMarkerId = userMarkerResult;
+      // Add user marker
+      const userMarkerResult = await this.map.addMarker({
+        coordinate: mapCenter,
+        title: 'Your Location',
+        snippet: 'You are here',
+        iconSize: {
+          width: 40,
+          height: 40,
+        },
+        iconUrl: 'assets/user.png',
+      });
+      this.userMarkerId = userMarkerResult;
 
-    // Add driver marker if driver location is available
-    if (
-      this.driverLocation.latitude &&
-      this.driverLocation.longitude &&
-      this.realDriver
-    ) {
-      await this.addDriverMarker();
+      // Add driver marker if driver location is available
+      if (
+        this.driverLocation.latitude &&
+        this.driverLocation.longitude &&
+        this.realDriver
+      ) {
+        await this.addDriverMarker();
+      }
+    } catch (error) {
+      console.error('❌ Error creating map:', error);
+      this.isMapInitializing = false;
+      throw error;
     }
   }
 
@@ -478,13 +630,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   private async updateDriverMarker() {
-    if (
-      !this.map ||
-      !this.driverLocation.latitude ||
-      !this.driverLocation.longitude
-    ) {
+    if (!this.isMapInitialized || !this.map) {
       console.warn(
-        '⚠️ Cannot update driver marker - map or location not available'
+        '⚠️ Cannot update driver marker - map not initialized yet'
+      );
+      return;
+    }
+
+    if (!this.driverLocation.latitude || !this.driverLocation.longitude) {
+      console.warn(
+        '⚠️ Cannot update driver marker - driver location not available'
       );
       return;
     }
@@ -775,13 +930,56 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   navigateToDriverDetails() {
-    if (this.realDriver) {
-      this.router.navigate(['/driver-details', this.realDriver._id]);
-    }
+    // Close modal first
+    this.isDriverModalOpen = false;
+    // Small delay to ensure modal closes before navigation
+    setTimeout(() => {
+      if (this.realDriver) {
+        this.router.navigate(['/driver-details', this.realDriver._id]);
+      }
+    }, 100);
   }
 
   chatWithDriver() {
-    this.router.navigate(['driver-chat']);
+    // Close modal first
+    this.isDriverModalOpen = false;
+    // Small delay to ensure modal closes before navigation
+    setTimeout(() => {
+      this.router.navigate(['driver-chat']);
+    }, 100);
+  }
+
+  /**
+   * Set up Android back button handler
+   */
+  private setupBackButtonHandler() {
+    if (this.platform.is('android')) {
+      // Use Ionic Platform backButton Observable
+      this.backButtonSubscription = this.platform.backButton.subscribe(() => {
+        if (this.isDriverModalOpen) {
+          // If modal is open, close it
+          this.isDriverModalOpen = false;
+        } else {
+          // Otherwise, navigate back normally
+          this.handleBackButton();
+        }
+      });
+    }
+  }
+
+  /**
+   * Handle back button click (from header or system)
+   */
+  handleBackButton() {
+    if (this.isDriverModalOpen) {
+      // Close modal if open
+      this.isDriverModalOpen = false;
+    } else {
+      // Navigate back
+      this.router.navigate(['/tabs/tab1'], {
+        replaceUrl: true,
+      });
+    }
   }
 
   async triggerEmergency() {

@@ -250,7 +250,7 @@ export class Tab1Page implements OnInit, OnDestroy {
           },
           mapId: environment.mapId,
           zoom: 18,
-    
+          colorScheme: 'dark',
         },
       });
 

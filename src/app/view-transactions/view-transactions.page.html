@@ -1,0 +1,71 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tab3"></ion-back-button>
+    </ion-buttons>
+    <ion-title>All Transactions</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
+    <ion-toolbar>
+      <ion-title size="large">All Transactions</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Loading State (Initial Load) -->
+  <div *ngIf="isLoading && transactions.length === 0" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading transactions...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && transactions.length === 0" class="empty-state">
+    <ion-icon name="receipt-outline" size="large" color="medium"></ion-icon>
+    <p>No transactions found</p>
+    <p class="empty-subtitle">Your transaction history will appear here</p>
+  </div>
+
+  <!-- Transactions List -->
+  <div *ngIf="transactions.length > 0" class="transactions-section">
+    <ion-list>
+      <ion-item *ngFor="let transaction of transactions" class="transaction-item">
+        <ion-icon 
+          [name]="isCreditTransaction(transaction.transactionType) ? 'arrow-down-circle' : 'arrow-up-circle'"
+          [color]="isCreditTransaction(transaction.transactionType) ? 'success' : 'danger'"
+          slot="start">
+        </ion-icon>
+        <ion-label>
+          <h3>{{ getTransactionTypeDisplay(transaction.transactionType) }}</h3>
+          <p class="transaction-date">{{ transaction.createdAt | date:'medium' }}</p>
+        </ion-label>
+        <div slot="end" class="transaction-amounts">
+          <ion-note [color]="isCreditTransaction(transaction.transactionType) ? 'success' : 'danger'" class="amount">
+            {{ isCreditTransaction(transaction.transactionType) ? '+' : '-' }}₹{{ transaction.amount.toFixed(2) }}
+          </ion-note>
+          
+        </div>
+      </ion-item>
+    </ion-list>
+
+    <!-- Infinite Scroll -->
+    <ion-infinite-scroll
+      threshold="100px"
+      (ionInfinite)="loadMoreTransactions($event)"
+      [disabled]="!hasMore || isLoading">
+      <ion-infinite-scroll-content
+        loadingSpinner="crescent"
+        loadingText="Loading more transactions...">
+      </ion-infinite-scroll-content>
+    </ion-infinite-scroll>
+
+    <!-- No More Transactions Message -->
+    <div *ngIf="!hasMore && transactions.length > 0" class="ion-text-center ion-padding">
+      <ion-note color="medium">
+        <p>No more transactions to load</p>
+        <p>Showing {{ transactions.length }} transaction(s)</p>
+      </ion-note>
+    </div>
+  </div>
+</ion-content>

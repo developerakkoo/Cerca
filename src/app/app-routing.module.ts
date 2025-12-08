@@ -70,6 +70,10 @@ const routes: Routes = [
     path: 'profile-details/:phoneNumber/:isEdit/:userId',
     loadChildren: () => import('./pages/profile-details/profile-details.module').then( m => m.ProfileDetailsPageModule)
   },
+  {
+    path: 'view-transactions',
+    loadChildren: () => import('./view-transactions/view-transactions.module').then( m => m.ViewTransactionsPageModule)
+  },
 
 ];
 @NgModule({
