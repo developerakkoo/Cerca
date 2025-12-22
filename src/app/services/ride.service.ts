@@ -86,6 +86,7 @@ export class RideService {
   private driverLocation$ = new BehaviorSubject<Location | null>(null);
   private driverETA$ = new BehaviorSubject<number>(0);
   private rideErrors$ = new Subject<string>();
+  private unreadCounts$ = new BehaviorSubject<Map<string, number>>(new Map());
 
   // Store all socket subscriptions for cleanup
   private socketSubscriptions: Subscription[] = [];
@@ -281,12 +282,26 @@ export class RideService {
     });
     this.socketSubscriptions.push(messageSentSub);
 
-    // Receive message from driver
-    const receiveMessageSub = this.socketService.on<any>('receiveMessage').subscribe((message) => {
-      console.log('📨 New message from driver:', message);
-      // This will be handled by the driver-chat page
-    });
-    this.socketSubscriptions.push(receiveMessageSub);
+    // Note: receiveMessage listener removed - handled by DriverChatPage directly
+    // This ensures proper separation of concerns and prevents duplicate message processing
+
+    // Unread count updated from backend
+    const unreadCountUpdatedSub = this.socketService
+      .on<{ rideId: string; receiverId: string; receiverModel: string; count: number }>('unreadCountUpdated')
+      .subscribe((data) => {
+        console.log('🔔 Unread count updated:', data);
+        console.log('   Ride ID:', data.rideId);
+        console.log('   Count:', data.count);
+        console.log('   Receiver:', data.receiverId, `(${data.receiverModel})`);
+        
+        // Update unread count for the specific ride
+        const currentCounts = this.unreadCounts$.value;
+        currentCounts.set(data.rideId, data.count);
+        this.unreadCounts$.next(new Map(currentCounts));
+        
+        console.log('✅ Unread count updated in state - rideId:', data.rideId, 'count:', data.count);
+      });
+    this.socketSubscriptions.push(unreadCountUpdatedSub);
 
     // Ride messages (all chat history)
     const rideMessagesSub = this.socketService.on<any[]>('rideMessages').subscribe((messages) => {
@@ -375,6 +390,9 @@ export class RideService {
     service: string;
     rideType: string;
     paymentMethod: string;
+    razorpayPaymentId?: string;
+    walletAmountUsed?: number;
+    razorpayAmountPaid?: number;
   }): Promise<void> {
     try {
       // Get user ID
@@ -394,7 +412,7 @@ export class RideService {
       }
 
       // Prepare ride request
-      const request = {
+      const request: any = {
         rider: userId,
         riderId: userId,
         userSocketId: this.socketService.getSocketId(),
@@ -414,6 +432,17 @@ export class RideService {
         rideType: rideData.rideType,
         paymentMethod: rideData.paymentMethod,
       };
+      
+      // Add hybrid payment details if present
+      if (rideData.razorpayPaymentId) {
+        request.razorpayPaymentId = rideData.razorpayPaymentId;
+      }
+      if (rideData.walletAmountUsed !== undefined) {
+        request.walletAmountUsed = rideData.walletAmountUsed;
+      }
+      if (rideData.razorpayAmountPaid !== undefined) {
+        request.razorpayAmountPaid = rideData.razorpayAmountPaid;
+      }
 
       console.log('📤 Requesting ride:', request);
 
@@ -495,33 +524,430 @@ export class RideService {
   }
 
   /**
-   * Send message to driver
+   * Send message to driver via socket
    */
-  sendMessage(message: string, messageType: string = 'text'): void {
+  async sendMessage(message: string, messageType: string = 'text'): Promise<void> {
+    console.log('📤 ========================================');
+    console.log('📤 [RideService] sendMessage() called');
+    console.log('📤 ========================================');
+    console.log('📝 Message text:', message);
+    console.log('📝 Message type:', messageType);
+    
     const ride = this.currentRide$.value;
+    console.log('🚗 Current ride:', ride ? { id: ride._id, driver: ride.driver?._id, rider: ride.rider } : 'null');
+    
     if (!ride || !ride.driver) {
-      console.warn('No active ride or driver to send message to');
+      console.error('❌ [RideService] Cannot send message:');
+      console.error('   - Ride exists:', !!ride);
+      console.error('   - Driver exists:', !!ride?.driver);
+      console.error('========================================');
       return;
     }
 
-    this.socketService.emit('sendMessage', {
+    // Get user ID from storage if ride.rider is not available
+    let senderId = ride.rider;
+    if (!senderId || typeof senderId !== 'string') {
+      console.warn('⚠️ [RideService] ride.rider is not a valid string, fetching from storage...');
+      senderId = await this.storage.get('userId');
+      console.log('👤 [RideService] User ID from storage:', senderId || 'null');
+    }
+    
+    if (!senderId) {
+      console.error('❌ [RideService] Cannot determine sender ID');
+      console.error('   ride.rider:', ride.rider);
+      console.error('   userId from storage:', await this.storage.get('userId'));
+      console.error('========================================');
+      return;
+    }
+
+    // Check socket connection status
+    const isSocketConnected = this.socketService.isConnected();
+    const socketId = this.socketService.getSocketId();
+    console.log('🔌 Socket connection status:', isSocketConnected ? 'CONNECTED' : 'DISCONNECTED');
+    console.log('🔌 Socket ID:', socketId || 'null');
+    
+    if (!isSocketConnected) {
+      console.error('❌ [RideService] Socket is not connected! Cannot send message via socket.');
+      console.error('   Message will only be sent via REST API.');
+      console.error('   Attempting to reconnect socket...');
+      
+      // Try to reconnect socket by reinitializing
+      try {
+        const userId = await this.storage.get('userId');
+        if (userId) {
+          console.log('🔄 [RideService] Reinitializing socket connection...');
+          // Reset initialization flag and reconnect
+          (this.socketService as any).isInitialized = false;
+          await this.socketService.initialize({ userId, userType: 'rider' });
+          
+          // Wait for connection (socket connection is async)
+          console.log('⏳ [RideService] Waiting for socket connection...');
+          let retries = 0;
+          const maxRetries = 5;
+          while (retries < maxRetries && !this.socketService.isConnected()) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            retries++;
+            console.log(`   Retry ${retries}/${maxRetries}...`);
+          }
+          
+          // Check again
+          const stillConnected = this.socketService.isConnected();
+          const newSocketId = this.socketService.getSocketId();
+          console.log('🔌 [RideService] Socket connection after retry:', stillConnected ? 'CONNECTED' : 'DISCONNECTED');
+          console.log('🔌 [RideService] New socket ID:', newSocketId || 'null');
+          
+          if (!stillConnected) {
+            console.error('❌ [RideService] Socket still not connected after retry');
+            console.error('   Will proceed with REST API only');
+            console.error('========================================');
+            // Don't emit socket event, REST API will handle it
+            return;
+          }
+          
+          console.log('✅ [RideService] Socket reconnected successfully!');
+        } else {
+          console.error('❌ [RideService] No userId found, cannot reconnect socket');
+          console.error('========================================');
+          return;
+        }
+      } catch (error) {
+        console.error('❌ [RideService] Error reconnecting socket:', error);
+        console.error('   Error type:', error?.constructor?.name);
+        console.error('   Error message:', error instanceof Error ? error.message : String(error));
+        console.error('   Stack trace:', error instanceof Error ? error.stack : 'N/A');
+        console.error('========================================');
+        return; // Exit early, REST API will handle it
+      }
+    }
+
+    const messageData = {
       rideId: ride._id,
-      senderId: ride.rider,
+      senderId: senderId,
       senderModel: 'User',
       receiverId: ride.driver._id,
       receiverModel: 'Driver',
       message: message,
       messageType: messageType, // 'text', 'location', 'audio'
-    });
+    };
+
+    console.log('📦 [RideService] Message data to emit:', messageData);
+    console.log('📡 [RideService] Attempting to emit sendMessage event...');
+    
+    try {
+      this.socketService.emit('sendMessage', messageData);
+      console.log('✅ [RideService] sendMessage event emitted successfully');
+      console.log('========================================');
+    } catch (error) {
+      console.error('❌ [RideService] Error emitting sendMessage event:', error);
+      console.error('   Error details:', error);
+      console.error('========================================');
+    }
   }
 
   /**
-   * Get ride messages
+   * Send message to driver via REST API (for persistence)
+   */
+  async sendMessageViaAPI(message: string, messageType: string = 'text'): Promise<any> {
+    console.log('🌐 ========================================');
+    console.log('🌐 [RideService] sendMessageViaAPI() called');
+    console.log('🌐 ========================================');
+    console.log('📝 Message text:', message);
+    console.log('📝 Message type:', messageType);
+    
+    try {
+      const ride = this.currentRide$.value;
+      console.log('🚗 [RideService] Current ride:', ride ? { id: ride._id, driver: ride.driver?._id } : 'null');
+      
+      if (!ride || !ride.driver) {
+        console.error('❌ [RideService] No active ride or driver');
+        throw new Error('No active ride or driver to send message to');
+      }
+
+      const userId = await this.storage.get('userId');
+      const token = await this.storage.get('token');
+      console.log('👤 [RideService] User ID:', userId || 'null');
+      console.log('🔑 [RideService] Token exists:', !!token);
+
+      if (!userId || !token) {
+        console.error('❌ [RideService] User not authenticated');
+        throw new Error('User not authenticated');
+      }
+
+      const requestBody = {
+        rideId: ride._id,
+        senderId: userId,
+        senderModel: 'User',
+        receiverId: ride.driver._id,
+        receiverModel: 'Driver',
+        message: message,
+        messageType: messageType,
+      };
+
+      console.log('📤 [RideService] Sending message via API for ride:', ride._id);
+      console.log('📦 [RideService] Request body:', requestBody);
+      console.log('🌐 [RideService] API URL:', `${environment.apiUrl}/messages`);
+
+      const response = await firstValueFrom(
+        this.http.post<{ message: string; data: any }>(
+          `${environment.apiUrl}/messages`,
+          requestBody,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+      );
+
+      console.log('✅ [RideService] Message sent via API successfully');
+      console.log('📦 [RideService] Response status:', response ? 'OK' : 'null');
+      console.log('📦 [RideService] Response data:', response.data);
+      console.log('========================================');
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [RideService] Error sending message via API:', error);
+      console.error('   Error type:', error?.constructor?.name);
+      console.error('   Error message:', error?.message);
+      console.error('   HTTP status:', error?.status);
+      console.error('   Response data:', error?.error);
+      console.error('========================================');
+      throw error;
+    }
+  }
+
+  /**
+   * Join a ride room for real-time messaging
+   */
+  async joinRideRoom(rideId: string, userId?: string, userType: 'User' | 'Driver' = 'User'): Promise<void> {
+    console.log('🚪 ========================================');
+    console.log('🚪 [RideService] joinRideRoom() called');
+    console.log('🚪 ========================================');
+    console.log('🆔 Ride ID:', rideId);
+    console.log('👤 User Type:', userType);
+    
+    try {
+      // Get userId if not provided
+      let finalUserId = userId;
+      if (!finalUserId && userType === 'User') {
+        finalUserId = await this.storage.get('userId');
+      }
+      
+      if (!finalUserId) {
+        console.error('❌ [RideService] Cannot join room: userId not found');
+        throw new Error('User ID is required to join room');
+      }
+      
+      // Ensure socket is connected
+      if (!this.socketService.isConnected()) {
+        console.warn('⚠️ [RideService] Socket not connected, waiting for connection...');
+        await this.socketService.waitForConnection(10000);
+      }
+      
+      const roomData = {
+        rideId: rideId,
+        userId: userType === 'User' ? finalUserId : undefined,
+        driverId: userType === 'Driver' ? finalUserId : undefined,
+        userType: userType,
+      };
+      
+      console.log('📤 [RideService] Emitting joinRideRoom event:', roomData);
+      this.socketService.emit('joinRideRoom', roomData);
+      
+      // Wait for confirmation (optional - can be handled via listener)
+      console.log('✅ [RideService] joinRideRoom event emitted');
+      console.log('========================================');
+    } catch (error) {
+      console.error('❌ [RideService] Error joining room:', error);
+      console.error('   Error type:', error?.constructor?.name);
+      console.error('   Error message:', error instanceof Error ? error.message : String(error));
+      console.log('========================================');
+      throw error;
+    }
+  }
+
+  /**
+   * Leave a ride room
+   */
+  async leaveRideRoom(rideId: string): Promise<void> {
+    console.log('🚪 ========================================');
+    console.log('🚪 [RideService] leaveRideRoom() called');
+    console.log('🚪 ========================================');
+    console.log('🆔 Ride ID:', rideId);
+    
+    try {
+      if (!this.socketService.isConnected()) {
+        console.warn('⚠️ [RideService] Socket not connected, cannot leave room');
+        return;
+      }
+      
+      const roomData = {
+        rideId: rideId,
+      };
+      
+      console.log('📤 [RideService] Emitting leaveRideRoom event:', roomData);
+      this.socketService.emit('leaveRideRoom', roomData);
+      
+      console.log('✅ [RideService] leaveRideRoom event emitted');
+      console.log('========================================');
+    } catch (error) {
+      console.error('❌ [RideService] Error leaving room:', error);
+      console.error('   Error type:', error?.constructor?.name);
+      console.error('   Error message:', error instanceof Error ? error.message : String(error));
+      console.log('========================================');
+    }
+  }
+
+  /**
+   * Get ride messages via socket
    */
   getRideMessages(rideId: string): void {
     this.socketService.emit('getRideMessages', {
       rideId: rideId,
     });
+  }
+
+  /**
+   * Get ride messages via REST API (fallback/primary method)
+   */
+  async getRideMessagesViaAPI(rideId: string): Promise<any[]> {
+    console.log('📡 ========================================');
+    console.log('📡 [RideService] getRideMessagesViaAPI() called');
+    console.log('📡 ========================================');
+    console.log('🆔 [RideService] Ride ID:', rideId);
+    console.log('⏰ [RideService] Request timestamp:', new Date().toISOString());
+    
+    try {
+      const apiUrl = `${environment.apiUrl}/messages/ride/${rideId}`;
+      console.log('🌐 [RideService] API URL:', apiUrl);
+      console.log('📡 [RideService] Fetching messages via API...');
+      
+      const response = await firstValueFrom(
+        this.http.get<{ messages?: any[]; data?: any[]; count?: number }>(
+          apiUrl
+        )
+      );
+
+      console.log('✅ [RideService] API call completed');
+      console.log('📦 [RideService] Raw API response:', response);
+      console.log('📦 [RideService] Response type:', typeof response);
+      console.log('📦 [RideService] Is array:', Array.isArray(response));
+
+      // Handle different response formats
+      if (response) {
+        if (Array.isArray(response)) {
+          console.log('✅ [RideService] Messages found (array format):', response.length);
+          console.log('========================================');
+          return response;
+        } else if (response.messages && Array.isArray(response.messages)) {
+          console.log('✅ [RideService] Messages found (messages property):', response.messages.length);
+          console.log('   Response keys:', Object.keys(response));
+          console.log('========================================');
+          return response.messages;
+        } else if (response.data && Array.isArray(response.data)) {
+          console.log('✅ [RideService] Messages found (data property):', response.data.length);
+          console.log('   Response keys:', Object.keys(response));
+          console.log('========================================');
+          return response.data;
+        } else {
+          console.warn('⚠️ [RideService] Unexpected response format:', response);
+          console.warn('   Response keys:', Object.keys(response));
+          console.warn('   Response type:', typeof response);
+        }
+      }
+
+      console.warn('⚠️ [RideService] No messages found in response');
+      console.log('========================================');
+      return [];
+    } catch (error: any) {
+      console.error('❌ [RideService] Error fetching messages via API:', error);
+      console.error('   Error type:', error?.constructor?.name);
+      console.error('   Error message:', error?.message);
+      if (error.error) {
+        console.error('   Error details:', error.error);
+      }
+      if (error.status) {
+        console.error('   HTTP Status:', error.status);
+      }
+      if (error.statusText) {
+        console.error('   Status Text:', error.statusText);
+      }
+      console.log('========================================');
+      return [];
+    }
+  }
+
+  /**
+   * Get unread message count for a ride
+   */
+  async getUnreadCountForRide(rideId: string): Promise<number> {
+    try {
+      const userId = await this.storage.get('userId');
+      if (!userId) {
+        return 0;
+      }
+
+      const response = await this.http
+        .get<{ unreadCount: number }>(
+          `${environment.apiUrl}/messages/ride/${rideId}/unread-count?receiverId=${userId}&receiverModel=User`
+        )
+        .toPromise();
+
+      const count = response?.unreadCount || 0;
+      
+      // Update local state
+      const currentCounts = this.unreadCounts$.value;
+      currentCounts.set(rideId, count);
+      this.unreadCounts$.next(new Map(currentCounts));
+
+      return count;
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Mark all messages as read for a ride
+   */
+  async markMessagesAsRead(rideId: string): Promise<void> {
+    try {
+      const userId = await this.storage.get('userId');
+      if (!userId) {
+        return;
+      }
+
+      await this.http
+        .patch(
+          `${environment.apiUrl}/messages/ride/${rideId}/read-all`,
+          { receiverId: userId }
+        )
+        .toPromise();
+
+      // Update local state
+      const currentCounts = this.unreadCounts$.value;
+      currentCounts.set(rideId, 0);
+      this.unreadCounts$.next(new Map(currentCounts));
+
+      console.log('✅ Messages marked as read for ride:', rideId);
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  }
+
+  /**
+   * Get unread counts observable
+   */
+  getUnreadCounts(): Observable<Map<string, number>> {
+    return this.unreadCounts$.asObservable();
+  }
+
+  /**
+   * Get unread count for a specific ride
+   */
+  getUnreadCountForRideValue(rideId: string): number {
+    return this.unreadCounts$.value.get(rideId) || 0;
   }
 
   /**

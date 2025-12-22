@@ -275,5 +275,34 @@ export class WalletService {
   getCurrentBalance(): number {
     return this.walletBalanceSubject.value;
   }
+
+  /**
+   * Process hybrid payment (wallet + Razorpay)
+   */
+  processHybridPayment(
+    userId: string,
+    rideId: string,
+    totalAmount: number,
+    walletAmount: number,
+    razorpayPaymentId: string
+  ): Observable<{ success: boolean; message: string; data: { walletTransaction: WalletTransaction | null; newBalance: number; previousBalance: number; razorpayAmount: number; walletAmount: number; totalAmount: number } }> {
+    return this.http
+      .post<{ success: boolean; message: string; data: { walletTransaction: WalletTransaction | null; newBalance: number; previousBalance: number; razorpayAmount: number; walletAmount: number; totalAmount: number } }>(
+        `${this.apiUrl}/users/${userId}/wallet/hybrid-payment`,
+        {
+          rideId,
+          totalAmount,
+          walletAmount,
+          razorpayPaymentId,
+        }
+      )
+      .pipe(
+        tap((response) => {
+          if (response.success && response.data) {
+            this.walletBalanceSubject.next(response.data.newBalance);
+          }
+        })
+      );
+  }
 }
 

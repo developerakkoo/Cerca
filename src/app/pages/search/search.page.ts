@@ -12,6 +12,9 @@ import { NavController, ToastController } from '@ionic/angular';
 import { GeocodingService } from 'src/app/services/geocoding.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
+import { PlacesService, PlacePrediction } from 'src/app/services/places.service';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 @Component({
   selector: 'app-search',
   templateUrl: './search.page.html',
@@ -30,6 +33,13 @@ export class SearchPage implements OnInit, OnDestroy {
   selectedAddressDetails: any = '';
   selectedLocation: { lat: number; lng: number } = { lat: 0, lng: 0 };
   currentLocation: { lat: number; lng: number } = { lat: 0, lng: 0 };
+  
+  // Places autocomplete properties
+  placeSuggestions: PlacePrediction[] = [];
+  showSuggestions: boolean = false;
+  isLoadingSuggestions: boolean = false;
+  private searchQuerySubject = new Subject<string>();
+  private searchSubscription?: Subscription;
 
   constructor(
     private geocodingService: GeocodingService,
@@ -38,7 +48,8 @@ export class SearchPage implements OnInit, OnDestroy {
     private router: Router,
     private userService: UserService,
     private zone: NgZone,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private placesService: PlacesService
   ) {}
 
   async ngOnInit() {
@@ -85,6 +96,48 @@ export class SearchPage implements OnInit, OnDestroy {
     console.log(this.selectedLocation);
     console.log('Is Pickuo Address Added');
     console.log(this.isPickup);
+
+    // Setup debounced search for places autocomplete
+    this.searchSubscription = this.searchQuerySubject
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((query: string) => {
+          if (!query || query.trim().length === 0) {
+            this.zone.run(() => {
+              this.placeSuggestions = [];
+              this.showSuggestions = false;
+              this.isLoadingSuggestions = false;
+            });
+            return [];
+          }
+          this.zone.run(() => {
+            this.isLoadingSuggestions = true;
+            this.showSuggestions = true;
+          });
+          const mapCenter = this.selectedLocation?.lat && this.selectedLocation?.lng 
+            ? { lat: this.selectedLocation.lat, lng: this.selectedLocation.lng }
+            : undefined;
+          return this.placesService.getPlacePredictions(query, mapCenter);
+        })
+      )
+      .subscribe({
+        next: (predictions) => {
+          this.zone.run(() => {
+            this.placeSuggestions = predictions;
+            this.isLoadingSuggestions = false;
+            this.showSuggestions = predictions.length > 0;
+          });
+        },
+        error: (error) => {
+          console.error('Error fetching place predictions:', error);
+          this.zone.run(() => {
+            this.isLoadingSuggestions = false;
+            this.showSuggestions = false;
+            this.placeSuggestions = [];
+          });
+        }
+      });
   }
 
   async ionViewDidEnter() {
@@ -108,6 +161,9 @@ export class SearchPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.searchSubscription) {
+      this.searchSubscription.unsubscribe();
+    }
     this.destroyMap();
   }
 
@@ -153,7 +209,8 @@ export class SearchPage implements OnInit, OnDestroy {
 
       // Listen for map movement
       await this.map.setOnCameraMoveStartedListener((event) => {
-        // console.log("Camera Move Started");
+        // Hide suggestions when user starts moving map
+        this.clearSuggestions();
       });
 
       await this.map.setOnCameraIdleListener((event) => {
@@ -191,28 +248,64 @@ export class SearchPage implements OnInit, OnDestroy {
   }
 
   async searchLocation() {
-    if (!this.searchQuery.trim()) return;
+    // Trigger autocomplete search via subject
+    if (this.searchQuery && this.searchQuery.trim().length > 0) {
+      this.searchQuerySubject.next(this.searchQuery);
+    } else {
+      this.clearSuggestions();
+    }
+  }
 
+  async selectPlace(place: PlacePrediction) {
     try {
-      const location = await this.geocodingService.getLatLngFromAddress(
-        this.searchQuery
-      );
-      if (location) {
+      this.isLoadingSuggestions = true;
+      const placeDetails = await this.placesService.getPlaceDetails(place.place_id).toPromise();
+      
+      if (placeDetails && this.map) {
+        const location = placeDetails.geometry.location;
+        
+        // Update map camera to selected location
         await this.map.setCamera({
           coordinate: {
             lat: location.lat,
             lng: location.lng,
           },
           zoom: 18,
+          animate: true,
         });
-        this.updateAddressFromLocation(location.lat, location.lng);
+
+        // Update selected address and location
+        this.zone.run(() => {
+          this.selectedAddress = placeDetails.formatted_address;
+          this.selectedLocation = { lat: location.lat, lng: location.lng };
+          this.selectedAddressDetails = placeDetails;
+        });
+
+        // Hide suggestions
+        this.clearSuggestions();
       }
     } catch (error) {
-      console.error('Error searching location:', error);
+      console.error('Error getting place details:', error);
+      await this.presentToast('Error loading place details');
+    } finally {
+      this.zone.run(() => {
+        this.isLoadingSuggestions = false;
+      });
     }
   }
 
+  clearSuggestions() {
+    this.zone.run(() => {
+      this.placeSuggestions = [];
+      this.showSuggestions = false;
+      this.isLoadingSuggestions = false;
+    });
+  }
+
   async confirmLocation() {
+    // Hide suggestions before confirming
+    this.clearSuggestions();
+
     if (this.isPickup === 'true') {
       console.log('Confirming Pickup Address:', this.selectedAddress);
       // Only update pickup, preserve destination
@@ -234,6 +327,21 @@ export class SearchPage implements OnInit, OnDestroy {
   clearSearch() {
     console.log('Clear Search');
     this.searchQuery = '';
+    this.clearSuggestions();
+  }
+
+  onContentClick(event: Event) {
+    // Hide suggestions when clicking outside the suggestions modal
+    const target = event.target as HTMLElement;
+    if (!target.closest('.suggestions-modal') && !target.closest('.search-bar')) {
+      this.clearSuggestions();
+    }
+  }
+
+  onMapClick(event: Event) {
+    // Hide suggestions when clicking on map
+    event.stopPropagation();
+    this.clearSuggestions();
   }
 
   private async destroyMap() {

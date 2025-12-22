@@ -91,7 +91,7 @@ capacitor-google-map {
   top: 50px;
   left: 16px;
   right: 16px;
-  z-index: 2;
+  z-index: 3;
   
   ion-searchbar {
     --background: var(--ion-color-light);
@@ -100,6 +100,144 @@ capacitor-google-map {
     --placeholder-color: var(--ion-color-medium);
     --color: var(--ion-color-dark);
     --icon-color: var(--ion-color-medium);
+  }
+}
+
+.suggestions-modal {
+  position: absolute;
+  top: 110px;
+  left: 16px;
+  right: 16px;
+  max-height: 50vh;
+  z-index: 2;
+  background: var(--ion-color-light);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  animation: slideDown 0.3s ease-out;
+}
+
+.suggestions-content {
+  width: 100%;
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--ion-color-medium-rgb), 0.3) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--ion-color-medium-rgb), 0.3);
+    border-radius: 2px;
+    
+    &:hover {
+      background-color: rgba(var(--ion-color-medium-rgb), 0.5);
+    }
+  }
+}
+
+.suggestions-list {
+  margin: 0;
+  padding: 8px 0;
+  background: transparent;
+}
+
+.suggestion-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+  --min-height: 64px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  
+  &:hover {
+    --background: rgba(var(--ion-color-primary-rgb), 0.05);
+  }
+  
+  &:active {
+    --background: rgba(var(--ion-color-primary-rgb), 0.1);
+  }
+}
+
+.suggestion-icon {
+  font-size: 24px;
+  color: var(--ion-color-primary);
+  margin-right: 12px;
+}
+
+.suggestion-main-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ion-color-dark);
+  margin: 0 0 4px 0;
+}
+
+.suggestion-secondary-text {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+  
+  p {
+    margin: 0;
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  
+  ion-icon {
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  
+  p {
+    margin: 0 0 8px 0;
+    color: var(--ion-color-dark);
+    font-size: 16px;
+    font-weight: 500;
+  }
+  
+  .empty-subtitle {
+    margin: 0;
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -122,5 +260,50 @@ capacitor-google-map {
   .search-bar ion-searchbar {
     --background: var(--ion-color-dark);
     --color: var(--ion-color-light);
+  }
+
+  .suggestions-modal {
+    background: var(--ion-color-dark);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .suggestions-content {
+    scrollbar-color: rgba(var(--ion-color-light-rgb), 0.3) transparent;
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(var(--ion-color-light-rgb), 0.3);
+      
+      &:hover {
+        background-color: rgba(var(--ion-color-light-rgb), 0.5);
+      }
+    }
+  }
+
+  .suggestion-item {
+    &:hover {
+      --background: rgba(var(--ion-color-primary-rgb), 0.1);
+    }
+    
+    &:active {
+      --background: rgba(var(--ion-color-primary-rgb), 0.15);
+    }
+  }
+
+  .suggestion-main-text {
+    color: var(--ion-color-light);
+  }
+
+  .suggestion-secondary-text {
+    color: var(--ion-color-medium);
+  }
+
+  .empty-state {
+    p {
+      color: var(--ion-color-light);
+    }
+    
+    .empty-subtitle {
+      color: var(--ion-color-medium);
+    }
   }
 }

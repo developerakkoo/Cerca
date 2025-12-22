@@ -152,6 +152,26 @@ ion-modal ion-content {
   }
 }
 
+.chat-button {
+  position: relative;
+
+  .chat-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    z-index: 10;
+  }
+}
+
 .otp-section {
   text-align: center;
   margin: 20px 0;

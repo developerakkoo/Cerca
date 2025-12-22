@@ -21,6 +21,14 @@
           <span class="discount-text">Discount Applied</span>
           <span class="discount-amount">-₹{{discountAmount}}</span>
         </div>
+        <div class="summary-row" *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
+          <span>Wallet Payment</span>
+          <span>₹{{walletAmountToUse}}</span>
+        </div>
+        <div class="summary-row" *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
+          <span>Online Payment</span>
+          <span>₹{{razorpayAmountToPay}}</span>
+        </div>
         <div class="summary-row total">
           <span>Total Amount</span>
           <span>₹{{totalAmount}}</span>
@@ -64,12 +72,25 @@
             </ion-avatar>
             <ion-label>
               <h3>Online Payment</h3>
-              <p>Pay using UPI/Card</p>
+              <p *ngIf="canUseWallet && walletAmountToUse > 0">
+                Pay ₹{{razorpayAmountToPay}} (Wallet: ₹{{walletAmountToUse}})
+              </p>
+              <p *ngIf="!canUseWallet || walletAmountToUse === 0">
+                Pay using UPI/Card
+              </p>
             </ion-label>
-            <ion-radio slot="end" value="online"></ion-radio>
+            <ion-radio slot="end" value="razorpay"></ion-radio>
           </ion-item>
         </ion-radio-group>
       </ion-list>
+    </div>
+
+    <!-- Hybrid Payment Info -->
+    <div class="hybrid-payment-info" *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
+      <ion-icon name="information-circle-outline" color="primary"></ion-icon>
+      <p>
+        You have ₹{{walletBalance}} in wallet. ₹{{walletAmountToUse}} will be deducted from wallet, ₹{{razorpayAmountToPay}} will be paid online.
+      </p>
     </div>
 
     <!-- Promo Code -->
@@ -107,8 +128,14 @@
         <ng-container *ngIf="isWalletSelected">
           Pay from Wallet ₹{{totalAmount}}
         </ng-container>
-        <ng-container *ngIf="!isWalletSelected">
+        <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'cash'">
           Pay ₹{{totalAmount}}
+        </ng-container>
+        <ng-container *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
+          Pay ₹{{razorpayAmountToPay}} Online
+        </ng-container>
+        <ng-container *ngIf="selectedPaymentMethod === 'razorpay' && (!canUseWallet || walletAmountToUse === 0)">
+          Pay ₹{{totalAmount}} Online
         </ng-container>
       </ion-button>
     </div>

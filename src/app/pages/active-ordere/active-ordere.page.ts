@@ -16,7 +16,7 @@ import {
   Location,
   DriverInfo,
 } from 'src/app/services/ride.service';
-import { AlertController, Platform } from '@ionic/angular';
+import { AlertController, Platform, ModalController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
@@ -40,6 +40,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private driverLocationSubscription?: Subscription;
   private driverETASubscription?: Subscription;
   private backButtonSubscription?: Subscription;
+  private unreadCountSubscription?: Subscription;
 
   // Timeout references for cleanup
   private ratingTimeout?: any;
@@ -69,6 +70,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   currentRideStatus: RideStatus = 'idle';
   statusText = 'Preparing...';
   isDriverModalOpen = true;
+  unreadMessageCount: number = 0;
 
   // Rating properties
   showRating = false;
@@ -89,7 +91,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     private rideService: RideService,
     private alertCtrl: AlertController,
     private http: HttpClient,
-    private platform: Platform
+    private platform: Platform,
+    private modalController: ModalController
   ) {}
 
   async ngOnInit() {
@@ -175,6 +178,22 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
           // Initialize map if not already done
           await this.initializeMapIfNeeded();
+
+          // Join ride room for real-time messaging (when ride has driver)
+          if (ride._id && ride.driver) {
+            console.log('🚪 [ActiveOrderePage] Joining ride room...');
+            try {
+              await this.rideService.joinRideRoom(ride._id, undefined, 'User');
+              console.log('✅ [ActiveOrderePage] Joined ride room successfully');
+            } catch (error) {
+              console.error('❌ [ActiveOrderePage] Error joining room:', error);
+            }
+          }
+
+          // Fetch unread message count for this ride
+          if (ride._id) {
+            await this.rideService.getUnreadCountForRide(ride._id);
+          }
         }
       });
 
@@ -226,6 +245,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       .subscribe((eta) => {
         if (eta) {
           this.arrivalTime = Math.ceil(eta).toString();
+        }
+      });
+
+    // Subscribe to unread message counts
+    this.unreadCountSubscription = this.rideService
+      .getUnreadCounts()
+      .subscribe((counts) => {
+        if (this.currentRide) {
+          this.unreadMessageCount = counts.get(this.currentRide._id) || 0;
         }
       });
 
@@ -289,9 +317,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.isDriverModalOpen = false;
   }
 
-  ionViewDidLeave() {
-    this.isDriverModalOpen = false;
-  }
+  // ionViewDidLeave() {
+  //   this.isDriverModalOpen = false;
+  // }
 
   ngOnDestroy() {
     this.isDriverModalOpen = false;
@@ -303,6 +331,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.driverLocationSubscription?.unsubscribe();
     this.driverETASubscription?.unsubscribe();
     this.backButtonSubscription?.unsubscribe();
+    this.unreadCountSubscription?.unsubscribe();
 
     // Clear all timeouts
     if (this.ratingTimeout) {
@@ -940,13 +969,29 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }, 100);
   }
 
-  chatWithDriver() {
-    // Close modal first
-    this.isDriverModalOpen = false;
-    // Small delay to ensure modal closes before navigation
-    setTimeout(() => {
-      this.router.navigate(['driver-chat']);
-    }, 100);
+  async chatWithDriver() {
+    if (!this.currentRide) {
+      return;
+    }
+
+    // Mark messages as read before opening chat
+    await this.rideService.markMessagesAsRead(this.currentRide._id);
+    
+    // Import the chat page component dynamically
+    const { DriverChatPage } = await import('../driver-chat/driver-chat.page');
+    
+    // Create and present the modal
+    const modal = await this.modalController.create({
+      component: DriverChatPage,
+      componentProps: {
+        ride: this.currentRide
+      },
+      cssClass: 'chat-modal',
+      showBackdrop: true,
+      backdropDismiss: true
+    });
+
+    await modal.present();
   }
 
   /**

@@ -1,10 +1,47 @@
+// Modal-specific styles
+:host {
+  --width: 100%;
+  --height: 100%;
+  --max-width: 100%;
+  --max-height: 100%;
+  --border-radius: 0;
+  display: block;
+  height: 100%;
+}
+
 .chat-content {
   --background: var(--ion-color-light);
+  background: var(--ion-color-light);
+  position: relative;
+  z-index: 10;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // Prevent content overflow
+  
+  // Ensure content covers any underlying maps
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--ion-color-light);
+    z-index: -1;
+  }
 }
 
 .chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px;
-  padding-bottom: 80px;
+  padding-top: 8px; // Reduced top padding
+  position: relative;
+  z-index: 1;
+  background: var(--ion-color-light);
 }
 
 // Date Separator
@@ -23,9 +60,32 @@
 
 // Messages Container
 .messages {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 20px; // Space at bottom for last message
+  -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+  
+  // Custom scrollbar styling
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(var(--ion-color-medium-rgb), 0.3);
+    border-radius: 2px;
+    
+    &:hover {
+      background: rgba(var(--ion-color-medium-rgb), 0.5);
+    }
+  }
 }
 
 // Message Styles
@@ -113,7 +173,7 @@
   padding: 0 4px;
 }
 
-// Input Area
+// Input Area - Fixed at bottom of modal
 .chat-input {
   position: fixed;
   bottom: 0;
@@ -122,7 +182,23 @@
   background: var(--ion-color-light);
   padding: 8px 16px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom));
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10000;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0; // Prevent shrinking
+  
+  // Ensure input is above modal content
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--ion-color-light);
+    z-index: -1;
+  }
 }
 
 .input-container {
@@ -191,14 +267,91 @@
   }
 }
 
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  position: relative;
+  z-index: 1;
+  background: var(--ion-color-light);
+
+  p {
+    margin-top: 16px;
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ion-color-medium);
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  p {
+    margin: 8px 0;
+    font-size: 16px;
+  }
+
+  .empty-state-subtitle {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+}
+
+// Global modal styles for full-screen chat modal
+::ng-deep .chat-modal {
+  --width: 100%;
+  --height: 100%;
+  --max-width: 100%;
+  --max-height: 100%;
+  --border-radius: 0;
+  
+  .modal-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+}
+
 // Dark theme support
 @media (prefers-color-scheme: dark) {
   .chat-content {
     --background: var(--ion-color-dark);
+    background: var(--ion-color-dark);
+    
+    &::before {
+      background: var(--ion-color-dark);
+    }
+  }
+
+  .chat-container {
+    background: var(--ion-color-dark);
+  }
+
+  .loading-container {
+    background: var(--ion-color-dark);
   }
 
   .chat-input {
     background: var(--ion-color-dark);
+    
+    &::before {
+      background: var(--ion-color-dark);
+    }
   }
 
   .input-container {

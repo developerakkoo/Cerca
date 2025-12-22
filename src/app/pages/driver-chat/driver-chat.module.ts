@@ -15,6 +15,7 @@ import { DriverChatPage } from './driver-chat.page';
     IonicModule,
     DriverChatPageRoutingModule
   ],
-  declarations: [DriverChatPage]
+  declarations: [DriverChatPage],
+  exports: [DriverChatPage] // Export so it can be used in modals
 })
 export class DriverChatPageModule {}

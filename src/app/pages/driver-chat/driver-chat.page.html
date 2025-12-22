@@ -1,14 +1,16 @@
 <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/driver-details" text=""></ion-back-button>
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
     </ion-buttons>
     <ion-title>Chat with Driver</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="chat-content">
-  <div class="chat-container">
+<ion-content [fullscreen]="true" class="chat-content" [style.--background]="'var(--ion-color-light)'">
+  <div class="chat-container" *ngIf="!isLoadingMessages">
     <!-- Date Separator -->
     <div class="date-separator">
       <span>Today</span>
@@ -16,10 +18,17 @@
 
     <!-- Messages -->
     <div class="messages" #messageContainer>
+      <!-- Empty State -->
+      <div *ngIf="messages.length === 0 && !isLoadingMessages" class="empty-state">
+        <ion-icon name="chatbubbles-outline" size="large"></ion-icon>
+        <p>No messages yet</p>
+        <p class="empty-state-subtitle">Start the conversation</p>
+      </div>
+      
       <!-- All Messages (Driver and User) -->
       <div
         class="message"
-        *ngFor="let message of messages"
+        *ngFor="let message of messages; trackBy: trackByMessageId"
         [ngClass]="{
              'driver-message': message.sender === 'driver',
              'user-message': message.sender === 'user',
@@ -48,28 +57,34 @@
     </div>
   </div>
 
-  <!-- Input Area -->
-  <div class="chat-input">
-    <div class="input-container">
-      <ion-button fill="clear" class="attach-btn" (click)="openImagePicker()">
-        <ion-icon name="image-outline"></ion-icon>
-      </ion-button>
-      <ion-input
-        type="text"
-        placeholder="Type a message..."
-        [(ngModel)]="newMessage"
-        (keyup.enter)="sendMessage()"
-        class="message-input"
-      >
-      </ion-input>
-      <ion-button
-        fill="clear"
-        class="send-btn"
-        (click)="sendMessage()"
-        [disabled]="!newMessage.trim()"
-      >
-        <ion-icon name="send"></ion-icon>
-      </ion-button>
-    </div>
+  <!-- Loading State -->
+  <div *ngIf="isLoadingMessages" class="loading-container">
+    <ion-spinner></ion-spinner>
+    <p>Loading messages...</p>
   </div>
 </ion-content>
+
+<!-- Input Area - Outside ion-content for better positioning -->
+<div class="chat-input">
+  <div class="input-container">
+    <ion-button fill="clear" class="attach-btn" (click)="openImagePicker()">
+      <ion-icon name="image-outline"></ion-icon>
+    </ion-button>
+    <ion-input
+      type="text"
+      placeholder="Type a message..."
+      [(ngModel)]="newMessage"
+      (keyup.enter)="sendMessage()"
+      class="message-input"
+    >
+    </ion-input>
+    <ion-button
+      fill="clear"
+      class="send-btn"
+      (click)="sendMessage()"
+      [disabled]="!newMessage.trim()"
+    >
+      <ion-icon name="send"></ion-icon>
+    </ion-button>
+  </div>
+</div>
