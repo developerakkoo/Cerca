@@ -1,4 +1,15 @@
-/* Dark mode variables */
+/* Ensure proper background for this page */
+ion-content {
+  --background: var(--ion-color-light);
+}
+
+:root.ion-palette-dark {
+  ion-content {
+    --background: var(--ion-background-color);
+  }
+}
+
+/* Theme variables */
 :root {
   --card-bg: white;
   --card-shadow: rgba(0, 0, 0, 0.06);
@@ -7,14 +18,12 @@
   --border-color: rgba(0, 0, 0, 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --card-bg: var(--ion-color-dark);
-    --card-shadow: rgba(0, 0, 0, 0.2);
-    --text-primary: var(--ion-color-light);
-    --text-secondary: var(--ion-color-medium);
-    --border-color: rgba(255, 255, 255, 0.1);
-  }
+:root.ion-palette-dark {
+  --card-bg: var(--ion-color-dark);
+  --card-shadow: rgba(0, 0, 0, 0.2);
+  --text-primary: var(--ion-color-light);
+  --text-secondary: var(--ion-color-medium);
+  --border-color: rgba(255, 255, 255, 0.1);
 }
 
 .balance-card {

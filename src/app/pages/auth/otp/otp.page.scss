@@ -1,8 +1,10 @@
 .otp-content {
   --background: var(--ion-color-light);
+}
 
-  @media (prefers-color-scheme: dark) {
-    --background: #1c2433;
+:root.ion-palette-dark {
+  .otp-content {
+    --background: var(--ion-background-color);
   }
 }
 
@@ -27,7 +29,7 @@
   transition: all 0.2s ease;
   animation: fadeIn 0.3s ease-out;
 
-  @media (prefers-color-scheme: dark) {
+  :root.ion-palette-dark & {
     background: rgba(255, 255, 255, 0.1);
   }
 
@@ -35,8 +37,8 @@
     font-size: 24px;
     color: var(--ion-color-dark);
 
-    @media (prefers-color-scheme: dark) {
-      color: #ffffff;
+    :root.ion-palette-dark & {
+      color: var(--ion-color-light);
     }
   }
 
@@ -57,8 +59,8 @@
     margin: 0;
     margin-bottom: 8px;
 
-    @media (prefers-color-scheme: dark) {
-      color: #ffffff;
+    :root.ion-palette-dark & {
+      color: var(--ion-color-light);
     }
   }
 
@@ -67,8 +69,8 @@
     color: var(--ion-color-medium);
     margin: 0;
 
-    @media (prefers-color-scheme: dark) {
-      color: rgba(255, 255, 255, 0.7);
+    :root.ion-palette-dark & {
+      color: rgba(var(--ion-color-light-rgb), 0.7);
     }
   }
 }
@@ -99,10 +101,10 @@
     transition: all 0.3s ease;
     animation: scaleIn 0.3s ease-out backwards;
 
-    @media (prefers-color-scheme: dark) {
+    :root.ion-palette-dark & {
       background: rgba(255, 255, 255, 0.1);
-      border-color: transparent;
-      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.2);
+      color: var(--ion-color-light);
     }
 
     &:focus {
@@ -114,8 +116,8 @@
     &:not(:placeholder-shown) {
       border-color: var(--ion-color-success);
       
-      @media (prefers-color-scheme: dark) {
-        border-color: var(--ion-color-success-shade);
+      :root.ion-palette-dark & {
+        border-color: var(--ion-color-success);
       }
     }
   }
@@ -130,8 +132,8 @@
   color: var(--ion-color-medium);
   animation: fadeIn 0.3s ease-out;
 
-  @media (prefers-color-scheme: dark) {
-    color: rgba(255, 255, 255, 0.7);
+  :root.ion-palette-dark & {
+    color: rgba(var(--ion-color-light-rgb), 0.7);
   }
 
   .loading-spinner {
@@ -150,8 +152,8 @@
   color: var(--ion-color-medium);
   font-size: 0.9rem;
 
-  @media (prefers-color-scheme: dark) {
-    color: rgba(255, 255, 255, 0.7);
+  :root.ion-palette-dark & {
+    color: rgba(var(--ion-color-light-rgb), 0.7);
   }
 
   .resend {

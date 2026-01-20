@@ -19,14 +19,6 @@
     pointer-events: none;
   }
   
-  // Dark mode background
-  @media (prefers-color-scheme: dark) {
-    background: var(--ion-color-dark) !important;
-    
-    &::before {
-      background: var(--ion-color-dark);
-    }
-  }
 }
 
 .payment-container {
@@ -303,23 +295,45 @@
   position: relative;
   z-index: 10001;
   background: var(--ion-color-light-tint) !important;
-  
-  @media (prefers-color-scheme: dark) {
-    background: var(--ion-color-dark) !important;
+}
+
+:root.ion-palette-dark {
+  .payment-content {
+    --background: var(--ion-background-color);
+    background: var(--ion-background-color) !important;
+    
+    &::before {
+      background: var(--ion-background-color);
+    }
+  }
+
+  .payment-header {
+    background: var(--ion-background-color) !important;
   }
 }
 
 // Dark theme adjustments
-@media (prefers-color-scheme: dark) {
-  .payment-content {
-    --background: var(--ion-color-dark);
-  }
-
+:root.ion-palette-dark {
   .payment-summary,
   .payment-methods,
   .promo-section {
-    background: rgba(var(--ion-color-light-rgb), 0.05);
+    background: var(--ion-color-dark);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+    h2 {
+      color: var(--ion-color-light);
+    }
+  }
+
+  .summary-details {
+    .summary-row {
+      color: var(--ion-color-medium);
+
+      &.total {
+        color: var(--ion-color-light);
+        border-top-color: rgba(var(--ion-color-light-rgb), 0.2);
+      }
+    }
   }
 
   .hybrid-payment-info {
@@ -332,7 +346,7 @@
   }
 
   .payment-method-item {
-    background: rgba(var(--ion-color-light-rgb), 0.05);
+    background: var(--ion-color-dark);
     border-color: rgba(var(--ion-color-light-rgb), 0.2);
 
     &:hover {
@@ -342,14 +356,30 @@
     &.item-radio-checked {
       background: rgba(var(--ion-color-primary-rgb), 0.15);
     }
+
+    ion-label {
+      h3 {
+        color: var(--ion-color-light);
+      }
+
+      p {
+        color: var(--ion-color-medium);
+      }
+    }
   }
 
   .promo-input-container {
     background: rgba(var(--ion-color-light-rgb), 0.05);
+    border-color: rgba(var(--ion-color-light-rgb), 0.2);
+
+    .promo-input {
+      --color: var(--ion-color-light);
+      --placeholder-color: var(--ion-color-medium);
+    }
   }
 
   .payment-action {
-    background: var(--ion-color-dark);
+    background: var(--ion-background-color);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
   }
 }

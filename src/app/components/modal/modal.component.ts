@@ -11,8 +11,10 @@ import {
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { UserService } from '../../services/user.service';
 import { RideService } from '../../services/ride.service';
+import { GeocodingService } from '../../services/geocoding.service';
 import { Subscription } from 'rxjs';
 
 interface Address {
@@ -26,7 +28,7 @@ interface Address {
   templateUrl: './modal.component.html',
   styleUrls: ['./modal.component.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, FormsModule],
+  imports: [IonicModule, CommonModule, FormsModule, TranslateModule],
 })
 export class ModalComponent implements OnInit, OnDestroy {
   @Input() isLocationFetched = false;
@@ -55,6 +57,7 @@ export class ModalComponent implements OnInit, OnDestroy {
     private router: Router,
     private userService: UserService,
     private rideService: RideService,
+    private geocodingService: GeocodingService,
     private loadingCtrl: LoadingController
   ) {}
 
@@ -197,28 +200,95 @@ export class ModalComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Store ride details in UserService for payment page
-    this.userService.setPendingRideDetails({
-      pickupAddress: this.pickupInput,
-      dropoffAddress: this.destinationInput,
-      selectedVehicle: this.selectedVehicle,
-      pickupLocation: {
-        latitude: currentLocation.lat,
-        longitude: currentLocation.lng,
-      },
-      // TODO: Implement actual destination geocoding
-      dropoffLocation: {
-        latitude: currentLocation.lat + 0.02,
-        longitude: currentLocation.lng + 0.02,
-      },
+    // Show loading while geocoding destination
+    const loading = await this.loadingCtrl.create({
+      message: 'Getting destination location...',
+      spinner: 'crescent',
     });
+    await loading.present();
 
-    // Navigate to payment page with vehicle type
-    this.router.navigate(['/payment'], {
-      queryParams: {
-        vehicle: this.selectedVehicle,
-      },
-    });
+    try {
+      // Geocode destination address
+      const dropoffLocation = await this.geocodingService.getLatLngFromAddress(
+        this.destinationInput
+      );
+
+      if (!dropoffLocation) {
+        await loading.dismiss();
+        console.error('Failed to geocode destination address');
+        // Fallback to current location with offset (for backward compatibility)
+        this.userService.setPendingRideDetails({
+          pickupAddress: this.pickupInput,
+          dropoffAddress: this.destinationInput,
+          selectedVehicle: this.selectedVehicle,
+          pickupLocation: {
+            latitude: currentLocation.lat,
+            longitude: currentLocation.lng,
+          },
+          dropoffLocation: {
+            latitude: currentLocation.lat + 0.02,
+            longitude: currentLocation.lng + 0.02,
+          },
+        });
+      } else {
+        // Calculate distance between pickup and destination
+        const distanceInKm = this.calculateDistance(
+          currentLocation.lat,
+          currentLocation.lng,
+          dropoffLocation.lat,
+          dropoffLocation.lng
+        );
+
+        // Store ride details with actual geocoded destination and distance
+        this.userService.setPendingRideDetails({
+          pickupAddress: this.pickupInput,
+          dropoffAddress: this.destinationInput,
+          selectedVehicle: this.selectedVehicle,
+          pickupLocation: {
+            latitude: currentLocation.lat,
+            longitude: currentLocation.lng,
+          },
+          dropoffLocation: {
+            latitude: dropoffLocation.lat,
+            longitude: dropoffLocation.lng,
+          },
+          distanceInKm: distanceInKm,
+        });
+      }
+
+      await loading.dismiss();
+
+      // Navigate to payment page with vehicle type
+      this.router.navigate(['/payment'], {
+        queryParams: {
+          vehicle: this.selectedVehicle,
+        },
+      });
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Error geocoding destination:', error);
+      // Fallback to current location with offset
+      this.userService.setPendingRideDetails({
+        pickupAddress: this.pickupInput,
+        dropoffAddress: this.destinationInput,
+        selectedVehicle: this.selectedVehicle,
+        pickupLocation: {
+          latitude: currentLocation.lat,
+          longitude: currentLocation.lng,
+        },
+        dropoffLocation: {
+          latitude: currentLocation.lat + 0.02,
+          longitude: currentLocation.lng + 0.02,
+        },
+      });
+
+      // Navigate to payment page even if geocoding fails
+      this.router.navigate(['/payment'], {
+        queryParams: {
+          vehicle: this.selectedVehicle,
+        },
+      });
+    }
   }
 
   onPickupInputChange(value: string) {
@@ -235,5 +305,31 @@ export class ModalComponent implements OnInit, OnDestroy {
     this.destinationInputChange.emit(value);
     // Only update destination in service
     this.userService.setDestination(value);
+  }
+
+  /**
+   * Calculate distance between two coordinates using Haversine formula
+   * @param lat1 Latitude of first point
+   * @param lng1 Longitude of first point
+   * @param lat2 Latitude of second point
+   * @param lng2 Longitude of second point
+   * @returns Distance in kilometers
+   */
+  private calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+    const R = 6371; // Earth's radius in kilometers
+
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 }

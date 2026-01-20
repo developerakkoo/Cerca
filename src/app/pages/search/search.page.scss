@@ -241,10 +241,11 @@ capacitor-google-map {
   }
 }
 
-// Dark mode adjustments
-@media (prefers-color-scheme: dark) {
+// Dark theme adjustments
+:root.ion-palette-dark {
   .card-content {
-    background: var(--ion-color-dark);
+    background: rgba(var(--ion-color-dark-rgb), 0.95);
+    backdrop-filter: blur(10px);
   }
   
   .address-details {
@@ -253,18 +254,20 @@ capacitor-google-map {
     }
     
     p {
-      color: var(--ion-color-light-shade);
+      color: var(--ion-color-medium);
     }
   }
   
   .search-bar ion-searchbar {
-    --background: var(--ion-color-dark);
+    --background: rgba(var(--ion-color-dark-rgb), 0.95);
     --color: var(--ion-color-light);
+    backdrop-filter: blur(10px);
   }
 
   .suggestions-modal {
-    background: var(--ion-color-dark);
+    background: rgba(var(--ion-color-dark-rgb), 0.95);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
   }
 
   .suggestions-content {

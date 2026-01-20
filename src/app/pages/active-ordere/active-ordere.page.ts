@@ -4,6 +4,7 @@ import {
   ViewChild,
   ElementRef,
   OnDestroy,
+  NgZone,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GoogleMap, LatLngBounds, MapType } from '@capacitor/google-maps';
@@ -45,6 +46,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   // Timeout references for cleanup
   private ratingTimeout?: any;
   private rateUsTimeout?: any;
+  private hasShownRating = false; // Flag to prevent showing rating multiple times
 
   // Current ride data
   currentRide: Ride | null = null;
@@ -92,11 +94,17 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private http: HttpClient,
     private platform: Platform,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private ngZone: NgZone
   ) {}
 
   async ngOnInit() {
-    this.isDriverModalOpen = true;
+    // Only open modal if we're actually on the active-order page
+    // Check current route to ensure we're on the right page
+    const currentUrl = this.router.url;
+    if (currentUrl.includes('/active-ordere')) {
+      this.isDriverModalOpen = true;
+    }
     
     // Set up Android back button handler
     this.setupBackButtonHandler();
@@ -132,6 +140,13 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           console.log('📦 Stop OTP:', ride.stopOtp);
           console.log('========================================');
 
+          // Check if this is a new ride (different ride ID)
+          const isNewRide = this.currentRide && this.currentRide._id !== ride._id;
+          if (isNewRide) {
+            console.log('🆕 New ride detected, resetting rating flag');
+            this.hasShownRating = false;
+          }
+
           this.currentRide = ride;
           this.realDriver = ride.driver || null;
 
@@ -145,6 +160,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           // Update status if it has changed (from socket updates)
           if (rideStatus !== this.currentRideStatus) {
             console.log('🔄 Ride status changed from socket:', this.currentRideStatus, '->', rideStatus);
+            // Reset rating flag if status changes from completed to something else
+            if (this.currentRideStatus === 'completed' && rideStatus !== 'completed') {
+              this.hasShownRating = false;
+            }
             await this.handleRideStatusChange(rideStatus);
           }
           
@@ -301,20 +320,26 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
   }
 
-  async ionViewDidEnter() {
+  async   ionViewDidEnter() {
     // Ensure map is initialized when view enters
     if (!this.isMapInitialized && this.userLocation.latitude && this.userLocation.longitude) {
       await this.initializeMapIfNeeded();
     }
     
-    // Open modal if we have an active ride when returning to this page
-    if (this.currentRide && !this.isDriverModalOpen) {
+    // Only open modal if we're on the active-order page and have an active ride
+    const currentUrl = this.router.url;
+    if (currentUrl.includes('/active-ordere') && this.currentRide && !this.isDriverModalOpen) {
       this.isDriverModalOpen = true;
     }
   }
 
   ionViewWillLeave() {
+    // Always close modal when leaving the page
     this.isDriverModalOpen = false;
+    // Reset rating flag when leaving (for new rides)
+    if (this.currentRideStatus !== 'completed') {
+      this.hasShownRating = false;
+    }
   }
 
   // ionViewDidLeave() {
@@ -322,9 +347,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   // }
 
   ngOnDestroy() {
+    // Always close modal when component is destroyed
     this.isDriverModalOpen = false;
     this.isMapInitialized = false;
     this.isMapInitializing = false;
+    
     // Unsubscribe from all subscriptions
     this.rideSubscription?.unsubscribe();
     this.rideStatusSubscription?.unsubscribe();
@@ -348,6 +375,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.map.destroy();
       this.map = undefined as any;
     }
+    
+    // Reset rating flag
+    this.hasShownRating = false;
   }
 
   /**
@@ -463,15 +493,24 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         break;
       case 'completed':
         this.statusText = 'Ride Completed';
-        // Clear any existing timeout
-        if (this.ratingTimeout) {
-          clearTimeout(this.ratingTimeout);
+        // Close the driver modal first
+        this.isDriverModalOpen = false;
+        // Only show rating if we haven't shown it yet
+        if (!this.hasShownRating) {
+          // Clear any existing timeout
+          if (this.ratingTimeout) {
+            clearTimeout(this.ratingTimeout);
+          }
+          // Show rating modal after 2 seconds (giving time for modal to close)
+          this.ratingTimeout = setTimeout(() => {
+            this.ngZone.run(() => {
+              this.showRating = true;
+              this.hasShownRating = true;
+              console.log('⭐ Showing rating dialog');
+            });
+            this.ratingTimeout = undefined;
+          }, 2000);
         }
-        // Show rating modal after 2 seconds
-        this.ratingTimeout = setTimeout(() => {
-          this.showRating = true;
-          this.ratingTimeout = undefined;
-        }, 2000);
         break;
       case 'cancelled':
         this.statusText = 'Ride Cancelled';
@@ -926,15 +965,35 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       if (this.rateUsTimeout) {
         clearTimeout(this.rateUsTimeout);
       }
-      // Show rate us modal after thank you message
+      // Navigate to home after showing thank you message
       this.rateUsTimeout = setTimeout(() => {
         this.showThankYou = false;
-        this.showRateUs = true;
+        this.navigateToHome();
         this.rateUsTimeout = undefined;
       }, 2000);
     } catch (error) {
       console.error('Error submitting rating:', error);
+      // Even on error, navigate away
+      this.navigateToHome();
     }
+  }
+
+  /**
+   * Skip rating dialog and navigate to home
+   */
+  skipRatingDialog() {
+    this.showRating = false;
+    this.hasShownRating = true;
+    this.navigateToHome();
+  }
+
+  /**
+   * Navigate to home page
+   */
+  private navigateToHome() {
+    this.router.navigate(['/tabs/tabs/tab1'], {
+      replaceUrl: true, // Clear navigation stack
+    });
   }
 
   rateOnStore() {
@@ -945,13 +1004,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
     window.open(storeUrl, '_blank');
     this.showRateUs = false;
+    // Navigate to home after opening store
+    setTimeout(() => {
+      this.navigateToHome();
+    }, 500);
   }
 
   skipRating() {
     this.showRateUs = false;
-    this.router.navigate(['/tabs/tabs/tab1'], {
-      replaceUrl: true, // Clear navigation stack
-    });
+    this.navigateToHome();
   }
 
   private isIOS(): boolean {

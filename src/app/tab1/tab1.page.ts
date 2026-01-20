@@ -457,20 +457,26 @@ export class Tab1Page implements OnInit, OnDestroy {
       // Permission granted - get location with timeout handling
       // Using longer timeout to allow GPS to get accurate fix
       const locationPromise = Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 15000, // Increased to 15 seconds for better GPS accuracy
+        enableHighAccuracy: true, // Use GPS, not network location
+        timeout: 20000, // Increased to 20 seconds for better GPS accuracy
         maximumAge: 0, // Always get fresh location, no cache
       });
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Location request timeout')), 20000) // Increased to 20 seconds
+        setTimeout(() => reject(new Error('Location request timeout')), 25000) // Increased to 25 seconds
       );
 
       const coordinates = await Promise.race([locationPromise, timeoutPromise]);
       console.log('Location fetched:', coordinates);
 
-      const { latitude, longitude } = coordinates.coords;
+      const { latitude, longitude, accuracy } = coordinates.coords;
       console.log('Coordinates:', latitude, longitude);
+      console.log('Location accuracy:', accuracy, 'meters');
+
+      // Validate location accuracy - warn if accuracy is poor (> 50 meters)
+      if (accuracy && accuracy > 50) {
+        console.warn('⚠️ Location accuracy is poor:', accuracy, 'meters. GPS may not have accurate fix.');
+      }
 
       // Update current location
       this.currentLocation = { lat: latitude, lng: longitude };
@@ -539,12 +545,19 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
 
       const coordinates = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 15000, // Increased to 15 seconds for better GPS accuracy
+        enableHighAccuracy: true, // Use GPS, not network location
+        timeout: 20000, // Increased to 20 seconds for better GPS accuracy
         maximumAge: 0, // Always get fresh location, no cache
       });
 
-      const { latitude, longitude } = coordinates.coords;
+      const { latitude, longitude, accuracy } = coordinates.coords;
+      console.log('📍 Recenter map - Location accuracy:', accuracy, 'meters');
+      
+      // Validate location accuracy - warn if accuracy is poor (> 50 meters)
+      if (accuracy && accuracy > 50) {
+        console.warn('⚠️ Location accuracy is poor:', accuracy, 'meters. GPS may not have accurate fix.');
+      }
+      
       await this.setCurrentLocationMarker(latitude, longitude);
       this.currentLocation = { lat: latitude, lng: longitude };
 

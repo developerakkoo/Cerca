@@ -1,3 +1,14 @@
+/* Ensure proper background for this page */
+ion-content {
+  --background: var(--ion-color-light);
+}
+
+:root.ion-palette-dark {
+  ion-content {
+    --background: var(--ion-background-color);
+  }
+}
+
 :root {
   --card-bg: #ffffff;
   --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -5,27 +16,25 @@
   --text-secondary: #666666;
   --border-color: #e0e0e0;
   --selected-bg: #f0f7ff;
-  --selected-border: #2196f3;
+  --selected-border: var(--ion-color-primary);
   --segment-bg: #f5f5f5;
-  --segment-active: #2196f3;
-  --button-bg: #2196f3;
+  --segment-active: var(--ion-color-primary);
+  --button-bg: var(--ion-color-primary);
   --button-text: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --card-bg: #1e1e1e;
-    --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --text-color: #ffffff;
-    --text-secondary: #b0b0b0;
-    --border-color: #333333;
-    --selected-bg: #1a3a5f;
-    --selected-border: #64b5f6;
-    --segment-bg: #2d2d2d;
-    --segment-active: #64b5f6;
-    --button-bg: #64b5f6;
-    --button-text: #ffffff;
-  }
+:root.ion-palette-dark {
+  --card-bg: var(--ion-color-dark);
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --text-color: var(--ion-color-light);
+  --text-secondary: var(--ion-color-medium);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --selected-bg: rgba(var(--ion-color-primary-rgb), 0.2);
+  --selected-border: var(--ion-color-primary);
+  --segment-bg: var(--ion-background-color);
+  --segment-active: var(--ion-color-primary);
+  --button-bg: var(--ion-color-primary);
+  --button-text: #ffffff;
 }
 
 .services-grid {
@@ -102,9 +111,21 @@
 
 .booking-card {
   background: var(--card-bg);
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   margin-top: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+
+  ion-card-header {
+    background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.1) 0%, rgba(var(--ion-color-primary-rgb), 0.05) 100%);
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  ion-card-content {
+    padding: 24px;
+  }
 }
 
 .booking-type {
@@ -191,4 +212,339 @@
 
 .booking-card {
   animation: slideIn 0.3s ease-out forwards;
+}
+
+// Booking Form Container
+.booking-form-container {
+  margin-top: 24px;
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.booking-form {
+  padding: 8px 0;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-color);
+  }
+}
+
+.form-section {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+
+  &:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: var(--ion-color-primary);
+      border-radius: 2px;
+    }
+  }
+}
+
+.form-item {
+  --background: transparent;
+  --border-color: var(--border-color);
+  --padding-start: 0;
+  --padding-end: 0;
+  --inner-padding-end: 0;
+  margin-bottom: 16px;
+  border-radius: 8px;
+
+  ion-label {
+    font-weight: 500;
+    color: var(--text-color);
+  }
+
+  ion-datetime {
+    --background: var(--card-bg);
+    --border-radius: 8px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    width: 100%;
+    border: 1px solid var(--border-color);
+  }
+}
+
+.input-field-group {
+  margin-bottom: 20px;
+
+  .input-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 8px;
+  }
+
+  .datetime-input {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 52px;
+
+    &:hover {
+      border-color: var(--ion-color-primary);
+      background: rgba(var(--ion-color-primary-rgb), 0.05);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    ion-icon {
+      font-size: 20px;
+      color: var(--ion-color-primary);
+      flex-shrink: 0;
+
+      &:last-child {
+        margin-left: auto;
+        font-size: 18px;
+        color: var(--text-secondary);
+      }
+    }
+
+    .input-value {
+      flex: 1;
+      font-size: 15px;
+      color: var(--text-color);
+      font-weight: 500;
+
+      &:empty::before {
+        content: attr(data-placeholder);
+        color: var(--text-secondary);
+        font-weight: 400;
+      }
+    }
+
+    &:has(.input-value:empty) .input-value {
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+  }
+}
+
+.location-item {
+  --background: var(--card-bg);
+  --border-radius: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  &:hover {
+    --background: rgba(var(--ion-color-primary-rgb), 0.05);
+    border-color: var(--ion-color-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  ion-label {
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+.rental-days-segment {
+  --background: var(--segment-bg);
+  border-radius: 12px;
+  padding: 6px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  ion-segment-button {
+    --indicator-color: var(--segment-active);
+    --color: var(--text-secondary);
+    --color-checked: var(--segment-active);
+    --background-checked: rgba(var(--ion-color-primary-rgb), 0.1);
+    min-width: auto;
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    height: 44px;
+
+    &:hover {
+      --background-hover: rgba(var(--ion-color-primary-rgb), 0.05);
+    }
+  }
+}
+
+.price-section {
+  margin: 28px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.08) 0%, rgba(var(--ion-color-primary-rgb), 0.03) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.2);
+}
+
+.price-breakdown {
+  .price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+
+    span:last-child {
+      font-weight: 600;
+      color: var(--text-color);
+    }
+  }
+
+  .price-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 2px solid var(--border-color);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-color);
+
+    .total-amount {
+      font-size: 20px;
+      color: var(--segment-active);
+    }
+  }
+}
+
+.book-button {
+  --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+  --color: var(--button-text);
+  --border-radius: 12px;
+  --box-shadow: 0 6px 20px rgba(var(--ion-color-primary-rgb), 0.4);
+  margin-top: 28px;
+  height: 52px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+
+  &:hover:not([disabled]) {
+    --box-shadow: 0 8px 24px rgba(var(--ion-color-primary-rgb), 0.5);
+    transform: translateY(-2px);
+  }
+
+  &:active:not([disabled]) {
+    transform: translateY(0);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    --box-shadow: none;
+  }
+
+  ion-spinner {
+    margin-right: 8px;
+  }
+}
+
+// Datetime Modal Styles
+.datetime-modal {
+  --width: 90%;
+  --max-width: 400px;
+  --border-radius: 16px;
+
+  ion-datetime {
+    --background: var(--card-bg);
+    border-radius: 12px;
+    margin: 16px 0;
+  }
+
+  ion-button {
+    --border-radius: 8px;
+    margin-top: 8px;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-section {
+    margin-bottom: 20px;
+  }
+
+  .rental-days-segment {
+    ion-segment-button {
+      font-size: 12px;
+      padding: 8px 4px;
+    }
+  }
+
+  .datetime-modal {
+    --width: 95%;
+  }
+
+  .input-field-group {
+    .datetime-input {
+      padding: 12px 14px;
+      min-height: 48px;
+
+      ion-icon {
+        font-size: 18px;
+      }
+
+      .input-value {
+        font-size: 14px;
+      }
+    }
+  }
 }

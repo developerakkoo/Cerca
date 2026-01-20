@@ -5,7 +5,7 @@
         <ion-icon name="close" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
-    <ion-title>Chat with Driver</ion-title>
+    <ion-title>{{ 'CHAT.title' | translate }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -13,7 +13,7 @@
   <div class="chat-container" *ngIf="!isLoadingMessages">
     <!-- Date Separator -->
     <div class="date-separator">
-      <span>Today</span>
+      <span>{{ 'CHAT.today' | translate }}</span>
     </div>
 
     <!-- Messages -->
@@ -21,8 +21,8 @@
       <!-- Empty State -->
       <div *ngIf="messages.length === 0 && !isLoadingMessages" class="empty-state">
         <ion-icon name="chatbubbles-outline" size="large"></ion-icon>
-        <p>No messages yet</p>
-        <p class="empty-state-subtitle">Start the conversation</p>
+        <p>{{ 'CHAT.noMessagesYet' | translate }}</p>
+        <p class="empty-state-subtitle">{{ 'CHAT.startConversation' | translate }}</p>
       </div>
       
       <!-- All Messages (Driver and User) -->
@@ -60,7 +60,7 @@
   <!-- Loading State -->
   <div *ngIf="isLoadingMessages" class="loading-container">
     <ion-spinner></ion-spinner>
-    <p>Loading messages...</p>
+    <p>{{ 'CHAT.loadingMessages' | translate }}</p>
   </div>
 </ion-content>
 
@@ -72,7 +72,7 @@
     </ion-button>
     <ion-input
       type="text"
-      placeholder="Type a message..."
+      [placeholder]="'CHAT.typeMessage' | translate"
       [(ngModel)]="newMessage"
       (keyup.enter)="sendMessage()"
       class="message-input"

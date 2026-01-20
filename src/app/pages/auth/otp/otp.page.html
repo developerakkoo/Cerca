@@ -9,8 +9,8 @@
 
     <!-- Header Section -->
     <div class="header-section">
-      <h1 class="title">Enter verification code</h1>
-      <p class="subtitle">We've sent a code to +91 {{maskedMobile}}</p>
+      <h1 class="title">{{ 'AUTH.otp.title' | translate }}</h1>
+      <p class="subtitle">{{ 'AUTH.otp.subtitle' | translate }}</p>
     </div>
 
     <!-- OTP Input Section -->
@@ -58,13 +58,13 @@
       <!-- Verification Status -->
       <div class="verification-status" *ngIf="isVerifying">
         <div class="loading-spinner"></div>
-        <span>Verifying OTP...</span>
+        <span>{{ 'AUTH.otp.verify' | translate }}...</span>
       </div>
 
       <!-- Timer Section -->
       <div class="timer-section" *ngIf="!isVerifying">
-        <p>Didn't receive the code? <span class="resend" [class.active]="canResend" (click)="resendOTP()">
-          {{ canResend ? 'Resend' : `Resend in ${timeLeft}s` }}
+        <p>{{ 'AUTH.otp.resend' | translate }}? <span class="resend" [class.active]="canResend" (click)="resendOTP()">
+          {{ canResend ? ('AUTH.otp.resend' | translate) : ('AUTH.otp.resendIn' | translate: {seconds: timeLeft}) }}
         </span></p>
       </div>
     </div>

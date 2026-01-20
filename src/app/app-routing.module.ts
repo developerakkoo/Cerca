@@ -74,6 +74,10 @@ const routes: Routes = [
     path: 'view-transactions',
     loadChildren: () => import('./view-transactions/view-transactions.module').then( m => m.ViewTransactionsPageModule)
   },
+  {
+    path: 'manage-address',
+    loadChildren: () => import('./pages/manage-address/manage-address.module').then( m => m.ManageAddressPageModule)
+  },
 
 ];
 @NgModule({

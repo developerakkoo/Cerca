@@ -49,13 +49,6 @@
       <ion-toggle slot="end" [(ngModel)]="notificationsEnabled" (ionChange)="toggleNotifications()"></ion-toggle>
     </ion-item>
 
-    <!-- Theme Mode -->
-    <ion-item class="settings-item">
-      <ion-icon name="moon-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Theme' | translate}}</ion-label>
-      <ion-toggle slot="end" [(ngModel)]="paletteToggle" (ionChange)="toggleChange($event)"></ion-toggle>
-    </ion-item>
-
     <!-- Language -->
     <ion-item class="settings-item">
       <ion-icon name="language-outline" slot="start"></ion-icon>
@@ -91,7 +84,7 @@
     <!-- Logout -->
     <ion-item lines="none" class="settings-item logout-item" (click)="logout()">
       <ion-icon name="log-out-outline" slot="start" color="danger"></ion-icon>
-      <ion-label color="danger">Logout</ion-label>
+      <ion-label color="danger">{{ 'SETTINGS.items.Logout' | translate }}</ion-label>
     </ion-item>
   </ion-list>
 </ion-content>

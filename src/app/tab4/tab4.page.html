@@ -1,7 +1,7 @@
-<ion-header [translucent]="true" class="ion-no-border">
+  <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>
-      Book a Service
+      {{ 'SERVICE.title' | translate }}
     </ion-title>
   </ion-toolbar>
 </ion-header>
@@ -9,12 +9,12 @@
 <ion-content [fullscreen]="true" class="ion-padding">
   <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">Book a Service</ion-title>
+      <ion-title size="large">{{ 'SERVICE.title' | translate }}</ion-title>
     </ion-toolbar>
   </ion-header>
 
   <!-- Service Selection -->
-  <div class="services-grid">
+  <div class="services-grid" *ngIf="!selectedService || selectedService.id === 3">
     <ion-card *ngFor="let service of services" 
               [id]="'service-' + service.id"
               class="service-card"
@@ -36,6 +36,186 @@
     </ion-card>
   </div>
 
-  <!-- Booking Details -->
+  <!-- Booking Form -->
+  <div class="booking-form-container" *ngIf="selectedService && selectedService.id !== 3">
+    <ion-card class="booking-card">
+      <ion-card-header>
+        <div class="header-actions">
+          <h2>{{ selectedService.name }}</h2>
+          <ion-button fill="clear" size="small" (click)="resetForm()">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </ion-card-header>
+      <ion-card-content>
+        
+        <!-- Full Day Booking Form -->
+        <div *ngIf="selectedBookingType === 'fullDay'" class="booking-form">
+          <div class="form-section">
+            <h3>Start Date & Time</h3>
+            <div class="input-field-group">
+              <label class="input-label">Start Date</label>
+              <div class="datetime-input" (click)="openDatePicker('fullDayStartDate')">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span class="input-value">{{ formatDateDisplay(fullDayStartDate) || 'Select start date' }}</span>
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label class="input-label">Start Time</label>
+              <div class="datetime-input" (click)="openTimePicker('fullDayStartTime')">
+                <ion-icon name="time-outline"></ion-icon>
+                <span class="input-value">{{ formatTimeDisplay(fullDayStartTime) || 'Select start time' }}</span>
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>End Date & Time</h3>
+            <div class="input-field-group">
+              <label class="input-label">End Date</label>
+              <div class="datetime-input" (click)="openDatePicker('fullDayEndDate')">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span class="input-value">{{ formatDateDisplay(fullDayEndDate) || 'Select end date' }}</span>
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </div>
+            </div>
+            <div class="input-field-group">
+              <label class="input-label">End Time</label>
+              <div class="datetime-input" (click)="openTimePicker('fullDayEndTime')">
+                <ion-icon name="time-outline"></ion-icon>
+                <span class="input-value">{{ formatTimeDisplay(fullDayEndTime) || 'Select end time' }}</span>
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rental Booking Form -->
+        <div *ngIf="selectedBookingType === 'rental'" class="booking-form">
+          <div class="form-section">
+            <h3>Start Date</h3>
+            <div class="input-field-group">
+              <label class="input-label">Rental Start Date</label>
+              <div class="datetime-input" (click)="openDatePicker('rentalStartDate')">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span class="input-value">{{ formatDateDisplay(rentalStartDate) || 'Select start date' }}</span>
+                <ion-icon name="chevron-down-outline"></ion-icon>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Rental Duration</h3>
+            <ion-segment [(ngModel)]="rentalDays" class="rental-days-segment">
+              <ion-segment-button *ngFor="let days of rentalDayOptions" [value]="days">
+                {{ days }} Days
+              </ion-segment-button>
+            </ion-segment>
+          </div>
+        </div>
+
+        <!-- Location Selection -->
+        <div class="form-section">
+          <h3>Locations</h3>
+          <ion-item class="form-item location-item" button (click)="openLocationPicker(true)">
+            <ion-icon name="location-outline" slot="start" color="primary"></ion-icon>
+            <ion-label>
+              <h3>Pickup Location</h3>
+              <p>{{ pickupAddress || 'Tap to select pickup location' }}</p>
+            </ion-label>
+            <ion-icon name="chevron-forward-outline" slot="end"></ion-icon>
+          </ion-item>
+          <ion-item class="form-item location-item" button (click)="openLocationPicker(false)">
+            <ion-icon name="navigate-outline" slot="start" color="primary"></ion-icon>
+            <ion-label>
+              <h3>Dropoff Location</h3>
+              <p>{{ dropoffAddress || 'Tap to select dropoff location' }}</p>
+            </ion-label>
+            <ion-icon name="chevron-forward-outline" slot="end"></ion-icon>
+          </ion-item>
+        </div>
+
+        <!-- Price Display -->
+        <div class="price-section">
+          <div class="price-breakdown">
+            <div class="price-row">
+              <span>Base Price</span>
+              <span>₹{{ calculateTotal() }}</span>
+            </div>
+            <div class="price-total">
+              <span>Total Amount</span>
+              <span class="total-amount">₹{{ calculateTotal() }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Book Button -->
+        <ion-button 
+          expand="block" 
+          class="book-button"
+          [disabled]="!validateForm() || isLoading"
+          (click)="bookService()">
+          <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+          <span *ngIf="!isLoading">Book Now</span>
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- Date Picker Modal -->
+  <ion-modal [isOpen]="showDateModal" (didDismiss)="closeDateModal()" cssClass="datetime-modal">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Select Date</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeDateModal()">
+              <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-datetime 
+          presentation="date"
+          [min]="getDatePickerMin()"
+          [max]="maxDate"
+          [value]="getDatePickerValue()"
+          (ionChange)="onDateChange($event)">
+        </ion-datetime>
+        <div style="padding: 16px;">
+          <ion-button expand="block" (click)="confirmDateSelection()">Confirm</ion-button>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Time Picker Modal -->
+  <ion-modal [isOpen]="showTimeModal" (didDismiss)="closeTimeModal()" cssClass="datetime-modal">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Select Time</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeTimeModal()">
+              <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <ion-datetime 
+          presentation="time"
+          [value]="getTimePickerValue()"
+          (ionChange)="onTimeChange($event)">
+        </ion-datetime>
+        <div style="padding: 16px;">
+          <ion-button expand="block" (click)="confirmTimeSelection()">Confirm</ion-button>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
   
 </ion-content>

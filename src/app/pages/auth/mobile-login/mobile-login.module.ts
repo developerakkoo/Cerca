@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { IonicModule } from '@ionic/angular';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { MobileLoginPageRoutingModule } from './mobile-login-routing.module';
 
@@ -14,6 +15,7 @@ import { ReactiveFormsModule } from '@angular/forms';
     FormsModule,
     ReactiveFormsModule,
     IonicModule,
+    TranslateModule,
     MobileLoginPageRoutingModule
   ],
   declarations: [MobileLoginPage]

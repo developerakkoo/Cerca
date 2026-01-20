@@ -3,20 +3,19 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { IonicModule } from '@ionic/angular';
-import { TranslateModule } from '@ngx-translate/core';
 
-import { LoginPageRoutingModule } from './login-routing.module';
+import { ManageAddressPageRoutingModule } from './manage-address-routing.module';
 
-import { LoginPage } from './login.page';
+import { ManageAddressPage } from './manage-address.page';
 
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
-    TranslateModule,
-    LoginPageRoutingModule
+    ManageAddressPageRoutingModule
   ],
-  declarations: [LoginPage]
+  declarations: [ManageAddressPage]
 })
-export class LoginPageModule {}
+export class ManageAddressPageModule {}
+

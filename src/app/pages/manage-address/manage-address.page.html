@@ -1,0 +1,100 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tabs/tab5"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Manage Addresses</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading addresses...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && isEmpty" class="empty-state">
+    <ion-icon name="location-outline" size="large" color="medium"></ion-icon>
+    <h2>No addresses saved</h2>
+    <p>Add your first address to get started</p>
+    <ion-button fill="outline" color="primary" size="large" (click)="addAddress()">
+      <ion-icon name="add" slot="start"></ion-icon>
+      Add Address
+    </ion-button>
+  </div>
+
+  <!-- Addresses List -->
+  <ion-list *ngIf="!isLoading && !isEmpty" class="addresses-list">
+    <ion-item-sliding *ngFor="let address of addresses; trackBy: trackByAddressId">
+      <ion-item class="address-item" lines="full">
+        <ion-icon
+          [name]="isPinned(address._id) ? 'star' : 'star-outline'"
+          [color]="isPinned(address._id) ? 'warning' : 'medium'"
+          slot="start"
+          class="pin-icon"
+          (click)="togglePin(address)"
+        ></ion-icon>
+
+        <ion-label class="address-label">
+          <h2 class="address-line">{{ address.addressLine }}</h2>
+          <p *ngIf="address.formattedAddress" class="formatted-address">
+            {{ address.formattedAddress }}
+          </p>
+          <p *ngIf="address.landmark" class="landmark">
+            <ion-icon name="location-outline" size="small"></ion-icon>
+            {{ address.landmark }}
+          </p>
+        </ion-label>
+
+        <ion-button
+          fill="clear"
+          slot="end"
+          (click)="editAddress(address)"
+          class="action-button"
+        >
+          <ion-icon name="create-outline" color="primary"></ion-icon>
+        </ion-button>
+      </ion-item>
+
+      <ion-item-options side="end">
+        <ion-item-option
+          color="danger"
+          (click)="deleteAddress(address)"
+        >
+          <ion-icon name="trash" slot="icon-only"></ion-icon>
+        </ion-item-option>
+      </ion-item-options>
+    </ion-item-sliding>
+  </ion-list>
+
+  <!-- Add Address Button -->
+  <ion-fab
+    *ngIf="!isLoading && !isEmpty"
+    vertical="bottom"
+    horizontal="end"
+    slot="fixed"
+  >
+    <ion-fab-button (click)="addAddress()" color="primary">
+      <ion-icon name="add"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+
+  <!-- Add Address Button (when empty) -->
+  <ion-fab
+    *ngIf="!isLoading && isEmpty"
+    vertical="bottom"
+    horizontal="end"
+    slot="fixed"
+  >
+    <ion-fab-button (click)="addAddress()" color="primary">
+      <ion-icon name="add"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
+

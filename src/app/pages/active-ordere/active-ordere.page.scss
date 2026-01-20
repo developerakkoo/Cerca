@@ -30,10 +30,23 @@ ion-modal::part(content) {
   pointer-events: none; // Let touches pass through to map
 }
 
+:root.ion-palette-dark {
+  ion-modal::part(content) {
+    background: var(--ion-color-dark);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  }
+}
+
 /* Make modal content interactive */
 ion-modal ion-content {
   pointer-events: auto; // But keep modal content interactive
   --background: var(--ion-color-light);
+}
+
+:root.ion-palette-dark {
+  ion-modal ion-content {
+    --background: var(--ion-color-dark);
+  }
 }
 
 .modal-header {
@@ -64,6 +77,17 @@ ion-modal ion-content {
       font-style: italic;
     }
   }
+
+  :root.ion-palette-dark & {
+    background: var(--ion-color-dark);
+    border-bottom-color: rgba(var(--ion-color-light-rgb), 0.1);
+
+    .arrival-status {
+      h2 {
+        color: var(--ion-color-light);
+      }
+    }
+  }
 }
 
 .modal-content {
@@ -79,6 +103,11 @@ ion-modal ion-content {
   background: rgba(var(--ion-color-light-rgb), 0.5);
   border-radius: 12px;
   border: 1px solid rgba(var(--ion-color-medium-rgb), 0.2);
+
+  :root.ion-palette-dark & {
+    background: rgba(var(--ion-color-dark-rgb), 0.8);
+    border-color: rgba(var(--ion-color-light-rgb), 0.1);
+  }
 }
 
 .driver-profile {
@@ -92,12 +121,16 @@ ion-modal ion-content {
     border: 2px solid var(--ion-color-primary);
   }
 
-  .driver-details {
-    h3 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--ion-color-dark);
+    .driver-details {
+      h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--ion-color-dark);
+
+        :root.ion-palette-dark & {
+          color: var(--ion-color-light);
+        }
     }
 
     .rating {
@@ -126,6 +159,10 @@ ion-modal ion-content {
     font-size: 16px;
     font-weight: 600;
     color: var(--ion-color-dark);
+
+    :root.ion-palette-dark & {
+      color: var(--ion-color-light);
+    }
   }
 
   .car-type {
@@ -206,6 +243,11 @@ ion-modal ion-content {
   background: rgba(var(--ion-color-light-rgb), 0.5);
   border-radius: 12px;
   border: 1px solid rgba(var(--ion-color-medium-rgb), 0.2);
+
+  :root.ion-palette-dark & {
+    background: rgba(var(--ion-color-dark-rgb), 0.8);
+    border-color: rgba(var(--ion-color-light-rgb), 0.1);
+  }
 }
 
 .location-row {
@@ -269,6 +311,10 @@ ion-modal ion-content {
     font-size: 16px;
     color: var(--ion-color-dark);
     font-weight: 500;
+
+    :root.ion-palette-dark & {
+      color: var(--ion-color-light);
+    }
   }
 }
 
@@ -283,28 +329,7 @@ ion-modal ion-content {
   }
 }
 
-// Dark theme adjustments
-@media (prefers-color-scheme: dark) {
-  .driver-modal-shell {
-    background: var(--ion-color-dark);
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .modal-header {
-    background: var(--ion-color-dark);
-    border-bottom-color: rgba(var(--ion-color-light-rgb), 0.1);
-  }
-
-  .driver-info,
-  .trip-details {
-    background: rgba(var(--ion-color-light-rgb), 0.05);
-    border-color: rgba(var(--ion-color-light-rgb), 0.1);
-  }
-
-  .location-connector {
-    background: rgba(var(--ion-color-light-rgb), 0.1);
-  }
-}
+// Dark theme adjustments (already handled above with :root.ion-palette-dark selectors)
 
 // Animations
 @keyframes slideUp {
@@ -349,6 +374,11 @@ ion-modal ion-content {
   &.show {
     transform: translateY(0);
   }
+
+  :root.ion-palette-dark & {
+    background: var(--ion-color-dark);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .rating-content {
@@ -359,6 +389,10 @@ ion-modal ion-content {
     margin: 0 0 20px;
     font-size: 24px;
     color: var(--ion-color-dark);
+
+    :root.ion-palette-dark & {
+      color: var(--ion-color-light);
+    }
   }
 }
 

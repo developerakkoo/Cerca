@@ -178,37 +178,39 @@ export class NotificationsPage implements OnInit, OnDestroy {
     this.notifications.splice(index, 1);
   }
 
-  markAllAsRead() {
+  async markAllAsRead() {
     if (this.isClearingAll) return;
     this.isClearingAll = true;
 
-    // Mark all unread notifications as read on backend
-    this.notifications.forEach((notification) => {
-      if (!notification.read && notification._id) {
-        this.rideService.markNotificationRead(notification._id);
-      }
-    });
+    try {
+      // Delete all notifications from backend
+      await this.rideService.deleteAllNotifications();
 
-    // Add clearing animation to all notifications
-    this.notifications.forEach((notification, index) => {
-      notification.isClearing = true;
-      notification.read = true;
-      const element = document.querySelector(
-        `.notification-item:nth-child(${index + 1})`
-      ) as HTMLElement;
-      if (element) {
-        element.style.transition =
-          'transform 0.5s ease-out, opacity 0.5s ease-out';
-        element.style.transform = 'translateX(-100%)';
-        element.style.opacity = '0';
-      }
-    });
+      // Add clearing animation to all notifications
+      this.notifications.forEach((notification, index) => {
+        notification.isClearing = true;
+        notification.read = true;
+        const element = document.querySelector(
+          `.notification-item:nth-child(${index + 1})`
+        ) as HTMLElement;
+        if (element) {
+          element.style.transition =
+            'transform 0.5s ease-out, opacity 0.5s ease-out';
+          element.style.transform = 'translateX(-100%)';
+          element.style.opacity = '0';
+        }
+      });
 
-    // Clear all notifications after animation
-    setTimeout(() => {
-      this.notifications = [];
+      // Clear all notifications after animation
+      setTimeout(() => {
+        this.notifications = [];
+        this.isClearingAll = false;
+      }, 500);
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
       this.isClearingAll = false;
-    }, 500);
+      // Optionally show error toast to user
+    }
   }
 
   goBack() {

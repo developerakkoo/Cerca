@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { AnimationController, Platform } from '@ionic/angular';
-import { ThemeService } from '../services/theme.service';
 import { UserService, User } from '../services/user.service';
 import { Router } from '@angular/router';
 import { LanguageService } from '../service/language.service';
@@ -17,8 +16,6 @@ interface Language {
   standalone: false,
 })
 export class Tab5Page implements OnInit {
-  isDarkMode: boolean = false;
-  paletteToggle = false;
   notificationsEnabled: boolean = true;
   selectedLanguage: string = 'en';
   user: any;
@@ -31,40 +28,23 @@ export class Tab5Page implements OnInit {
   constructor(
     private animationCtrl: AnimationController,
     private platform: Platform,
-    private themeService: ThemeService,
     private userService: UserService,
     private router: Router,
     private languageService: LanguageService
   ) {}
 
   ngOnInit() {
-   // Use matchMedia to check the user preference
-   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
-
-   // Initialize the dark palette based on the initial
-   // value of the prefers-color-scheme media query
-   this.initializeDarkPalette(prefersDark.matches);
-
-   // Listen for changes to the prefers-color-scheme media query
-   prefersDark.addEventListener('change', (mediaQuery) => this.initializeDarkPalette(mediaQuery.matches));
+    this.initializeLanguage();
     this.animateItems();
     this.getUser();
   }
 
-    // Check/uncheck the toggle and update the palette based on isDark
-    initializeDarkPalette(isDark: boolean) {
-      this.paletteToggle = isDark;
-      this.toggleDarkPalette(isDark);
-    }
-  
-    // Listen for the toggle check/uncheck to toggle the dark palette
-    toggleChange(event: CustomEvent) {
-      this.toggleDarkPalette(event.detail.checked);
-    }
-  
-   // Add or remove the "ion-palette-dark" class on the html element
-  toggleDarkPalette(shouldAdd: boolean) {
-    document.documentElement.classList.toggle('ion-palette-dark', shouldAdd);
+  private initializeLanguage() {
+    // Load available languages from service
+    this.languages = this.languageService.getLanguage();
+    
+    // Load current language
+    this.selectedLanguage = this.languageService.getCurrentLanguage();
   }
 
   private animateItems() {
@@ -88,23 +68,16 @@ export class Tab5Page implements OnInit {
     });
   }
 
-  toggleTheme() {
-    this.isDarkMode = !this.isDarkMode;
-    this.themeService.setTheme(this.isDarkMode);
-  }
 
   toggleNotifications() {
     this.notificationsEnabled = !this.notificationsEnabled;
     // Implement notifications logic
   }
 
-  changeLanguage(langCode: string) {
+  async changeLanguage(langCode: string) {
     this.selectedLanguage = langCode;
-    // Implement language change logic
-
-    console.log(langCode);
-    this.languageService.setLanguage(langCode);
-    
+    await this.languageService.setLanguage(langCode);
+    console.log('🌐 Language changed to:', langCode);
   }
 
   editProfile() {
@@ -131,6 +104,6 @@ export class Tab5Page implements OnInit {
   }
 
   manageAddress() {
-    // Implement address management logic
+    this.router.navigate(['/manage-address']);
   }
 }

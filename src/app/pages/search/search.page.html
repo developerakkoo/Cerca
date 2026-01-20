@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/tabs/tab1"></ion-back-button>
     </ion-buttons>
-    <ion-title>Set Location</ion-title>
+    <ion-title>{{ addressMode ? (addressMode === 'add' ? 'Add Address' : 'Edit Address') : 'Set Location' }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -30,7 +30,7 @@
         <p>{{selectedAddress || 'Select Location'}}</p>
       </div>
       <ion-button fill="clear" (click)="confirmLocation()">
-        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <ion-icon [name]="addressMode ? 'save-outline' : 'checkmark-circle-outline'"></ion-icon>
       </ion-button>
     </div>
   </div> 

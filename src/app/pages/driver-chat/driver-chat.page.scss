@@ -328,42 +328,42 @@
 }
 
 // Dark theme support
-@media (prefers-color-scheme: dark) {
+:root.ion-palette-dark {
   .chat-content {
-    --background: var(--ion-color-dark);
-    background: var(--ion-color-dark);
+    --background: var(--ion-background-color);
+    background: var(--ion-background-color);
     
     &::before {
-      background: var(--ion-color-dark);
+      background: var(--ion-background-color);
     }
   }
 
   .chat-container {
-    background: var(--ion-color-dark);
+    background: var(--ion-background-color);
   }
 
   .loading-container {
-    background: var(--ion-color-dark);
+    background: var(--ion-background-color);
   }
 
   .chat-input {
-    background: var(--ion-color-dark);
+    background: var(--ion-background-color);
     
     &::before {
-      background: var(--ion-color-dark);
+      background: var(--ion-background-color);
     }
   }
 
   .input-container {
-    background: var(--ion-color-dark-shade);
+    background: var(--ion-color-dark);
   }
 
   .driver-message .message-bubble {
-    background: var(--ion-color-dark-shade);
+    background: var(--ion-color-dark);
     color: var(--ion-color-light);
   }
 
   .message-time {
-    color: var(--ion-color-light-shade);
+    color: var(--ion-color-medium);
   }
 }

@@ -64,26 +64,49 @@
       </div>
     </div>
 
-    <!-- Location Input -->
+    <!-- Location Selection -->
     <div class="location-inputs">
-      <div class="input-group">
-        <ion-icon name="location-outline" color="primary"></ion-icon>
-        <input type="text" placeholder="Pickup Location" [(ngModel)]="pickupLocation">
-      </div>
-      <div class="input-group">
-        <ion-icon name="navigate-outline" color="primary"></ion-icon>
-        <input type="text" placeholder="Drop Location" [(ngModel)]="dropLocation">
+      <ion-item class="location-item" button (click)="openLocationPicker(true)">
+        <ion-icon name="location-outline" slot="start" color="primary"></ion-icon>
+        <ion-label>
+          <h3>Pickup Location</h3>
+          <p>{{ pickupAddress || 'Tap to select pickup location' }}</p>
+        </ion-label>
+        <ion-icon name="chevron-forward-outline" slot="end"></ion-icon>
+      </ion-item>
+      <ion-item class="location-item" button (click)="openLocationPicker(false)">
+        <ion-icon name="navigate-outline" slot="start" color="primary"></ion-icon>
+        <ion-label>
+          <h3>Dropoff Location</h3>
+          <p>{{ dropoffAddress || 'Tap to select dropoff location' }}</p>
+        </ion-label>
+        <ion-icon name="chevron-forward-outline" slot="end"></ion-icon>
+      </ion-item>
+    </div>
+
+    <!-- Price Display -->
+    <div class="price-section" *ngIf="selectedDates.length > 0">
+      <div class="price-breakdown">
+        <div class="price-row">
+          <span>{{ selectedDates.length }} Date{{ selectedDates.length > 1 ? 's' : '' }} × ₹500</span>
+          <span>₹{{ selectedDates.length * 500 }}</span>
+        </div>
+        <div class="price-total">
+          <span>Total Amount</span>
+          <span class="total-amount">₹{{ selectedDates.length * 500 }}</span>
+        </div>
       </div>
     </div>
 
     <!-- Book Button -->
-    <button 
+    <ion-button 
+      expand="block"
       class="book-button" 
-      [class.enabled]="isFormValid()"
-      [disabled]="!isFormValid()"
+      [disabled]="!isFormValid() || isLoading"
       (click)="bookRide()">
-      Book Ride
-      <ion-icon name="arrow-forward-outline"></ion-icon>
-    </button>
+      <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+      <span *ngIf="!isLoading">Book Ride</span>
+      <ion-icon *ngIf="!isLoading" name="arrow-forward-outline" slot="end"></ion-icon>
+    </ion-button>
   </div>
 </ion-content>

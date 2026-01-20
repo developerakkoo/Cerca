@@ -6,7 +6,7 @@
         <div class="input-wrapper">
           <ion-searchbar 
             class="animated-input"
-            placeholder="Where are you?"
+            [placeholder]="'MODAL.whereAreYou' | translate"
             [ngModel]="pickupInput"
             (ngModelChange)="onPickupInputChange($event)"
             (ionFocus)="onFocus($event, 'pickup')"
@@ -26,7 +26,7 @@
         <div class="input-wrapper">
           <ion-searchbar 
             class="animated-input"
-            placeholder="Where to?"
+            [placeholder]="'MODAL.whereTo' | translate"
             [ngModel]="destinationInput"
             (ngModelChange)="onDestinationInputChange($event)"
             (ionFocus)="onFocus($event, 'destination')"
@@ -54,10 +54,10 @@
                   <ion-radio value="small" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">Cerca Small</span>
+                        <span class="vehicle-name">{{ 'MODAL.cercaSmall' | translate }}</span>
                         <span class="vehicle-price">₹299</span>
                       </div>
-                      <span class="vehicle-seats">4 seats</span>
+                      <span class="vehicle-seats">4 {{ 'MODAL.seats' | translate }}</span>
                     </div>
                   </ion-radio>
                 </ion-item>
@@ -68,10 +68,10 @@
                   <ion-radio value="medium" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">Cerca Medium</span>
+                        <span class="vehicle-name">{{ 'MODAL.cercaMedium' | translate }}</span>
                         <span class="vehicle-price">₹499</span>
                       </div>
-                      <span class="vehicle-seats">6 seats</span>
+                      <span class="vehicle-seats">6 {{ 'MODAL.seats' | translate }}</span>
                     </div>
                   </ion-radio>
                 </ion-item>
@@ -82,10 +82,10 @@
                   <ion-radio value="large" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">Cerca Large</span>
+                        <span class="vehicle-name">{{ 'MODAL.cercaLarge' | translate }}</span>
                         <span class="vehicle-price">₹699</span>
                       </div>
-                      <span class="vehicle-seats">8 seats</span>
+                      <span class="vehicle-seats">8 {{ 'MODAL.seats' | translate }}</span>
                     </div>
                   </ion-radio>
                 </ion-item>
@@ -96,13 +96,13 @@
           <div class="payment-button-container">
             <ion-button expand="block" class="payment-button" (click)="goToPayment()">
               <ion-icon name="card-outline" slot="start"></ion-icon>
-              Proceed to Payment
+              {{ 'MODAL.proceedToPayment' | translate }}
             </ion-button>
           </div>
         </div>
       </div>
 
-      <div class="address-chips-container" *ngIf="!areInputsFilled">
+      <!-- <div class="address-chips-container" *ngIf="!areInputsFilled">
         <div class="address-chips">
           <div 
             *ngFor="let address of addresses" 
@@ -113,7 +113,7 @@
             <span class="chip-address">{{address.address}}</span>
           </div>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 </div>

@@ -11,6 +11,7 @@ import { UserService } from '../../services/user.service';
 import { RideService } from '../../services/ride.service';
 import { PaymentService } from '../../services/payment.service';
 import { WalletService } from '../../services/wallet.service';
+import { CouponService } from '../../services/coupon.service';
 import { Storage } from '@ionic/storage-angular';
 
 @Component({
@@ -38,6 +39,7 @@ export class PaymentPage implements OnInit {
   promoCode: string = '';
   promoApplied: boolean = false;
   promoMessage: string = '';
+  validatedPromoCode: string | null = null;
 
   // Pending ride details
   private pendingRideDetails: any = null;
@@ -51,6 +53,7 @@ export class PaymentPage implements OnInit {
     private rideService: RideService,
     private paymentService: PaymentService,
     private walletService: WalletService,
+    private couponService: CouponService,
     private storage: Storage,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController
@@ -89,20 +92,25 @@ export class PaymentPage implements OnInit {
       });
     }
 
-    // Get the base fare from the route parameters
+    // Calculate fare based on distance and vehicle type
+    this.calculateFareFromDistance();
+    
+    // Get the base fare from the route parameters (fallback)
     this.route.queryParams.subscribe((params) => {
       if (params['vehicle']) {
-        // Set base fare based on vehicle type
-        switch (params['vehicle']) {
-          case 'small':
-            this.baseFare = 299;
-            break;
-          case 'medium':
-            this.baseFare = 499;
-            break;
-          case 'large':
-            this.baseFare = 699;
-            break;
+        // If fare not calculated from distance, use hardcoded values
+        if (this.baseFare === 0) {
+          switch (params['vehicle']) {
+            case 'small':
+              this.baseFare = 299;
+              break;
+            case 'medium':
+              this.baseFare = 499;
+              break;
+            case 'large':
+              this.baseFare = 699;
+              break;
+          }
         }
         this.calculateTotal();
       }
@@ -131,20 +139,67 @@ export class PaymentPage implements OnInit {
     }
   }
 
-  applyPromo() {
-    // Simulate promo code validation
-    if (this.promoCode.toLowerCase() === 'welcome50') {
-      this.promoApplied = true;
-      this.discountAmount = Math.floor(this.baseFare * 0.5); // 50% discount
-      this.promoMessage = '50% discount applied successfully!';
-      this.calculateTotal();
-      this.checkWalletBalance(); // Recheck wallet balance after discount
-    } else {
+  async applyPromo() {
+    if (!this.promoCode || !this.promoCode.trim()) {
+      this.promoMessage = 'Please enter a promo code';
+      return;
+    }
+
+    if (!this.userId) {
+      this.promoMessage = 'User not authenticated';
+      return;
+    }
+
+    // Determine service type from vehicle selection
+    const service = this.pendingRideDetails?.selectedVehicle === 'small' 
+      ? 'sedan' 
+      : this.pendingRideDetails?.selectedVehicle === 'medium'
+      ? 'suv'
+      : 'auto';
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Validating promo code...',
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    try {
+      const response = await this.couponService
+        .validateCoupon({
+          couponCode: this.promoCode.trim().toUpperCase(),
+          userId: this.userId,
+          rideFare: this.baseFare,
+          service: service,
+          rideType: 'normal',
+        })
+        .toPromise();
+
+      await loading.dismiss();
+
+      if (response && response.success && response.data) {
+        this.promoApplied = true;
+        this.validatedPromoCode = this.promoCode.trim().toUpperCase();
+        this.discountAmount = response.data.discountAmount;
+        this.promoMessage = response.message || 'Promo code applied successfully!';
+        this.calculateTotal();
+        this.checkWalletBalance(); // Recheck wallet balance after discount
+      } else {
+        this.promoApplied = false;
+        this.validatedPromoCode = null;
+        this.discountAmount = 0;
+        this.promoMessage = response?.message || 'Invalid promo code';
+        this.calculateTotal();
+        this.checkWalletBalance(); // Recheck wallet balance after removing discount
+      }
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Error validating promo code:', error);
       this.promoApplied = false;
+      this.validatedPromoCode = null;
       this.discountAmount = 0;
-      this.promoMessage = 'Invalid promo code';
+      this.promoMessage = 'Failed to validate promo code. Please try again.';
       this.calculateTotal();
-      this.checkWalletBalance(); // Recheck wallet balance after removing discount
+      this.checkWalletBalance();
     }
   }
 
@@ -212,14 +267,20 @@ export class PaymentPage implements OnInit {
 
       // Process payment based on method
       if (this.selectedPaymentMethod === 'wallet') {
-        // Deduct amount from wallet
-        const success = await this.userService
-          .deductFromWallet(this.totalAmount)
-          .toPromise();
-        if (!success) {
-          throw new Error('Failed to deduct from wallet');
+        // Deduct amount from wallet using WalletService
+        if (!this.userId) {
+          throw new Error('User ID not found');
         }
-        console.log('✅ Wallet payment processed');
+        const response = await this.walletService
+          .deductFromWallet(this.userId, {
+            amount: this.totalAmount,
+            description: `Ride payment of ₹${this.totalAmount}`,
+          })
+          .toPromise();
+        if (!response || !response.success) {
+          throw new Error(response?.message || 'Failed to deduct from wallet');
+        }
+        console.log('✅ Wallet payment processed:', response);
       } else if (this.selectedPaymentMethod === 'razorpay') {
         // Calculate payment amounts
         this.calculateHybridPayment();
@@ -349,8 +410,15 @@ export class PaymentPage implements OnInit {
         razorpayPaymentId: razorpayPaymentId || 'N/A',
       });
 
-      // TODO: Calculate actual fare based on distance
-      const estimatedDistance = 5.2;
+      // Use actual distance from pending ride details or fallback to default
+      const estimatedDistance = this.pendingRideDetails?.distanceInKm || 5.2;
+
+      // Determine service type from vehicle selection
+      const service = this.pendingRideDetails?.selectedVehicle === 'small' 
+        ? 'sedan' 
+        : this.pendingRideDetails?.selectedVehicle === 'medium'
+        ? 'suv'
+        : 'auto';
 
       // Request ride via Socket.IO
       await this.rideService.requestRide({
@@ -360,7 +428,7 @@ export class PaymentPage implements OnInit {
         dropoffAddress: this.pendingRideDetails.dropoffAddress,
         fare: this.totalAmount,
         distanceInKm: estimatedDistance,
-        service: 'Sedan',
+        service: service,
         rideType: 'normal',
         paymentMethod: paymentMethod,
         // Store Razorpay payment ID if available
@@ -370,6 +438,8 @@ export class PaymentPage implements OnInit {
           walletAmountUsed: this.walletAmountToUse,
           razorpayAmountPaid: this.razorpayAmountToPay,
         }),
+        // Promo code if applied
+        ...(this.validatedPromoCode && { promoCode: this.validatedPromoCode }),
       });
       
       // Hybrid payment details are passed to backend via ride request
@@ -391,6 +461,39 @@ export class PaymentPage implements OnInit {
       console.error('❌ Ride request failed:', error);
       await this.showToast('Failed to request ride. Please try again.', 'danger');
     }
+  }
+
+  /**
+   * Calculate fare based on distance and vehicle type
+   * Uses simple calculation: base fare + (distance * perKmRate)
+   * Falls back to hardcoded values if distance not available
+   */
+  private calculateFareFromDistance() {
+    if (!this.pendingRideDetails || !this.pendingRideDetails.distanceInKm) {
+      return; // Will use hardcoded values from route params
+    }
+
+    const distance = this.pendingRideDetails.distanceInKm;
+    const vehicle = this.pendingRideDetails.selectedVehicle || 'small';
+    
+    // Base fares (can be moved to settings later)
+    const baseFares: { [key: string]: number } = {
+      small: 50,
+      medium: 80,
+      large: 120,
+    };
+    
+    // Per km rate (can be moved to settings later)
+    const perKmRate = 12;
+    const minimumFare = 100;
+
+    const baseFare = baseFares[vehicle] || baseFares['small'];
+    let calculatedFare = baseFare + (distance * perKmRate);
+    calculatedFare = Math.max(calculatedFare, minimumFare);
+    calculatedFare = Math.round(calculatedFare * 100) / 100;
+
+    this.baseFare = calculatedFare;
+    this.calculateTotal();
   }
 
   private async showToast(message: string, color: string = 'dark') {

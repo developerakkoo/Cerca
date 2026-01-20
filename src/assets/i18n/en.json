@@ -1,24 +1,221 @@
 {
-    "SETTINGS":{
-        "title":"Account Settings",
-        "items":{
-            "Edit":"Edit Profile",
-            "Notifications":"Notifications",
-            "Address":"Manage Address",
-            "Language":"Language",
-            "Support":"Support",
-            "Faq":"FAQ",
-            "Theme":"Dark Mode",
-            "Logout":"Logout"
-        },
-
-        "TABS":{
-            "tab1":"Home",
-            "tab2":"Bookings",
-            "tab3":"Wallet",
-            "tab4":"Service",
-            "tab5":"Profile"
-        }
-
-}
+  "COMMON": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "retry": "Retry",
+    "noData": "No data available",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK"
+  },
+  "TABS": {
+    "home": "Home",
+    "bookings": "Bookings",
+    "wallet": "Wallet",
+    "service": "Service",
+    "profile": "Profile"
+  },
+  "SETTINGS": {
+    "title": "Account Settings",
+    "items": {
+      "Edit": "Edit Profile",
+      "Notifications": "Notifications",
+      "Address": "Manage Address",
+      "Language": "Language",
+      "Support": "Support",
+      "Faq": "FAQ",
+      "Theme": "Dark Mode",
+      "Logout": "Logout"
+    },
+    "TABS": {
+      "tab1": "Home",
+      "tab2": "Bookings",
+      "tab3": "Wallet",
+      "tab4": "Service",
+      "tab5": "Profile"
+    }
+  },
+  "HOME": {
+    "title": "Home",
+    "loadingMap": "Loading Map",
+    "initializingLocation": "Initializing your location...",
+    "whereAreYou": "Where are you?",
+    "whereTo": "Where to?",
+    "proceedToPayment": "Proceed to Payment",
+    "cercaSmall": "Cerca Small",
+    "cercaMedium": "Cerca Medium",
+    "cercaLarge": "Cerca Large",
+    "seats": "seats"
+  },
+  "BOOKINGS": {
+    "title": "My Bookings",
+    "activeNow": "Active Now",
+    "pastBookings": "Past Bookings",
+    "loadingRides": "Loading rides...",
+    "noActiveRides": "No Active Rides",
+    "noActiveRidesDesc": "You don't have any active rides at the moment.",
+    "noPastRides": "No Past Rides",
+    "noPastRidesDesc": "You don't have any past rides yet.",
+    "viewDetails": "View Details",
+    "callDriver": "Call Driver",
+    "rideNumber": "Ride #",
+    "at": "at",
+    "status": "Status",
+    "pickup": "Pickup",
+    "destination": "Destination",
+    "driver": "Driver",
+    "vehicle": "Vehicle",
+    "fare": "Fare",
+    "date": "Date",
+    "time": "Time",
+    "statuses": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "arrived": "Arrived",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "WALLET": {
+    "title": "My Wallet",
+    "availableBalance": "Available Balance",
+    "addMoney": "Add Money",
+    "useMoney": "Use Money",
+    "recentTransactions": "Recent Transactions",
+    "viewAll": "View All",
+    "loadingWalletData": "Loading wallet data...",
+    "noTransactions": "No transactions yet",
+    "transactionType": {
+      "credit": "Credit",
+      "debit": "Debit",
+      "topup": "Top-up",
+      "payment": "Payment",
+      "refund": "Refund"
+    }
+  },
+  "SERVICE": {
+    "title": "Book a Service"
+  },
+  "PROFILE": {
+    "title": "Profile"
+  },
+  "PAYMENT": {
+    "title": "Payment",
+    "paymentSummary": "Payment Summary",
+    "baseFare": "Base Fare",
+    "discountApplied": "Discount Applied",
+    "walletPayment": "Wallet Payment",
+    "onlinePayment": "Online Payment",
+    "totalAmount": "Total Amount",
+    "selectPaymentMethod": "Select Payment Method",
+    "wallet": "Wallet",
+    "availableBalance": "Available Balance",
+    "insufficientBalance": "Insufficient balance. Add ₹{{amount}} more to your wallet.",
+    "cash": "Cash",
+    "payWithCash": "Pay with cash after ride",
+    "payUsingUPI": "Pay using UPI/Card",
+    "promoCode": "Promo Code",
+    "enterPromoCode": "Enter promo code",
+    "apply": "Apply",
+    "payNow": "Pay Now",
+    "hybridPaymentInfo": "You have ₹{{walletAmount}} in your wallet. ₹{{walletAmount}} will be deducted from wallet and remaining ₹{{razorpayAmount}} will be paid via online payment."
+  },
+  "CHAT": {
+    "title": "Chat with Driver",
+    "today": "Today",
+    "noMessagesYet": "No messages yet",
+    "startConversation": "Start the conversation",
+    "typeMessage": "Type a message...",
+    "loadingMessages": "Loading messages..."
+  },
+  "ACTIVE_RIDE": {
+    "title": "Track Ride",
+    "eta": "ETA: {{time}} mins",
+    "enjoyRide": "Enjoy your ride! 🚗",
+    "chat": "Chat",
+    "call": "Call",
+    "arrived": "Arrived",
+    "startRide": "Start Ride",
+    "completeRide": "Complete Ride",
+    "cancelRide": "Cancel Ride",
+    "driverArriving": "Driver is arriving",
+    "rideInProgress": "Ride in progress",
+    "rideCompleted": "Ride completed"
+  },
+  "AUTH": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Sign in to continue",
+      "continueWithGoogle": "Continue with Google",
+      "continueWithFacebook": "Continue with Facebook",
+      "continueWithApple": "Continue with Apple",
+      "or": "or",
+      "continueWithMobile": "Continue with Mobile",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign Up"
+    },
+    "mobileLogin": {
+      "title": "Mobile Login",
+      "subtitle": "Enter your mobile number",
+      "mobileNumber": "Mobile Number",
+      "continue": "Continue",
+      "invalidNumber": "Please enter a valid mobile number"
+    },
+    "otp": {
+      "title": "Verify OTP",
+      "subtitle": "Enter the OTP sent to your mobile",
+      "verify": "Verify",
+      "resend": "Resend OTP",
+      "resendIn": "Resend in {{seconds}}s"
+    },
+    "register": {
+      "title": "Create Account",
+      "fullName": "Full Name",
+      "email": "Email",
+      "mobileNumber": "Mobile Number",
+      "createAccount": "Create Account"
+    }
+  },
+  "SEARCH": {
+    "title": "Search Location",
+    "pickup": "Pickup Location",
+    "destination": "Destination",
+    "selectLocation": "Select Location",
+    "recentSearches": "Recent Searches",
+    "savedAddresses": "Saved Addresses"
+  },
+  "MODAL": {
+    "whereAreYou": "Where are you?",
+    "whereTo": "Where to?",
+    "proceedToPayment": "Proceed to Payment",
+    "cercaSmall": "Cerca Small",
+    "cercaMedium": "Cerca Medium",
+    "cercaLarge": "Cerca Large",
+    "seats": "seats"
+  },
+  "NOTIFICATIONS": {
+    "title": "Notifications",
+    "noNotifications": "No notifications",
+    "markAllRead": "Mark all as read"
+  },
+  "PROFILE_DETAILS": {
+    "title": "Profile Details",
+    "fullName": "Full Name",
+    "email": "Email",
+    "phoneNumber": "Phone Number",
+    "save": "Save Changes"
+  }
 }

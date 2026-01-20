@@ -7,6 +7,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { SocketService } from './services/socket.service';
 import { RideService } from './services/ride.service';
 import { NetworkService } from './services/network.service';
+import { ThemeService } from './services/theme.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -27,15 +28,18 @@ export class AppComponent implements OnDestroy {
     private translate: TranslateService,
     private socketService: SocketService,
     private rideService: RideService,
-    private networkService: NetworkService
+    private networkService: NetworkService,
+    private themeService: ThemeService
   ) {}
 
   async ngOnInit() {
     await this.platform.ready();
 
-    // Initialize language
-    this.translate.setDefaultLang('en');
-    this.translate.use('en');
+    // Initialize theme service (must be early to apply theme before UI renders)
+    await this.themeService.initializeTheme();
+
+    // Initialize language service (must be early to load translations before UI renders)
+    await this.languageService.initializeLanguage();
 
     // Load user from storage
     await this.userService.loadUserFromStorage();

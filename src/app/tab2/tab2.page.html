@@ -1,7 +1,7 @@
-<ion-header [translucent]="true" class="ion-no-border">
+  <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>
-      My Bookings
+      {{ 'BOOKINGS.title' | translate }}
     </ion-title>
   </ion-toolbar>
 </ion-header>
@@ -9,17 +9,17 @@
 <ion-content [fullscreen]="false" class="ion-padding">
   <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">My Bookings</ion-title>
+      <ion-title size="large">{{ 'BOOKINGS.title' | translate }}</ion-title>
     </ion-toolbar>
   </ion-header>
 
   <div class="segment-container">
     <ion-segment color="primary" value="active" (ionChange)="segmentChanged($event)" >
       <ion-segment-button value="active" content-id="active">
-        <ion-label>Active Now</ion-label>
+        <ion-label>{{ 'BOOKINGS.activeNow' | translate }}</ion-label>
       </ion-segment-button>
       <ion-segment-button value="past">
-        <ion-label>Past Bookings</ion-label>
+        <ion-label>{{ 'BOOKINGS.pastBookings' | translate }}</ion-label>
       </ion-segment-button>
     </ion-segment>
   </div>
@@ -29,14 +29,14 @@
     <!-- Loading State -->
     <div *ngIf="isLoading" class="ion-text-center ion-padding">
       <ion-spinner></ion-spinner>
-      <p>Loading rides...</p>
+      <p>{{ 'BOOKINGS.loadingRides' | translate }}</p>
     </div>
 
     <!-- Empty State -->
     <div *ngIf="!isLoading && activeBookings.length === 0" class="ion-text-center ion-padding">
       <ion-icon name="car-outline" size="large" color="medium"></ion-icon>
-      <h3>No Active Rides</h3>
-      <p>You don't have any active rides at the moment.</p>
+      <h3>{{ 'BOOKINGS.noActiveRides' | translate }}</h3>
+      <p>{{ 'BOOKINGS.noActiveRidesDesc' | translate }}</p>
     </div>
 
     <!-- Active Rides List -->
@@ -55,36 +55,36 @@
           <ion-grid>
             <ion-row>
               <ion-col size="6">
-                <ion-label><strong>Driver:</strong></ion-label>
+                <ion-label><strong>{{ 'BOOKINGS.driver' | translate }}:</strong></ion-label>
                 <ion-text>{{ getDriverName(booking) }}</ion-text>
               </ion-col>
               <ion-col size="6">
-                <ion-label><strong>Vehicle:</strong></ion-label>
+                <ion-label><strong>{{ 'BOOKINGS.vehicle' | translate }}:</strong></ion-label>
                 <ion-text>{{ getVehicleInfo(booking) }}</ion-text>
               </ion-col>
             </ion-row>
       
             <ion-row>
               <ion-col size="12">
-                <ion-label><strong>Pickup:</strong></ion-label>
+                <ion-label><strong>{{ 'BOOKINGS.pickup' | translate }}:</strong></ion-label>
                 <ion-text>{{ booking.pickupAddress || 'N/A' }}</ion-text>
               </ion-col>
             </ion-row>
       
             <ion-row>
               <ion-col size="12">
-                <ion-label><strong>Destination:</strong></ion-label>
+                <ion-label><strong>{{ 'BOOKINGS.destination' | translate }}:</strong></ion-label>
                 <ion-text>{{ booking.dropoffAddress || 'N/A' }}</ion-text>
               </ion-col>
             </ion-row>
       
             <ion-row>
               <ion-col size="6">
-                <ion-label><strong>Fare:</strong></ion-label>
+                <ion-label><strong>{{ 'BOOKINGS.fare' | translate }}:</strong></ion-label>
                 <ion-text>₹{{ booking.fare || 'N/A' }}</ion-text>
               </ion-col>
               <ion-col size="6">
-                <ion-label><strong>Status:</strong></ion-label>
+                <ion-label><strong>{{ 'BOOKINGS.status' | translate }}:</strong></ion-label>
                 <ion-text [color]="getStatusColor(booking.status)">
                   {{ getStatusText(booking.status) }}
                 </ion-text>
@@ -100,7 +100,7 @@
                   class="view-details-btn"
                   [disabled]="booking.status === 'requested'">
                   <ion-icon name="information-circle-outline" slot="start"></ion-icon>
-                  View
+                  {{ 'BOOKINGS.viewDetails' | translate }}
                 </ion-button>
               </ion-col>
               <ion-col size="6">
@@ -111,7 +111,7 @@
                   class="call-driver-btn"
                   [disabled]="!booking.driver?.phone">
                   <ion-icon name="call-outline" slot="start"></ion-icon>
-                  Call Driver
+                  {{ 'BOOKINGS.callDriver' | translate }}
                 </ion-button>
               </ion-col>
             </ion-row>
@@ -138,14 +138,14 @@
     <!-- Loading State -->
     <div *ngIf="isLoading" class="ion-text-center ion-padding">
       <ion-spinner></ion-spinner>
-      <p>Loading rides...</p>
+      <p>{{ 'BOOKINGS.loadingRides' | translate }}</p>
     </div>
 
     <!-- Empty State -->
     <div *ngIf="!isLoading && pastBookings.length === 0" class="ion-text-center ion-padding">
       <ion-icon name="time-outline" size="large" color="medium"></ion-icon>
-      <h3>No Past Rides</h3>
-      <p>Your completed and cancelled rides will appear here.</p>
+      <h3>{{ 'BOOKINGS.noPastRides' | translate }}</h3>
+      <p>{{ 'BOOKINGS.noPastRidesDesc' | translate }}</p>
     </div>
 
     <!-- Past Rides List -->
@@ -163,36 +163,36 @@
       <ion-grid>
         <ion-row>
           <ion-col size="6">
-            <ion-label><strong>Driver:</strong></ion-label>
+            <ion-label><strong>{{ 'BOOKINGS.driver' | translate }}:</strong></ion-label>
             <ion-text>{{ getDriverName(booking) }}</ion-text>
           </ion-col>
           <ion-col size="6">
-            <ion-label><strong>Vehicle:</strong></ion-label>
+            <ion-label><strong>{{ 'BOOKINGS.vehicle' | translate }}:</strong></ion-label>
             <ion-text>{{ getVehicleInfo(booking) }}</ion-text>
           </ion-col>
         </ion-row>
   
         <ion-row>
           <ion-col size="12">
-            <ion-label><strong>Pickup:</strong></ion-label>
+            <ion-label><strong>{{ 'BOOKINGS.pickup' | translate }}:</strong></ion-label>
             <ion-text>{{ booking.pickupAddress || 'N/A' }}</ion-text>
           </ion-col>
         </ion-row>
   
         <ion-row>
           <ion-col size="12">
-            <ion-label><strong>Destination:</strong></ion-label>
+            <ion-label><strong>{{ 'BOOKINGS.destination' | translate }}:</strong></ion-label>
             <ion-text>{{ booking.dropoffAddress || 'N/A' }}</ion-text>
           </ion-col>
         </ion-row>
   
         <ion-row>
           <ion-col size="6">
-            <ion-label><strong>Fare:</strong></ion-label>
+            <ion-label><strong>{{ 'BOOKINGS.fare' | translate }}:</strong></ion-label>
             <ion-text>₹{{ booking.fare || 'N/A' }}</ion-text>
           </ion-col>
           <ion-col size="6">
-            <ion-label><strong>Status:</strong></ion-label>
+            <ion-label><strong>{{ 'BOOKINGS.status' | translate }}:</strong></ion-label>
             <ion-text [color]="getStatusColor(booking.status)">
               {{ getStatusText(booking.status) }}
             </ion-text>

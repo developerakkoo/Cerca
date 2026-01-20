@@ -257,11 +257,34 @@ export class RideService {
 
     // Ride errors
     const rideErrorSub = this.socketService
-      .on<{ message: string }>('rideError')
+      .on<{ message: string; code?: string; details?: string }>('rideError')
       .subscribe((error) => {
         console.error('❌ Ride error:', error);
-        this.rideErrors$.next(error.message);
-        this.showToast(`Error: ${error.message}`, 'danger');
+        console.error('   Error code:', error.code);
+        console.error('   Error details:', error.details);
+        
+        // Parse error message to show user-friendly message
+        let userMessage = error.message || 'Failed to process ride request';
+        
+        // Map common error codes to user-friendly messages
+        if (error.code === 'PAYMENT_NOT_VERIFIED' || error.code === 'PAYMENT_VERIFICATION_FAILED') {
+          userMessage = 'Payment verification failed. Please try again.';
+        } else if (error.code === 'PAYMENT_AMOUNT_MISMATCH') {
+          userMessage = 'Payment amount mismatch. Please try again.';
+        } else if (error.message && error.message.includes('Invalid service')) {
+          userMessage = 'Service not available. Please try again later.';
+        } else if (error.message && error.message.includes('FULL_DAY booking requires')) {
+          userMessage = 'Please select both start and end date/time for full day booking.';
+        } else if (error.message && error.message.includes('RENTAL booking requires')) {
+          userMessage = 'Please select start date and rental duration.';
+        } else if (error.message && error.message.includes('DATE_WISE booking requires')) {
+          userMessage = 'Please select at least one date for booking.';
+        } else if (error.message && error.message.includes('Admin settings not found')) {
+          userMessage = 'Service temporarily unavailable. Please try again later.';
+        }
+        
+        this.rideErrors$.next(userMessage);
+        this.showToast(userMessage, 'danger');
       });
     this.socketSubscriptions.push(rideErrorSub);
 
@@ -393,6 +416,14 @@ export class RideService {
     razorpayPaymentId?: string;
     walletAmountUsed?: number;
     razorpayAmountPaid?: number;
+    promoCode?: string;
+    bookingType?: 'FULL_DAY' | 'RENTAL' | 'DATE_WISE' | 'INSTANT';
+    bookingMeta?: {
+      startTime?: Date | string;
+      endTime?: Date | string;
+      days?: number;
+      dates?: Date[] | string[];
+    };
   }): Promise<void> {
     try {
       // Get user ID
@@ -411,18 +442,18 @@ export class RideService {
         console.log('✅ Socket already connected!');
       }
 
-      // Prepare ride request
+      // Prepare ride request with GeoJSON Point format for locations
       const request: any = {
         rider: userId,
         riderId: userId,
         userSocketId: this.socketService.getSocketId(),
         pickupLocation: {
-          longitude: rideData.pickupLocation.longitude,
-          latitude: rideData.pickupLocation.latitude,
+          type: 'Point',
+          coordinates: [rideData.pickupLocation.longitude, rideData.pickupLocation.latitude]
         },
         dropoffLocation: {
-          longitude: rideData.dropoffLocation.longitude,
-          latitude: rideData.dropoffLocation.latitude,
+          type: 'Point',
+          coordinates: [rideData.dropoffLocation.longitude, rideData.dropoffLocation.latitude]
         },
         pickupAddress: rideData.pickupAddress,
         dropoffAddress: rideData.dropoffAddress,
@@ -432,6 +463,50 @@ export class RideService {
         rideType: rideData.rideType,
         paymentMethod: rideData.paymentMethod,
       };
+      
+      // Add booking type and meta if provided
+      if (rideData.bookingType) {
+        request.bookingType = rideData.bookingType;
+      }
+      
+      if (rideData.bookingMeta) {
+        const bookingMeta: any = {};
+        
+        // Handle FULL_DAY booking
+        if (rideData.bookingType === 'FULL_DAY') {
+          if (rideData.bookingMeta.startTime) {
+            bookingMeta.startTime = rideData.bookingMeta.startTime instanceof Date 
+              ? rideData.bookingMeta.startTime.toISOString() 
+              : rideData.bookingMeta.startTime;
+          }
+          if (rideData.bookingMeta.endTime) {
+            bookingMeta.endTime = rideData.bookingMeta.endTime instanceof Date 
+              ? rideData.bookingMeta.endTime.toISOString() 
+              : rideData.bookingMeta.endTime;
+          }
+        }
+        
+        // Handle RENTAL booking
+        if (rideData.bookingType === 'RENTAL') {
+          if (rideData.bookingMeta.days !== undefined) {
+            bookingMeta.days = rideData.bookingMeta.days;
+          }
+          if (rideData.bookingMeta.startTime) {
+            bookingMeta.startTime = rideData.bookingMeta.startTime instanceof Date 
+              ? rideData.bookingMeta.startTime.toISOString() 
+              : rideData.bookingMeta.startTime;
+          }
+        }
+        
+        // Handle DATE_WISE booking
+        if (rideData.bookingType === 'DATE_WISE' && rideData.bookingMeta.dates) {
+          bookingMeta.dates = rideData.bookingMeta.dates.map(date => 
+            date instanceof Date ? date.toISOString() : date
+          );
+        }
+        
+        request.bookingMeta = bookingMeta;
+      }
       
       // Add hybrid payment details if present
       if (rideData.razorpayPaymentId) {
@@ -443,8 +518,15 @@ export class RideService {
       if (rideData.razorpayAmountPaid !== undefined) {
         request.razorpayAmountPaid = rideData.razorpayAmountPaid;
       }
+      // Add promo code if present
+      if (rideData.promoCode) {
+        request.promoCode = rideData.promoCode;
+      }
 
       console.log('📤 Requesting ride:', request);
+      console.log('   Service:', request.service);
+      console.log('   Booking Type:', request.bookingType);
+      console.log('   Booking Meta:', request.bookingMeta);
 
       // Emit ride request
       this.socketService.emit('newRideRequest', request);
@@ -454,9 +536,19 @@ export class RideService {
 
       // Navigate to searching page
       this.router.navigate(['/cab-searching']);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error requesting ride:', error);
-      this.showToast('Failed to request ride. Please try again.', 'danger');
+      console.error('   Error type:', error?.constructor?.name);
+      console.error('   Error message:', error?.message);
+      console.error('   Error stack:', error?.stack);
+      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to request ride. Please try again.';
+      if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      this.showToast(errorMessage, 'danger');
       throw error;
     }
   }
@@ -1012,6 +1104,31 @@ export class RideService {
     this.socketService.emit('markNotificationRead', {
       notificationId: notificationId,
     });
+  }
+
+  /**
+   * Delete all notifications for the current user
+   */
+  async deleteAllNotifications(): Promise<void> {
+    try {
+      const userId = await this.storage.get('userId');
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      await this.http
+        .request('DELETE', `${environment.apiUrl}/notifications/all/${userId}`, {
+          body: { recipientModel: 'User' },
+        })
+        .toPromise();
+
+      console.log('✅ All notifications deleted successfully');
+    } catch (error: any) {
+      console.error('Error deleting all notifications:', error);
+      throw new Error(
+        error?.message || 'Failed to delete all notifications'
+      );
+    }
   }
 
   /**

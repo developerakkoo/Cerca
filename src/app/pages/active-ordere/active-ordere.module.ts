@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { IonicModule } from '@ionic/angular';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { ActiveOrderePageRoutingModule } from './active-ordere-routing.module';
 
@@ -14,6 +15,7 @@ import { DriverChatPageModule } from '../driver-chat/driver-chat.module';
     CommonModule,
     FormsModule,
     IonicModule,
+    TranslateModule,
     ActiveOrderePageRoutingModule,
     DriverChatPageModule // Import chat module for modal usage
   ],

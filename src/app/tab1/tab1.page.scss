@@ -97,6 +97,16 @@ capacitor-google-map {
     font-size: 1rem;
     margin: 0;
   }
+
+  :root.ion-palette-dark & {
+    h2 {
+      color: var(--ion-color-light);
+    }
+
+    p {
+      color: var(--ion-color-medium);
+    }
+  }
 }
 
 .typewriter-text {
@@ -122,6 +132,12 @@ capacitor-google-map {
   border-radius: 12px;
   margin: 0 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+
+  :root.ion-palette-dark & {
+    background: rgba(var(--ion-color-dark-rgb), 0.9);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
 }
 
 ion-item {
@@ -143,6 +159,16 @@ ion-label {
     color: var(--ion-color-medium);
     white-space: normal;
     line-height: 1.4;
+  }
+
+  :root.ion-palette-dark & {
+    h2 {
+      color: var(--ion-color-light);
+    }
+
+    p {
+      color: var(--ion-color-medium);
+    }
   }
 }
 

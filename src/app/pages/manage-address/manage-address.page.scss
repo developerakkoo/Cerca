@@ -1,0 +1,153 @@
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  min-height: 50vh;
+
+  ion-icon {
+    margin-bottom: 20px;
+    font-size: 64px;
+  }
+
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin-bottom: 8px;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  ion-button {
+    margin-top: 8px;
+  }
+}
+
+.addresses-list {
+  margin-top: 8px;
+}
+
+.address-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --min-height: 80px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: var(--ion-color-light);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pin-icon {
+  font-size: 24px;
+  cursor: pointer;
+  margin-right: 12px;
+  transition: transform 0.2s ease;
+
+  &:active {
+    transform: scale(1.2);
+  }
+}
+
+.address-label {
+  flex: 1;
+  margin-left: 8px;
+
+  .address-line {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  .formatted-address {
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  .landmark {
+    font-size: 13px;
+    color: var(--ion-color-medium);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+.action-button {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  margin-left: 8px;
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+
+ion-fab {
+  margin-bottom: 20px;
+  margin-right: 20px;
+}
+
+ion-fab-button {
+  --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+// Swipe to delete styling
+ion-item-sliding {
+  margin-bottom: 8px;
+}
+
+ion-item-options {
+  border-radius: 8px;
+}
+
+// Responsive adjustments
+@media (max-width: 576px) {
+  .address-item {
+    --min-height: 70px;
+  }
+
+  .address-label {
+    .address-line {
+      font-size: 15px;
+    }
+
+    .formatted-address {
+      font-size: 13px;
+    }
+  }
+}
+

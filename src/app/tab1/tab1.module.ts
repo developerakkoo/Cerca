@@ -2,6 +2,7 @@ import { IonicModule } from '@ionic/angular';
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { Tab1Page } from './tab1.page';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
 
@@ -13,6 +14,7 @@ import { SharedModule } from '../module/shared/shared.module';
     IonicModule,
     CommonModule,
     FormsModule,
+    TranslateModule,
     ExploreContainerComponentModule,
     Tab1PageRoutingModule,
     SharedModule

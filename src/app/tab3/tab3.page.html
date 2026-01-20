@@ -1,7 +1,7 @@
-<ion-header [translucent]="true" class="ion-no-border">
+  <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
     <ion-title>
-      My Wallet
+      {{ 'WALLET.title' | translate }}
     </ion-title>
   </ion-toolbar>
 </ion-header>
@@ -9,7 +9,7 @@
 <ion-content [fullscreen]="true" class="ion-padding">
   <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
-      <ion-title size="large">My Wallet</ion-title>
+      <ion-title size="large">{{ 'WALLET.title' | translate }}</ion-title>
     </ion-toolbar>
   </ion-header>
 
@@ -20,23 +20,23 @@
   <!-- Loading State -->
   <div *ngIf="isLoading && !isRefreshing" class="loading-container">
     <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading wallet data...</p>
+    <p>{{ 'WALLET.loadingWalletData' | translate }}</p>
   </div>
 
   <!-- Balance Card -->
   <ion-card class="balance-card" *ngIf="!isLoading || isRefreshing">
     <ion-card-content>
       <div class="balance-container">
-        <h2 class="balance-label">Available Balance</h2>
+        <h2 class="balance-label">{{ 'WALLET.availableBalance' | translate }}</h2>
         <h1 class="balance-amount">₹{{ (balance || 0).toFixed(2) }}</h1>
         <div class="action-buttons">
           <ion-button expand="block" fill="solid" (click)="addMoney()" [disabled]="isLoading">
             <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-            Add Money
+            {{ 'WALLET.addMoney' | translate }}
           </ion-button>
           <ion-button expand="block" fill="outline" (click)="useMoney()" [disabled]="isLoading">
             <ion-icon name="wallet-outline" slot="start"></ion-icon>
-            Use Money
+            {{ 'WALLET.useMoney' | translate }}
           </ion-button>
         </div>
       </div>
@@ -45,13 +45,13 @@
 
   <!-- Recent Transactions -->
   <div class="transactions-section" *ngIf="!isLoading || isRefreshing">
-    <h2 class="section-title">Recent Transactions</h2>
+    <h2 class="section-title">{{ 'WALLET.recentTransactions' | translate }}</h2>
     
     <!-- Empty State -->
     <div *ngIf="transactions.length === 0" class="empty-state">
       <ion-icon name="receipt-outline" size="large" color="medium"></ion-icon>
-      <p>No transactions yet</p>
-      <p class="empty-subtitle">Your transaction history will appear here</p>
+      <p>{{ 'WALLET.noTransactions' | translate }}</p>
+      <p class="empty-subtitle">{{ 'WALLET.noTransactions' | translate }}</p>
     </div>
 
     <!-- Transactions List -->
@@ -86,7 +86,7 @@
         (click)="viewAllTransactions()"
         [disabled]="isLoading">
         <ion-icon name="list-outline" slot="start"></ion-icon>
-        View All Transactions
+        {{ 'WALLET.viewAll' | translate }}
       </ion-button>
     </div>
   </div>

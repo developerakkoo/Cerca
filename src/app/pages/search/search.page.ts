@@ -13,8 +13,10 @@ import { GeocodingService } from 'src/app/services/geocoding.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
 import { PlacesService, PlacePrediction } from 'src/app/services/places.service';
+import { AddressService, CreateAddressRequest } from 'src/app/services/address.service';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { LoadingController } from '@ionic/angular';
 @Component({
   selector: 'app-search',
   templateUrl: './search.page.html',
@@ -41,6 +43,12 @@ export class SearchPage implements OnInit, OnDestroy {
   private searchQuerySubject = new Subject<string>();
   private searchSubscription?: Subscription;
 
+  // Address management properties
+  addressMode: 'add' | 'edit' | null = null;
+  addressId: string | null = null;
+  returnTo: string | null = null;
+  currentUserId: string = '';
+
   constructor(
     private geocodingService: GeocodingService,
     private navCtrl: NavController,
@@ -49,20 +57,42 @@ export class SearchPage implements OnInit, OnDestroy {
     private userService: UserService,
     private zone: NgZone,
     private toastCtrl: ToastController,
-    private placesService: PlacesService
+    private placesService: PlacesService,
+    private addressService: AddressService,
+    private loadingController: LoadingController
   ) {}
 
   async ngOnInit() {
-    this.route.queryParams.subscribe((params) => {
-      this.pickup = params['pickup'] || '';
-      this.destination = params['destination'] || '';
-      this.isPickup = params['isPickup'];
+    // Subscribe to user to get userId
+    this.userService.getUser().subscribe((user) => {
+      if (user && user.id) {
+        this.currentUserId = user.id;
+      }
+    });
 
-      // Set initial selected address based on which input we're editing
-      if (this.isPickup === 'true') {
-        this.selectedAddress = this.pickup;
-      } else if (this.isPickup === 'false') {
-        this.selectedAddress = this.destination;
+    this.route.queryParams.subscribe((params) => {
+      // Check if we're in address management mode
+      this.addressMode = params['mode'] === 'add' ? 'add' : params['mode'] === 'edit' ? 'edit' : null;
+      this.addressId = params['addressId'] || null;
+      this.returnTo = params['returnTo'] || null;
+
+      // If not in address mode, use normal pickup/destination flow
+      if (!this.addressMode) {
+        this.pickup = params['pickup'] || '';
+        this.destination = params['destination'] || '';
+        this.isPickup = params['isPickup'];
+
+        // Set initial selected address based on which input we're editing
+        if (this.isPickup === 'true') {
+          this.selectedAddress = this.pickup;
+        } else if (this.isPickup === 'false') {
+          this.selectedAddress = this.destination;
+        }
+      } else {
+        // In address mode, load existing address if editing
+        if (this.addressMode === 'edit' && this.addressId && this.currentUserId) {
+          this.loadAddressForEdit();
+        }
       }
     });
 
@@ -306,6 +336,47 @@ export class SearchPage implements OnInit, OnDestroy {
     // Hide suggestions before confirming
     this.clearSuggestions();
 
+    // If in address management mode, save the address
+    if (this.addressMode) {
+      await this.saveAddress();
+      return;
+    }
+
+    // Handle returnTo navigation (for tab4 and date-wise pages)
+    if (this.returnTo) {
+      const lat = this.selectedLocation.lat;
+      const lng = this.selectedLocation.lng;
+      const address = this.selectedAddress;
+
+      // Destroy map before navigating back
+      await this.destroyMap();
+
+      // Navigate back to the calling page with location data
+      if (this.returnTo === 'tab4') {
+        this.router.navigate(['/tabs/tabs/tab4'], {
+          queryParams: {
+            returnTo: 'tab4',
+            isPickup: this.isPickup,
+            address: address,
+            lat: lat,
+            lng: lng
+          }
+        });
+      } else if (this.returnTo === 'date-wise') {
+        this.router.navigate(['/tabs/tabs/tab4/date-wise'], {
+          queryParams: {
+            returnTo: 'date-wise',
+            isPickup: this.isPickup,
+            address: address,
+            lat: lat,
+            lng: lng
+          }
+        });
+      }
+      return;
+    }
+
+    // Normal flow for pickup/destination
     if (this.isPickup === 'true') {
       console.log('Confirming Pickup Address:', this.selectedAddress);
       // Only update pickup, preserve destination
@@ -322,6 +393,108 @@ export class SearchPage implements OnInit, OnDestroy {
     await this.destroyMap();
 
     this.router.navigate(['/tabs/tabs/tab1']);
+  }
+
+  /**
+   * Load address for editing
+   */
+  private async loadAddressForEdit() {
+    if (!this.addressId || !this.currentUserId) {
+      return;
+    }
+
+    try {
+      const address = await this.addressService
+        .getAddressById(this.addressId, this.currentUserId)
+        .toPromise();
+
+      if (address) {
+        this.zone.run(() => {
+          this.selectedAddress = address.formattedAddress || address.addressLine;
+          this.selectedLocation = {
+            lat: address.location.coordinates[1], // latitude is second
+            lng: address.location.coordinates[0], // longitude is first
+          };
+        });
+
+        // Update map if it exists
+        if (this.map && this.isMapReady) {
+          await this.map.setCamera({
+            coordinate: {
+              lat: this.selectedLocation.lat,
+              lng: this.selectedLocation.lng,
+            },
+            zoom: 18,
+            animate: true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading address for edit:', error);
+      await this.presentToast('Failed to load address');
+    }
+  }
+
+  /**
+   * Save address (create or update)
+   */
+  private async saveAddress() {
+    if (!this.currentUserId || !this.selectedAddress || !this.selectedLocation.lat || !this.selectedLocation.lng) {
+      await this.presentToast('Please select a valid location');
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: this.addressMode === 'add' ? 'Saving address...' : 'Updating address...',
+    });
+    await loading.present();
+
+    try {
+      const addressData: CreateAddressRequest = {
+        id: this.currentUserId,
+        addressLine: this.selectedAddress,
+        formattedAddress: this.selectedAddress,
+        location: {
+          type: 'Point',
+          coordinates: [this.selectedLocation.lng, this.selectedLocation.lat], // [longitude, latitude]
+        },
+        placeId: this.selectedAddressDetails?.place_id || undefined,
+      };
+
+      let success = false;
+      if (this.addressMode === 'add') {
+        const address = await this.addressService.createAddress(addressData).toPromise();
+        success = !!address;
+      } else if (this.addressMode === 'edit' && this.addressId) {
+        const address = await this.addressService
+          .updateAddress(this.addressId, this.currentUserId, addressData)
+          .toPromise();
+        success = !!address;
+      }
+
+      await loading.dismiss();
+
+      if (success) {
+        await this.presentToast(
+          this.addressMode === 'add' ? 'Address saved successfully' : 'Address updated successfully'
+        );
+
+        // Destroy map before navigating back
+        await this.destroyMap();
+
+        // Navigate back to manage-address page or specified return route
+        const returnRoute = this.returnTo || '/manage-address';
+        this.router.navigate([returnRoute], {
+          queryParams: { saved: 'true' },
+        });
+      } else {
+        await this.presentToast('Failed to save address');
+      }
+    } catch (error) {
+      console.error('Error saving address:', error);
+      await loading.dismiss();
+      await this.presentToast('Failed to save address');
+    }
   }
 
   clearSearch() {

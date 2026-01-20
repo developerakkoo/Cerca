@@ -45,12 +45,48 @@
  */
 html, body {
   background: transparent !important;
+  transition: background-color 0.3s ease;
 }
 
 ion-app {
   background: transparent !important;
+  transition: background-color 0.3s ease;
 }
 
+/* Default transparent for map pages - individual pages will override */
 ion-content {
   --background: transparent !important;
+  transition: background-color 0.3s ease, --background 0.3s ease;
+}
+
+/* Theme-aware backgrounds for non-map pages */
+:root:not(.ion-palette-dark) {
+  html, body {
+    background-color: var(--ion-color-light);
+  }
+  
+  ion-app {
+    background-color: var(--ion-color-light);
+  }
+}
+
+:root.ion-palette-dark {
+  html, body {
+    background-color: var(--ion-background-color);
+  }
+  
+  ion-app {
+    background-color: var(--ion-background-color);
+  }
+}
+
+/* Smooth theme transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Exclude map elements from transitions for performance */
+capacitor-google-map,
+capacitor-google-map * {
+  transition: none !important;
 }
