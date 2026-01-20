@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
+import { IonDatetime } from '@ionic/angular';
 import { AnimationController, Platform, LoadingController, ToastController, ModalController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -86,6 +87,10 @@ export class Tab4Page implements OnInit {
   showTimeModal: boolean = false;
   currentDateField: 'fullDayStartDate' | 'fullDayEndDate' | 'rentalStartDate' | null = null;
   currentTimeField: 'fullDayStartTime' | 'fullDayEndTime' | null = null;
+  
+  // Temporary storage for datetime picker values
+  private tempDateValue: string = '';
+  private tempTimeValue: string = '';
   
   // Available services from backend
   availableServices: Array<{ name: string; price: number }> = [];
@@ -216,37 +221,65 @@ export class Tab4Page implements OnInit {
   }
 
   validateForm(): boolean {
-    if (!this.selectedService) return false;
-    if (!this.pickupLocation || !this.dropoffLocation) return false;
+    if (!this.selectedService) {
+      console.log('❌ Validation failed: No service selected');
+      return false;
+    }
+    if (!this.pickupLocation || !this.dropoffLocation) {
+      console.log('❌ Validation failed: Missing locations', { pickup: !!this.pickupLocation, dropoff: !!this.dropoffLocation });
+      return false;
+    }
 
     // Validate location coordinates
     if (isNaN(this.pickupLocation.latitude) || isNaN(this.pickupLocation.longitude) ||
         isNaN(this.dropoffLocation.latitude) || isNaN(this.dropoffLocation.longitude)) {
+      console.log('❌ Validation failed: Invalid coordinates');
       return false;
     }
 
     if (this.selectedBookingType === 'fullDay') {
-      if (!this.fullDayStartDate || !this.fullDayStartTime || !this.fullDayEndDate || !this.fullDayEndTime) {
+      // Check for empty strings as well as null/undefined
+      const hasStartDate = this.fullDayStartDate && this.fullDayStartDate.trim() !== '';
+      const hasStartTime = this.fullDayStartTime && this.fullDayStartTime.trim() !== '';
+      const hasEndDate = this.fullDayEndDate && this.fullDayEndDate.trim() !== '';
+      const hasEndTime = this.fullDayEndTime && this.fullDayEndTime.trim() !== '';
+      
+      if (!hasStartDate || !hasStartTime || !hasEndDate || !hasEndTime) {
+        console.log('❌ Validation failed: Missing date/time fields', {
+          startDate: hasStartDate,
+          startTime: hasStartTime,
+          endDate: hasEndDate,
+          endTime: hasEndTime,
+          startDateValue: this.fullDayStartDate,
+          startTimeValue: this.fullDayStartTime,
+          endDateValue: this.fullDayEndDate,
+          endTimeValue: this.fullDayEndTime
+        });
         return false;
       }
       
       // Validate dates are valid
       const validation = this.validateBookingData();
       if (!validation.valid) {
+        console.log('❌ Validation failed: Booking data invalid', validation.error);
         return false;
       }
     } else if (this.selectedBookingType === 'rental') {
-      if (!this.rentalStartDate || !this.rentalDays) {
+      const hasRentalDate = this.rentalStartDate && this.rentalStartDate.trim() !== '';
+      if (!hasRentalDate || !this.rentalDays) {
+        console.log('❌ Validation failed: Missing rental fields');
         return false;
       }
       
       // Validate rental date
       const validation = this.validateRentalData();
       if (!validation.valid) {
+        console.log('❌ Validation failed: Rental data invalid', validation.error);
         return false;
       }
     }
 
+    console.log('✅ Form validation passed');
     return true;
   }
 
@@ -260,40 +293,49 @@ export class Tab4Page implements OnInit {
         return { valid: false, error: 'End date and time are required' };
       }
 
-      // Parse and validate dates
-      let startDateStr = this.fullDayStartDate;
-      let startTimeStr = this.fullDayStartTime;
-      let endDateStr = this.fullDayEndDate;
-      let endTimeStr = this.fullDayEndTime;
+      try {
+        // Parse and validate dates
+        let startDateStr = this.fullDayStartDate.trim();
+        let startTimeStr = this.fullDayStartTime.trim();
+        let endDateStr = this.fullDayEndDate.trim();
+        let endTimeStr = this.fullDayEndTime.trim();
 
-      // Ensure date is in YYYY-MM-DD format
-      if (startDateStr && !startDateStr.includes('T')) {
-        startDateStr = startDateStr.split('T')[0];
-      }
-      if (endDateStr && !endDateStr.includes('T')) {
-        endDateStr = endDateStr.split('T')[0];
-      }
+        // Ensure date is in YYYY-MM-DD format
+        if (startDateStr.includes('T')) {
+          startDateStr = startDateStr.split('T')[0];
+        }
+        if (endDateStr.includes('T')) {
+          endDateStr = endDateStr.split('T')[0];
+        }
 
-      // Ensure time is in HH:MM format
-      if (startTimeStr) {
-        startTimeStr = startTimeStr.split(':').slice(0, 2).join(':');
-      }
-      if (endTimeStr) {
-        endTimeStr = endTimeStr.split(':').slice(0, 2).join(':');
-      }
+        // Ensure time is in HH:MM format (remove seconds if present)
+        if (startTimeStr.includes(':')) {
+          const timeParts = startTimeStr.split(':');
+          startTimeStr = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
+        }
+        if (endTimeStr.includes(':')) {
+          const timeParts = endTimeStr.split(':');
+          endTimeStr = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
+        }
 
-      // Create Date objects and validate
-      const startDateTime = new Date(`${startDateStr}T${startTimeStr}`);
-      const endDateTime = new Date(`${endDateStr}T${endTimeStr}`);
+        // Create Date objects and validate
+        const startDateTime = new Date(`${startDateStr}T${startTimeStr}`);
+        const endDateTime = new Date(`${endDateStr}T${endTimeStr}`);
 
-      if (isNaN(startDateTime.getTime())) {
-        return { valid: false, error: 'Invalid start date/time' };
-      }
-      if (isNaN(endDateTime.getTime())) {
-        return { valid: false, error: 'Invalid end date/time' };
-      }
-      if (endDateTime <= startDateTime) {
-        return { valid: false, error: 'End date/time must be after start date/time' };
+        if (isNaN(startDateTime.getTime())) {
+          console.error('Invalid start date/time:', { startDateStr, startTimeStr, combined: `${startDateStr}T${startTimeStr}` });
+          return { valid: false, error: 'Invalid start date/time' };
+        }
+        if (isNaN(endDateTime.getTime())) {
+          console.error('Invalid end date/time:', { endDateStr, endTimeStr, combined: `${endDateStr}T${endTimeStr}` });
+          return { valid: false, error: 'Invalid end date/time' };
+        }
+        if (endDateTime <= startDateTime) {
+          return { valid: false, error: 'End date/time must be after start date/time' };
+        }
+      } catch (error) {
+        console.error('Error validating booking data:', error);
+        return { valid: false, error: 'Error validating date/time values' };
       }
     }
 
@@ -378,25 +420,27 @@ export class Tab4Page implements OnInit {
       if (this.selectedBookingType === 'fullDay') {
         bookingType = 'FULL_DAY';
         // Combine date and time strings properly
-        let startDateStr = this.fullDayStartDate;
-        let startTimeStr = this.fullDayStartTime;
-        let endDateStr = this.fullDayEndDate;
-        let endTimeStr = this.fullDayEndTime;
+        let startDateStr = this.fullDayStartDate.trim();
+        let startTimeStr = this.fullDayStartTime.trim();
+        let endDateStr = this.fullDayEndDate.trim();
+        let endTimeStr = this.fullDayEndTime.trim();
         
         // Ensure date is in YYYY-MM-DD format
-        if (startDateStr && !startDateStr.includes('T')) {
+        if (startDateStr.includes('T')) {
           startDateStr = startDateStr.split('T')[0];
         }
-        if (endDateStr && !endDateStr.includes('T')) {
+        if (endDateStr.includes('T')) {
           endDateStr = endDateStr.split('T')[0];
         }
         
         // Ensure time is in HH:MM format (remove seconds/milliseconds if present)
-        if (startTimeStr) {
-          startTimeStr = startTimeStr.split(':').slice(0, 2).join(':');
+        if (startTimeStr.includes(':')) {
+          const timeParts = startTimeStr.split(':');
+          startTimeStr = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
         }
-        if (endTimeStr) {
-          endTimeStr = endTimeStr.split(':').slice(0, 2).join(':');
+        if (endTimeStr.includes(':')) {
+          const timeParts = endTimeStr.split(':');
+          endTimeStr = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
         }
         
         // Validate dates before creating Date objects
@@ -408,9 +452,11 @@ export class Tab4Page implements OnInit {
         const endDateTime = new Date(`${endDateStr}T${endTimeStr}`);
         
         if (isNaN(startDateTime.getTime())) {
+          console.error('Invalid start date/time:', { startDateStr, startTimeStr, combined: `${startDateStr}T${startTimeStr}` });
           throw new Error('Invalid start date/time');
         }
         if (isNaN(endDateTime.getTime())) {
+          console.error('Invalid end date/time:', { endDateStr, endTimeStr, combined: `${endDateStr}T${endTimeStr}` });
           throw new Error('Invalid end date/time');
         }
         if (endDateTime <= startDateTime) {
@@ -514,23 +560,115 @@ export class Tab4Page implements OnInit {
   }
 
   onDateChange(event: any) {
-    if (this.currentDateField && event.detail.value) {
-      this[this.currentDateField] = event.detail.value;
+    if (event.detail.value) {
+      try {
+        const value = event.detail.value;
+        // Store in temp variable
+        this.tempDateValue = typeof value === 'string' ? value : new Date(value).toISOString();
+        
+        // Also update the field if we know which one
+        if (this.currentDateField) {
+          (this as any)[this.currentDateField] = this.tempDateValue;
+          console.log(`📅 Date changed for ${this.currentDateField}:`, this.tempDateValue);
+        }
+      } catch (error) {
+        console.error('Error in onDateChange:', error);
+      }
     }
   }
 
   onTimeChange(event: any) {
-    if (this.currentTimeField && event.detail.value) {
-      this[this.currentTimeField] = event.detail.value;
+    if (event.detail.value) {
+      try {
+        const value = event.detail.value;
+        // Normalize time value
+        let timeValue: string;
+        if (typeof value === 'string') {
+          if (value.includes('T')) {
+            timeValue = value.split('T')[1].split('.')[0].substring(0, 5); // Extract HH:MM
+          } else {
+            timeValue = value.substring(0, 5); // Ensure HH:MM format
+          }
+        } else {
+          const date = new Date(value);
+          timeValue = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+        
+        // Store in temp variable
+        this.tempTimeValue = timeValue;
+        
+        // Also update the field if we know which one
+        if (this.currentTimeField) {
+          (this as any)[this.currentTimeField] = this.tempTimeValue;
+          console.log(`🕐 Time changed for ${this.currentTimeField}:`, this.tempTimeValue);
+        }
+      } catch (error) {
+        console.error('Error in onTimeChange:', error);
+      }
     }
   }
 
-  confirmDateSelection() {
+  confirmDateSelection(datePicker?: any) {
+    // Use temp value if available, otherwise try to get from picker
+    let dateValue = this.tempDateValue;
+    
+    // Try to get value from picker if temp is empty
+    if (!dateValue && datePicker?.value) {
+      try {
+        const value = datePicker.value;
+        dateValue = typeof value === 'string' ? value : new Date(value).toISOString();
+      } catch (error) {
+        console.error('Error reading date from picker:', error);
+      }
+    }
+    
+    // Set the value to the current field
+    if (this.currentDateField && dateValue) {
+      (this as any)[this.currentDateField] = dateValue;
+      console.log(`✅ Date confirmed for ${this.currentDateField}:`, dateValue);
+    } else if (this.currentDateField) {
+      console.warn(`⚠️ No date value available for ${this.currentDateField}`);
+    }
+    
+    // Clear temp value
+    this.tempDateValue = '';
     this.showDateModal = false;
     this.currentDateField = null;
   }
 
-  confirmTimeSelection() {
+  confirmTimeSelection(timePicker?: any) {
+    // Use temp value if available, otherwise try to get from picker
+    let timeValue = this.tempTimeValue;
+    
+    // Try to get value from picker if temp is empty
+    if (!timeValue && timePicker?.value) {
+      try {
+        const value = timePicker.value;
+        if (typeof value === 'string') {
+          if (value.includes('T')) {
+            timeValue = value.split('T')[1].split('.')[0].substring(0, 5);
+          } else {
+            timeValue = value.substring(0, 5);
+          }
+        } else {
+          const date = new Date(value);
+          timeValue = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+      } catch (error) {
+        console.error('Error reading time from picker:', error);
+      }
+    }
+    
+    // Set the value to the current field
+    if (this.currentTimeField && timeValue) {
+      (this as any)[this.currentTimeField] = timeValue;
+      console.log(`✅ Time confirmed for ${this.currentTimeField}:`, timeValue);
+    } else if (this.currentTimeField) {
+      console.warn(`⚠️ No time value available for ${this.currentTimeField}`);
+    }
+    
+    // Clear temp value
+    this.tempTimeValue = '';
     this.showTimeModal = false;
     this.currentTimeField = null;
   }

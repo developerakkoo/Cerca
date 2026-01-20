@@ -96,12 +96,17 @@
                 <ion-button 
                   expand="block" 
                   mode="ios" 
-                  (click)="navigateToActiveRide(booking._id)" 
+                  (click)="navigateToActiveRide(booking._id, booking)" 
                   class="view-details-btn"
-                  [disabled]="booking.status === 'requested'">
+                  [disabled]="booking.status === 'requested' || !isRideDetailsEnabled(booking)">
                   <ion-icon name="information-circle-outline" slot="start"></ion-icon>
                   {{ 'BOOKINGS.viewDetails' | translate }}
                 </ion-button>
+                <p *ngIf="booking.bookingType === 'FULL_DAY' && !isRideDetailsEnabled(booking)" 
+                   class="disabled-hint" 
+                   style="font-size: 0.75rem; color: var(--ion-color-medium); margin-top: 4px; text-align: center;">
+                  Available on scheduled date/time
+                </p>
               </ion-col>
               <ion-col size="6">
                 <ion-button 

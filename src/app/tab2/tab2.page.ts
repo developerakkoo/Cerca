@@ -149,7 +149,31 @@ export class Tab2Page implements OnInit {
     }
   }
 
-  navigateToActiveRide(rideId: string) {
+  /**
+   * Check if ride details are enabled (for Full Day bookings, only enable when scheduled time arrives)
+   */
+  isRideDetailsEnabled(ride: Ride): boolean {
+    // For Full Day bookings, check if the scheduled start time has arrived
+    if (ride.bookingType === 'FULL_DAY' && ride.bookingMeta?.startTime) {
+      try {
+        const startTime = new Date(ride.bookingMeta.startTime);
+        const now = new Date();
+        return now >= startTime; // Enable only if current time >= start time
+      } catch (error) {
+        console.error('Error parsing start time:', error);
+        return false; // Disable if there's an error parsing the date
+      }
+    }
+    // For instant rides or other booking types, always enable
+    return true;
+  }
+
+  navigateToActiveRide(rideId: string, ride?: Ride) {
+    // If ride is provided, check if details are enabled
+    if (ride && !this.isRideDetailsEnabled(ride)) {
+      console.log('Ride details not yet enabled for this Full Day booking');
+      return; // Don't navigate if disabled
+    }
     console.log(rideId);
     this.router.navigate(['/active-ordere', rideId]);
   }

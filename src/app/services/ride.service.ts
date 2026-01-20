@@ -64,6 +64,13 @@ export interface Ride {
   actualStartTime?: Date;
   actualEndTime?: Date;
   actualDuration?: number;
+  bookingType?: 'INSTANT' | 'FULL_DAY' | 'RENTAL' | 'DATE_WISE';
+  bookingMeta?: {
+    startTime?: Date | string;
+    endTime?: Date | string;
+    days?: number;
+    dates?: Date[] | string[];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -150,12 +157,22 @@ export class RideService {
       this.currentRide$.next(ride);
       this.rideStatus$.next('accepted');
       this.storeRide(ride);
-      this.showToast(`🚗 Driver found! ${ride.driver?.name} is on the way`);
       
-      // Navigate to active-ordere page (not driver-details)
-      this.router.navigate(['/active-ordere'], {
-        replaceUrl: true, // Replace history so back goes to tab1
-      });
+      // Check if this is a Full Day booking
+      const isFullDayBooking = ride.bookingType === 'FULL_DAY' || (ride as any).isFullDayBooking === true;
+      
+      if (isFullDayBooking) {
+        // For Full Day bookings: Show toast, add to bookings, DON'T navigate
+        const driverName = ride.driver?.name || 'Driver';
+        this.showToast(`✅ Full Day booking confirmed! ${driverName} has accepted your booking.`);
+        console.log('📅 Full Day booking accepted - not navigating to active ride page');
+      } else {
+        // For instant rides: Navigate to active-ordere page
+        this.showToast(`🚗 Driver found! ${ride.driver?.name} is on the way`);
+        this.router.navigate(['/active-ordere'], {
+          replaceUrl: true, // Replace history so back goes to tab1
+        });
+      }
     });
     this.socketSubscriptions.push(rideAcceptedSub);
 
