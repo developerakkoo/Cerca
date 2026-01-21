@@ -1,6 +1,4 @@
-import { Injectable } from '@angular/core';
-import { Platform } from '@ionic/angular';
-import { StorageService } from './storage.service';
+import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -8,151 +6,139 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 @Injectable({
   providedIn: 'root'
 })
-export class ThemeService {
-  private readonly THEME_STORAGE_KEY = 'theme_mode';
-  private themeMode: ThemeMode = 'system';
-  private systemPreferenceListener?: MediaQueryList;
+export class ThemeService implements OnDestroy {
   private themeSubject = new BehaviorSubject<boolean>(false);
   public theme$: Observable<boolean> = this.themeSubject.asObservable();
+  private mutationObserver?: MutationObserver;
+  private checkInterval?: any;
 
-  constructor(
-    private platform: Platform,
-    private storageService: StorageService
-  ) {}
+  constructor() {}
 
   /**
    * Initialize theme on app start
+   * Always forces light theme regardless of device settings
+   * Sets up continuous monitoring to prevent dark theme from being applied
    * Should be called in app.component.ts ngOnInit
    */
   async initializeTheme(): Promise<void> {
-    try {
-      // Load saved theme preference
-      const savedTheme = await this.storageService.get(this.THEME_STORAGE_KEY);
-      
-      if (savedTheme && ['system', 'light', 'dark'].includes(savedTheme)) {
-        this.themeMode = savedTheme as ThemeMode;
-      } else {
-        // Default to system preference
-        this.themeMode = 'system';
-        await this.storageService.set(this.THEME_STORAGE_KEY, 'system');
-      }
-
-      // Set up system preference listener
-      this.setupSystemPreferenceListener();
-
-      // Apply theme based on current mode
-      await this.applyTheme();
-    } catch (error) {
-      console.error('Error initializing theme:', error);
-      // Fallback to system preference
-      this.themeMode = 'system';
-      this.applyTheme();
-    }
+    // Immediately apply light theme
+    this.applyTheme();
+    
+    // Set up continuous monitoring to prevent dark classes from being added
+    this.setupContinuousMonitoring();
   }
 
   /**
-   * Set theme mode (system, light, or dark)
+   * Set up continuous monitoring to prevent dark theme classes
+   */
+  private setupContinuousMonitoring(): void {
+    // Use MutationObserver to watch for class changes on documentElement and body
+    if (typeof MutationObserver !== 'undefined') {
+      this.mutationObserver = new MutationObserver((mutations) => {
+        let shouldRemove = false;
+        
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            const target = mutation.target as HTMLElement;
+            if (target.classList.contains('ion-palette-dark') || target.classList.contains('dark')) {
+              shouldRemove = true;
+            }
+          }
+        });
+        
+        if (shouldRemove) {
+          this.applyTheme();
+        }
+      });
+
+      // Observe changes to documentElement and body
+      this.mutationObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+      
+      this.mutationObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+    }
+
+    // Fallback: Periodic check every 500ms to ensure dark classes are removed
+    this.checkInterval = setInterval(() => {
+      this.applyTheme();
+    }, 500);
+  }
+
+  /**
+   * Set theme mode - disabled (no-op)
+   * Theme is always forced to light mode
    */
   async setThemeMode(mode: ThemeMode): Promise<void> {
-    this.themeMode = mode;
-    await this.storageService.set(this.THEME_STORAGE_KEY, mode);
-    await this.applyTheme();
+    // No-op: Theme is always light, ignoring any mode changes
+    console.log('Theme switching is disabled. App always uses light theme.');
+    this.applyTheme();
   }
 
   /**
-   * Toggle between light and dark (ignores system mode)
+   * Toggle between light and dark - disabled (no-op)
+   * Theme is always forced to light mode
    */
   async toggleTheme(): Promise<void> {
-    const currentIsDark = this.isDarkMode();
-    const newMode: ThemeMode = currentIsDark ? 'light' : 'dark';
-    await this.setThemeMode(newMode);
+    // No-op: Theme is always light, toggle is disabled
+    console.log('Theme toggle is disabled. App always uses light theme.');
+    this.applyTheme();
   }
 
   /**
    * Get current theme mode
+   * Always returns 'light' since theme is forced to light
    */
   getThemeMode(): ThemeMode {
-    return this.themeMode;
+    return 'light';
   }
 
   /**
    * Get current active theme (light or dark)
+   * Always returns 'light' since theme is forced to light
    */
   getCurrentTheme(): 'light' | 'dark' {
-    if (this.themeMode === 'system') {
-      return this.getSystemPreference();
-    }
-    return this.themeMode;
+    return 'light';
   }
 
   /**
    * Check if dark mode is currently active
+   * Always returns false since theme is forced to light
    */
   isDarkMode(): boolean {
-    return this.getCurrentTheme() === 'dark';
+    return false;
   }
 
   /**
-   * Get system preference
+   * Apply theme - always forces light theme
+   * Removes any dark theme classes to ensure light theme is active
    */
-  private getSystemPreference(): 'light' | 'dark' {
-    if (this.platform.is('capacitor')) {
-      // For native platforms, check system preference
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    // For web, check media query
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  /**
-   * Set up listener for system preference changes
-   */
-  private setupSystemPreferenceListener(): void {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      this.systemPreferenceListener = window.matchMedia('(prefers-color-scheme: dark)');
-      
-      // Listen for system preference changes (only when in system mode)
-      this.systemPreferenceListener.addEventListener('change', (e) => {
-        if (this.themeMode === 'system') {
-          this.applyTheme();
-        }
-      });
-    }
-  }
-
-  /**
-   * Apply theme based on current mode
-   */
-  private async applyTheme(): Promise<void> {
-    const isDark = this.isDarkMode();
-    
-    // Explicitly add or remove Ionic's dark palette class
-    if (isDark) {
-      document.documentElement.classList.add('ion-palette-dark');
-    } else {
+  private applyTheme(): void {
+    // Always remove dark theme classes to force light theme
+    if (document.documentElement) {
       document.documentElement.classList.remove('ion-palette-dark');
     }
-    
-    // Also toggle body class for backward compatibility
-    if (isDark) {
-      document.body.classList.add('dark');
-    } else {
+    if (document.body) {
       document.body.classList.remove('dark');
     }
     
-    // Update subject for subscribers
-    this.themeSubject.next(isDark);
-    
-    console.log(`🎨 Theme applied: ${this.themeMode} -> ${isDark ? 'dark' : 'light'}`);
-    console.log(`   Class present: ${document.documentElement.classList.contains('ion-palette-dark')}`);
+    // Update subject for subscribers (always false = light mode)
+    this.themeSubject.next(false);
   }
 
   /**
    * Cleanup on service destroy
    */
   ngOnDestroy(): void {
-    if (this.systemPreferenceListener) {
-      this.systemPreferenceListener.removeEventListener('change', () => {});
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+    }
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
     }
   }
 } 

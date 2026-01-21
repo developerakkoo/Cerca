@@ -1,0 +1,11 @@
+/* Ensure proper light background for profile details page */
+ion-content {
+  --background: var(--ion-color-light) !important;
+}
+
+:root.ion-palette-dark {
+  ion-content {
+    --background: var(--ion-background-color) !important;
+  }
+}
+

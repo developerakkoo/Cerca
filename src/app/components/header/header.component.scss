@@ -100,31 +100,3 @@ ion-header {
       opacity: 1;
     }
   }
-  
-  // Dark mode adjustments
-  @media (prefers-color-scheme: dark) {
-    .button {
-      background: rgba(var(--ion-color-dark-rgb), 0.2);
-      
-      ion-icon {
-        color: var(--ion-color-light);
-      }
-    }
-  
-    .circular {
-      background: var(--ion-color-secondary);
-      box-shadow: 0 4px 12px rgba(var(--ion-color-secondary-rgb), 0.3);
-  
-      ion-icon {
-        color: var(--ion-color-secondary-contrast);
-      }
-  
-      &:active {
-        box-shadow: 0 2px 8px rgba(var(--ion-color-secondary-rgb), 0.2);
-      }
-    }
-  
-    .notification-dot {
-      border-color: var(--ion-color-secondary);
-    }
-  }

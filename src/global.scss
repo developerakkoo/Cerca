@@ -33,7 +33,7 @@
  */
 
 /* Ionic Dark Mode - Using system preference */
-@import "@ionic/angular/css/palettes/dark.system.css";
+// @import "@ionic/angular/css/palettes/dark.system.css";
 
 /**
  * Google Maps Transparency Fix for Android
@@ -43,41 +43,22 @@
  * 
  * Note: Pages that need non-transparent backgrounds must override this in their own SCSS
  */
+/* Google Maps requires transparent backgrounds on html/body to render properly on Android */
 html, body {
   background: transparent !important;
   transition: background-color 0.3s ease;
 }
 
+/* Default transparent for map pages - individual pages will override */
+/* Removed global transparent override - tab1.page.scss handles transparent background for maps */
+/* Other pages (tab2, tab3, tab5, etc.) set their own light backgrounds */
+
+/* ion-app must be transparent for Google Maps to render properly */
+/* Google Maps renders beneath the webview on Android, so transparency is required */
+/* Non-map pages will have light backgrounds via their ion-content elements or page-level styles */
 ion-app {
   background: transparent !important;
   transition: background-color 0.3s ease;
-}
-
-/* Default transparent for map pages - individual pages will override */
-ion-content {
-  --background: transparent !important;
-  transition: background-color 0.3s ease, --background 0.3s ease;
-}
-
-/* Theme-aware backgrounds for non-map pages */
-:root:not(.ion-palette-dark) {
-  html, body {
-    background-color: var(--ion-color-light);
-  }
-  
-  ion-app {
-    background-color: var(--ion-color-light);
-  }
-}
-
-:root.ion-palette-dark {
-  html, body {
-    background-color: var(--ion-background-color);
-  }
-  
-  ion-app {
-    background-color: var(--ion-background-color);
-  }
 }
 
 /* Smooth theme transitions */

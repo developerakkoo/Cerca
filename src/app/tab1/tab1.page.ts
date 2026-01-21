@@ -6,6 +6,7 @@ import {
   NgZone,
   OnInit,
 } from '@angular/core';
+import { Router, NavigationEnd } from '@angular/router';
 import { Geolocation } from '@capacitor/geolocation';
 import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { environment } from 'src/environments/environment';
@@ -14,6 +15,7 @@ import { GeocodingService } from '../services/geocoding.service';
 import { UserService } from '../services/user.service';
 import { PermissionService } from '../services/permission.service';
 import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { ToastController } from '@ionic/angular';
 
 interface LatLng {
@@ -49,8 +51,10 @@ export class Tab1Page implements OnInit, OnDestroy {
   private currentLocationMarker: string | undefined;
   private pickupSubscription: Subscription | null = null;
   private destinationSubscription: Subscription | null = null;
+  private routerSubscription: Subscription | null = null;
   private isCleanupInProgress = false;
   private isMapCreationInProgress = false;
+  private previousRoute: string = '';
 
   constructor(
     private notification: NotificationService,
@@ -58,30 +62,87 @@ export class Tab1Page implements OnInit, OnDestroy {
     private userService: UserService,
     private zone: NgZone,
     private toastController: ToastController,
-    private permissionService: PermissionService
+    private permissionService: PermissionService,
+    private router: Router
   ) {}
 
   ngAfterViewInit() {
     // Initial map creation happens here
   }
 
-  async ionViewDidEnter() {
-    // Recreate map when entering the view
-    console.log('🗺️ Tab1 entered, initializing map...');
-    await this.presentToast('🗺️ Tab1: Entering view');
-
-    // Force cleanup first to ensure clean state
-    if (this.newMap) {
-      console.log('🗺️ Cleaning up existing map before recreation...');
-      await this.presentToast('🗺️ Tab1: Cleaning old map...');
-      await this.cleanupMap();
+  /**
+   * Initialize map - can be called from lifecycle hooks or router events
+   * This method is idempotent and safe to call multiple times
+   */
+  private async initializeMap(): Promise<void> {
+    // Prevent multiple simultaneous initializations
+    if (this.isMapCreationInProgress) {
+      console.log('🗺️ Map initialization already in progress, skipping...');
+      return;
     }
 
-    setTimeout(async () => {
-      console.log('🗺️ Creating fresh map instance...');
-      await this.presentToast('🗺️ Tab1: Creating new map...');
+    console.log('🗺️ Tab1 initializing map...');
+    
+    // Always reset state to show loading overlay
+    this.zone.run(() => {
+      this.isMapReady = false;
+      this.isLocationFetched = false;
+    });
+
+    // Always cleanup to ensure clean state (even if map doesn't exist)
+    if (this.newMap) {
+      console.log('🗺️ Cleaning up existing map before recreation...');
+      await this.cleanupMap();
+    } else {
+      // Reset map-related state even if map doesn't exist
+      this.newMap = undefined as any;
+      this.currentLocationMarker = undefined;
+      this.cabMarkers = [];
+    }
+
+    // Wait for ViewChild to be ready and verify map element exists
+    const maxRetries = 5;
+    let retryCount = 0;
+    
+    const tryCreateMap = async () => {
+      // Check if mapRef and nativeElement are available
+      if (!this.mapRef || !this.mapRef.nativeElement) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.log(`🗺️ Map element not ready, retrying... (${retryCount}/${maxRetries})`);
+          setTimeout(tryCreateMap, 200);
+          return;
+        } else {
+          console.error('❌ Map element not available after retries');
+          this.zone.run(() => {
+            this.isMapReady = true; // Set to true to hide loading overlay
+            this.isMapCreationInProgress = false;
+          });
+          await this.presentToast('❌ Map element not ready. Please refresh.');
+          return;
+        }
+      }
+
+      // Map element is ready, proceed with map creation
+      console.log('🗺️ Map element ready, creating fresh map instance...');
+      this.isMapCreationInProgress = true;
       this.getCurrentPosition();
-    }, 500);
+    };
+
+    // Start retry logic after a short delay to allow ViewChild to initialize
+    setTimeout(tryCreateMap, 100);
+  }
+
+  async ionViewWillEnter() {
+    // Backup lifecycle hook - fires before ionViewDidEnter
+    console.log('🗺️ Tab1 will enter, initializing map...');
+    await this.initializeMap();
+  }
+
+  async ionViewDidEnter() {
+    // Primary lifecycle hook - fires after view is entered
+    console.log('🗺️ Tab1 did enter, initializing map...');
+    await this.initializeMap();
   }
 
   async ionViewDidLeave() {
@@ -101,6 +162,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.destinationSubscription.unsubscribe();
       this.destinationSubscription = null;
     }
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+      this.routerSubscription = null;
+    }
 
     // Clear interval if it exists
     if (this.updateInterval) {
@@ -113,9 +178,52 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    // Initialize previous route to track navigation direction
+    this.previousRoute = this.router.url;
+    
     this.initializePickupSubscription();
     this.getPickUpAddress();
     this.getDestinationAddress();
+    
+    // Subscribe to router events to detect navigation both TO and AWAY from tab1
+    // This handles cases where ionViewDidEnter/ionViewDidLeave don't fire reliably
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: NavigationEnd) => {
+        const currentRoute = event.urlAfterRedirects;
+        const wasOnTab1 = this.isTab1Route(this.previousRoute);
+        const isOnTab1 = this.isTab1Route(currentRoute);
+        
+        // Navigating TO tab1 (from any other route)
+        if (!wasOnTab1 && isOnTab1) {
+          console.log('🗺️ Router detected navigation TO tab1:', currentRoute);
+          // Small delay to ensure view is ready
+          setTimeout(() => {
+            this.initializeMap();
+          }, 100);
+        }
+        
+        // Navigating AWAY from tab1 (to any other route)
+        if (wasOnTab1 && !isOnTab1) {
+          console.log('🗺️ Router detected navigation AWAY from tab1:', currentRoute);
+          // Cleanup map when leaving tab1
+          this.cleanupMap();
+        }
+        
+        // Update previous route for next navigation event
+        this.previousRoute = currentRoute;
+      });
+  }
+  
+  /**
+   * Helper method to check if a route is tab1
+   * @param url The URL to check
+   * @returns true if the URL is tab1 route, false otherwise
+   */
+  private isTab1Route(url: string): boolean {
+    return url.includes('/tabs/tabs/tab1') || 
+           url === '/tabs/tabs/tab1' ||
+           url.includes('/tabs/tab1');
   }
 
   private initializePickupSubscription() {
@@ -224,9 +332,19 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
   async createMap(lat: number, lng: number) {
     try {
+      // Verify mapRef and nativeElement exist before creating map
+      if (!this.mapRef) {
+        throw new Error('Map reference (ViewChild) is not available');
+      }
+      
+      if (!this.mapRef.nativeElement) {
+        throw new Error('Map element (nativeElement) is not available. Element may not be in DOM yet.');
+      }
+
       console.log('Creating map with coordinates:', lat, lng);
       console.log('API Key:', environment.apiKey ? 'Present' : 'Missing');
       console.log('Map ID:', environment.mapId);
+      console.log('Map element available:', !!this.mapRef.nativeElement);
 
       const newMap = await GoogleMap.create({
         id: 'map', // Unique ID for tab1 page
@@ -297,11 +415,27 @@ export class Tab1Page implements OnInit, OnDestroy {
 
       const errorMessage =
         error?.message || error?.toString() || 'Unknown map error';
-      this.presentToast(`Map Error: ${errorMessage}`);
-
+      
+      // Reset map creation flag
+      this.isMapCreationInProgress = false;
+      
+      // If error is about missing element, keep isMapReady false to show loading overlay
+      // Otherwise, set to true to not block UI
+      const isElementError = errorMessage.includes('not available') || 
+                            errorMessage.includes('nativeElement') ||
+                            errorMessage.includes('ViewChild');
+      
       this.zone.run(() => {
-        this.isMapReady = true; // Set to true even on error to not block the UI
+        if (isElementError) {
+          // Keep loading overlay visible for element errors - retry will happen
+          this.isMapReady = false;
+        } else {
+          // For other errors, hide loading overlay to not block UI
+          this.isMapReady = true;
+        }
       });
+      
+      this.presentToast(`Map Error: ${errorMessage}`);
     }
   }
 

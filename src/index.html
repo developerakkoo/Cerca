@@ -7,10 +7,78 @@
 
   <base href="/" />
 
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="light" />
   <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="msapplication-tap-highlight" content="no" />
+
+  <!-- Early prevention script to force light theme before Angular loads -->
+  <script>
+    (function() {
+      // Immediately remove dark theme classes
+      function forceLightTheme() {
+        if (document.documentElement) {
+          document.documentElement.classList.remove('ion-palette-dark');
+        }
+        if (document.body) {
+          document.body.classList.remove('dark');
+        }
+      }
+      
+      // Run immediately
+      forceLightTheme();
+      
+      // Run when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', forceLightTheme);
+      } else {
+        forceLightTheme();
+      }
+      
+      // Continuously monitor and remove dark classes
+      if (typeof MutationObserver !== 'undefined') {
+        var observer = new MutationObserver(function(mutations) {
+          var shouldRemove = false;
+          mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+              var target = mutation.target;
+              if (target.classList && (target.classList.contains('ion-palette-dark') || target.classList.contains('dark'))) {
+                shouldRemove = true;
+              }
+            }
+          });
+          if (shouldRemove) {
+            forceLightTheme();
+          }
+        });
+        
+        // Start observing when DOM is ready
+        function startObserving() {
+          if (document.documentElement) {
+            observer.observe(document.documentElement, {
+              attributes: true,
+              attributeFilter: ['class']
+            });
+          }
+          if (document.body) {
+            observer.observe(document.body, {
+              attributes: true,
+              attributeFilter: ['class']
+            });
+          }
+        }
+        
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', startObserving);
+        } else {
+          startObserving();
+        }
+      }
+      
+      // Fallback: Periodic check every 200ms
+      setInterval(forceLightTheme, 200);
+    })();
+  </script>
 
   <link rel="icon" type="image/png" href="assets/icon/favicon.png" />
 

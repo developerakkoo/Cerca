@@ -13,6 +13,7 @@ import { SocketService } from 'src/app/services/socket.service';
 import { Subscription } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
+import { Storage } from '@ionic/storage-angular';
 
 interface ChatMessage {
   _id?: string;
@@ -43,6 +44,7 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
   private messagesSubscription?: Subscription;
   private messageSentSubscription?: Subscription;
   private messageIds: Set<string> = new Set(); // Track message IDs to prevent duplicates
+  private userId: string | null = null; // Store current user ID to filter self-sent messages
 
   constructor(
     private modalController: ModalController,
@@ -50,7 +52,8 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
     private rideService: RideService,
     private socketService: SocketService,
     private http: HttpClient,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private storage: Storage
   ) {}
 
   async ngOnInit() {
@@ -58,6 +61,10 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
     console.log('🚀 [DriverChatPage] ngOnInit() called');
     console.log('🚀 ========================================');
     console.log('⏰ Timestamp:', new Date().toISOString());
+    
+    // Get user ID from storage to filter self-sent messages
+    this.userId = await this.storage.get('userId');
+    console.log('👤 [DriverChatPage] User ID loaded:', this.userId || 'null');
     
     // Get ride data from modal params or service
     const rideFromParams = this.navParams.get('ride');
@@ -262,15 +269,21 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     console.log('📋 [DriverChatPage] Processing', messages.length, 'messages');
-    console.log('📊 [DriverChatPage] Current tracked IDs before clear:', this.messageIds.size);
+    console.log('📊 [DriverChatPage] Current tracked IDs:', this.messageIds.size);
+    console.log('📊 [DriverChatPage] Current messages count:', this.messages.length);
 
-    // Clear existing message IDs
-    this.messageIds.clear();
-    console.log('🧹 [DriverChatPage] Cleared message IDs tracking set');
+    // Build a set of existing message IDs and content hashes for duplicate detection
+    const existingIds = new Set(this.messages.map(m => m._id).filter(id => !!id));
+    const existingContentHashes = new Set(
+      this.messages
+        .filter(m => !m._id) // Only check optimistic messages
+        .map(m => `${m.text}_${m.createdAt}`)
+    );
 
-    // Process and sort messages
+    // Process and sort messages, merging with existing messages
     let processedCount = 0;
     let skippedCount = 0;
+    let duplicateCount = 0;
     
     const processedMessages: ChatMessage[] = messages
       .map((msg, index) => {
@@ -290,8 +303,20 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
           return null;
         }
 
+        // Check for duplicates: by ID or by content hash (for optimistic messages)
+        const contentHash = `${messageText}_${createdAt}`;
+        if (existingIds.has(messageId) || existingContentHashes.has(contentHash)) {
+          console.log(`⚠️ [DriverChatPage] Duplicate message detected at index ${index}:`, {
+            id: messageId,
+            text: messageText.substring(0, 30)
+          });
+          duplicateCount++;
+          return null; // Skip duplicate
+        }
+
         // Track message ID to prevent duplicates
         this.messageIds.add(messageId);
+        existingIds.add(messageId);
         processedCount++;
 
         const processed: ChatMessage = {
@@ -305,24 +330,29 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
 
         return processed;
       })
-      .filter((msg): msg is ChatMessage => msg !== null && msg !== undefined)
-      .sort((a, b) => {
-        // Sort by createdAt timestamp
-        const timeA = new Date(a.createdAt || a.time || 0).getTime();
-        const timeB = new Date(b.createdAt || b.time || 0).getTime();
-        return timeA - timeB;
-      });
+      .filter((msg): msg is ChatMessage => msg !== null && msg !== undefined);
+
+    // Merge with existing messages (preserve optimistic messages without IDs)
+    const mergedMessages = [...this.messages.filter(m => !m._id), ...processedMessages];
+    
+    // Sort by createdAt timestamp
+    mergedMessages.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.time || 0).getTime();
+      const timeB = new Date(b.createdAt || b.time || 0).getTime();
+      return timeA - timeB;
+    });
 
     console.log('📊 [DriverChatPage] Processing summary:');
     console.log('   Total messages:', messages.length);
     console.log('   Processed:', processedCount);
     console.log('   Skipped:', skippedCount);
-    console.log('   Valid messages:', processedMessages.length);
+    console.log('   Duplicates:', duplicateCount);
+    console.log('   Valid new messages:', processedMessages.length);
     console.log('   Tracked IDs:', this.messageIds.size);
 
-    console.log('✅ [DriverChatPage] Processed', processedMessages.length, 'valid messages');
+    console.log('✅ [DriverChatPage] Processed', processedMessages.length, 'new messages');
     const beforeCount = this.messages.length;
-    this.messages = processedMessages;
+    this.messages = mergedMessages;
     console.log('📝 [DriverChatPage] Messages array updated (before:', beforeCount, 'after:', this.messages.length + ')');
     
     // Force UI update
@@ -362,6 +392,17 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
       console.log('⚠️ [DriverChatPage] Message filtered out - ride ID mismatch');
       console.log('   Message ride ID:', messageRideId);
       console.log('   Current ride ID:', currentRideId);
+      return;
+    }
+
+    // Filter self-sent messages - ignore messages sent by current user
+    // The sender already has the message from optimistic update
+    const messageSenderId = message.sender?._id || message.sender?.toString() || message.sender;
+    if (this.userId && messageSenderId && messageSenderId === this.userId) {
+      console.log('⚠️ [DriverChatPage] Ignoring self-sent message');
+      console.log('   Message sender ID:', messageSenderId);
+      console.log('   Current user ID:', this.userId);
+      console.log('   Message will be updated via messageSent confirmation instead');
       return;
     }
 
@@ -430,25 +471,49 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
     console.log('   Message ID:', messageData._id);
     console.log('   Current messages count:', this.messages.length);
     
-    // Find optimistic message without ID and update it
-    const lastMessage = this.messages[this.messages.length - 1];
-    console.log('   Last message:', lastMessage ? { hasId: !!lastMessage._id, text: lastMessage.text.substring(0, 30) } : 'null');
+    const messageText = messageData.message || messageData.text;
+    const messageCreatedAt = messageData.createdAt || new Date().toISOString();
     
-    if (lastMessage && !lastMessage._id && messageData._id) {
-      console.log('✅ [DriverChatPage] Found optimistic message, updating with server data...');
-      lastMessage._id = messageData._id;
-      const createdAt = messageData.createdAt || new Date().toISOString();
-      lastMessage.createdAt = createdAt;
-      lastMessage.time = this.formatTime(createdAt);
+    // Find optimistic message by matching content and timestamp (within 5 seconds)
+    // This is more reliable than just checking the last message
+    const optimisticMessageIndex = this.messages.findIndex((msg) => {
+      if (msg._id) {
+        // Already has ID, skip
+        return false;
+      }
+      
+      // Match by text content and approximate timestamp
+      const textMatch = msg.text === messageText;
+      if (!textMatch) {
+        return false;
+      }
+      
+      // Check if timestamp is within 5 seconds (to account for network delay)
+      const msgTime = new Date(msg.createdAt || 0).getTime();
+      const serverTime = new Date(messageCreatedAt).getTime();
+      const timeDiff = Math.abs(msgTime - serverTime);
+      const isWithinTimeWindow = timeDiff < 5000; // 5 seconds
+      
+      return isWithinTimeWindow;
+    });
+    
+    if (optimisticMessageIndex !== -1) {
+      console.log('✅ [DriverChatPage] Found optimistic message at index:', optimisticMessageIndex);
+      const optimisticMessage = this.messages[optimisticMessageIndex];
+      optimisticMessage._id = messageData._id;
+      optimisticMessage.createdAt = messageCreatedAt;
+      optimisticMessage.time = this.formatTime(messageCreatedAt);
       this.messageIds.add(messageData._id);
       console.log('✅ [DriverChatPage] Optimistic message updated with ID:', messageData._id);
     } else {
-      if (!lastMessage) {
-        console.warn('⚠️ [DriverChatPage] No last message found');
-      } else if (lastMessage._id) {
-        console.log('ℹ️ [DriverChatPage] Last message already has ID:', lastMessage._id);
-      } else if (!messageData._id) {
-        console.warn('⚠️ [DriverChatPage] Message data missing ID');
+      // Check if message already exists with this ID
+      const existingIndex = this.messages.findIndex((msg) => msg._id === messageData._id);
+      if (existingIndex === -1) {
+        console.warn('⚠️ [DriverChatPage] Optimistic message not found for update');
+        console.warn('   Message text:', messageText?.substring(0, 50));
+        console.warn('   This might be a duplicate or the message was already processed');
+      } else {
+        console.log('ℹ️ [DriverChatPage] Message already exists with ID:', messageData._id);
       }
     }
   }
