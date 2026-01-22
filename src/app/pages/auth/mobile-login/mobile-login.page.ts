@@ -53,48 +53,51 @@ export class MobileLoginPage implements OnInit, OnDestroy {
           console.log(res);
 
           let isNewUser = res['isNewUser'];
+          
+          console.log('✅ ========================================');
+          console.log('✅ LOGIN SUCCESSFUL - UPDATING USER STATE');
+          console.log('✅ ========================================');
+          console.log('isNewUser:', isNewUser);
+          console.log('Response:', res);
+
+          // Store credentials
+          await this.storageService.set('userId', res['userId']);
+          await this.storageService.set('token', res['token']);
+
+          // **CRITICAL: Update UserService to trigger socket initialization**
+          const userData = {
+            _id: res['userId'],
+            id: res['userId'],
+            userId: res['userId'],
+            phoneNumber: res['phoneNumber'],
+            token: res['token'],
+            isLoggedIn: true,
+            lastLogin: new Date(),
+          };
+
+          console.log('📤 Updating UserService with user data:', userData);
+
+          // Save to UserService (this triggers app.component.ts socket initialization)
+          await this.userService.saveUserToStorage(userData);
+          this.userService['userSubject'].next(userData);
+
+          console.log('✅ User state updated - socket should initialize now');
+          console.log('========================================');
+
+          // Navigate based on isNewUser flag
           if (isNewUser) {
-            await this.storageService.set(
-              'phoneNumber',
-              this.mobileForm.value.phoneNumber
-            );
+            // New user: Navigate to profile-details to complete profile
+            console.log('🆕 New user - Navigating to profile-details');
             this.router.navigate([
-              '/otp',
-              { phoneNumber: this.mobileForm.value.phoneNumber },
+              '/profile-details',
+              this.mobileForm.value.phoneNumber,
+              'false', // isEdit = false for new users
+              res['userId']
             ]);
           } else {
-            console.log('✅ ========================================');
-            console.log('✅ LOGIN SUCCESSFUL - UPDATING USER STATE');
-            console.log('✅ ========================================');
-            console.log('isNewUser is false');
-            console.log('Response:', res);
-
-            // Store credentials
-            await this.storageService.set('userId', res['userId']);
-            await this.storageService.set('token', res['token']);
-
-            // **CRITICAL: Update UserService to trigger socket initialization**
-            const userData = {
-              _id: res['userId'],
-              id: res['userId'],
-              userId: res['userId'],
-              phoneNumber: res['phoneNumber'],
-              token: res['token'],
-              isLoggedIn: true,
-              lastLogin: new Date(),
-            };
-
-            console.log('📤 Updating UserService with user data:', userData);
-
-            // Save to UserService (this triggers app.component.ts socket initialization)
-            await this.userService.saveUserToStorage(userData);
-            this.userService['userSubject'].next(userData);
-
-            console.log('✅ User state updated - socket should initialize now');
-            console.log('========================================');
-
-            // Navigation will happen via app.component.ts
-            // this.router.navigate(['/tabs/tabs/tab1']);
+            // Existing user: Navigate directly to tab1
+            console.log('👤 Existing user - Navigating to tab1');
+            this.router.navigate(['/tabs/tabs/tab1']);
           }
         },
         error: async (err: any) => {

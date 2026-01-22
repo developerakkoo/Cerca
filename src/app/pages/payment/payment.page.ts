@@ -35,11 +35,6 @@ export class PaymentPage implements OnInit {
   walletBalance: number = 0;
   isWalletSelected: boolean = false;
   insufficientBalance: boolean = false;
-  
-  // Hybrid payment properties
-  walletAmountToUse: number = 0;
-  razorpayAmountToPay: number = 0;
-  canUseWallet: boolean = false;
 
   // Promo code
   promoCode: string = '';
@@ -91,7 +86,6 @@ export class PaymentPage implements OnInit {
     this.userService.getWalletBalance().subscribe((balance) => {
       this.walletBalance = balance;
       this.checkWalletBalance();
-      this.updateHybridPaymentFlags();
     });
     
     // Also fetch wallet balance directly from wallet service for accurate balance
@@ -99,7 +93,7 @@ export class PaymentPage implements OnInit {
       this.walletService.getWalletBalance(this.userId).subscribe((response) => {
         if (response.success) {
           this.walletBalance = response.data.walletBalance;
-          this.updateHybridPaymentFlags();
+          this.checkWalletBalance();
         }
       });
     }
@@ -159,7 +153,6 @@ export class PaymentPage implements OnInit {
     this.selectedPaymentMethod = event.detail.value;
     this.isWalletSelected = event.detail.value === 'wallet';
     this.checkWalletBalance();
-    this.calculateHybridPayment();
   }
 
   private checkWalletBalance() {
@@ -239,50 +232,59 @@ export class PaymentPage implements OnInit {
     this.totalAmount = Math.max(0, this.finalFare - this.discountAmount);
     this.totalAmount = Math.round(this.totalAmount * 100) / 100; // Round to 2 decimal places
     this.checkWalletBalance(); // Recheck wallet balance after total calculation
-    this.calculateHybridPayment();
   }
-  
-  /**
-   * Update hybrid payment flags and calculations
-   */
-  updateHybridPaymentFlags() {
-    // Check if wallet can be used (balance >= 100)
-    this.canUseWallet = this.walletBalance >= 100;
-    this.calculateHybridPayment();
+
+  getWalletAmountUsed(): number {
+    return Math.round(Math.min(this.walletBalance, this.totalAmount) * 100) / 100;
   }
-  
-  /**
-   * Calculate hybrid payment amounts
-   */
-  calculateHybridPayment() {
-    if (this.selectedPaymentMethod === 'razorpay' && this.canUseWallet) {
-      // Use wallet up to total amount
-      this.walletAmountToUse = Math.min(this.walletBalance, this.totalAmount);
-      // Pay remaining via Razorpay
-      this.razorpayAmountToPay = Math.max(0, this.totalAmount - this.walletAmountToUse);
-    } else {
-      // No wallet usage
-      this.walletAmountToUse = 0;
-      if (this.selectedPaymentMethod === 'razorpay') {
-        this.razorpayAmountToPay = this.totalAmount;
-      } else {
-        this.razorpayAmountToPay = 0;
-      }
-    }
+
+  getRemainingAmount(): number {
+    return Math.round(Math.max(0, this.totalAmount - this.walletBalance) * 100) / 100;
   }
 
   async proceedToPayment() {
-    if (this.isWalletSelected && this.insufficientBalance) {
-      await this.showToast('Insufficient wallet balance', 'danger');
-      return;
-    }
-
     if (!this.pendingRideDetails) {
       await this.showToast('Ride details not found', 'danger');
       this.router.navigate(['/tabs/tab1']);
       return;
     }
 
+    if (!this.userId) {
+      await this.showToast('User not authenticated', 'danger');
+      return;
+    }
+
+    // Re-check wallet balance before processing
+    try {
+      const balanceResponse = await this.walletService.getWalletBalance(this.userId).toPromise();
+      if (balanceResponse && balanceResponse.success) {
+        this.walletBalance = balanceResponse.data.walletBalance;
+        this.checkWalletBalance();
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to refresh wallet balance before payment:', error);
+      // Continue with payment using cached balance
+    }
+
+    // Process payment based on method
+    if (this.selectedPaymentMethod === 'wallet') {
+      if (this.insufficientBalance) {
+        // Wallet has insufficient balance - use hybrid payment
+        await this.handleHybridPayment();
+      } else {
+        // Wallet has sufficient balance - deduct and start ride
+        await this.handleWalletPayment();
+      }
+    } else if (this.selectedPaymentMethod === 'cash') {
+      // Cash payment - start ride directly
+      await this.handleCashPayment();
+    }
+  }
+
+  /**
+   * Handle wallet payment when balance is sufficient
+   */
+  private async handleWalletPayment() {
     const loading = await this.loadingCtrl.create({
       message: 'Processing payment...',
       spinner: 'crescent',
@@ -290,149 +292,198 @@ export class PaymentPage implements OnInit {
     await loading.present();
 
     try {
-      // Convert payment method to backend format
-      let paymentMethod: 'CASH' | 'RAZORPAY' | 'WALLET' = 'CASH';
-      if (this.selectedPaymentMethod === 'wallet') {
-        paymentMethod = 'WALLET';
-      } else if (this.selectedPaymentMethod === 'razorpay') {
-        paymentMethod = 'RAZORPAY';
+      // Validate balance is sufficient (don't deduct yet - payment happens at ride completion)
+      const balanceCheck = await this.walletService.getWalletBalance(this.userId!).toPromise();
+      if (balanceCheck && balanceCheck.success) {
+        const currentBalance = balanceCheck.data.walletBalance;
+        if (currentBalance < this.totalAmount) {
+          await loading.dismiss();
+          this.walletBalance = currentBalance;
+          this.checkWalletBalance();
+          await this.showToast('Insufficient wallet balance. Please add money.', 'warning');
+          return;
+        }
       }
 
-      // Process payment based on method
-      if (this.selectedPaymentMethod === 'wallet') {
-        // Deduct amount from wallet using WalletService
-        if (!this.userId) {
-          throw new Error('User ID not found');
-        }
-        const response = await this.walletService
-          .deductFromWallet(this.userId, {
-            amount: this.totalAmount,
-            description: `Ride payment of ₹${this.totalAmount}`,
-          })
-          .toPromise();
-        if (!response || !response.success) {
-          throw new Error(response?.message || 'Failed to deduct from wallet');
-        }
-        console.log('✅ Wallet payment processed:', response);
-      } else if (this.selectedPaymentMethod === 'razorpay') {
-        // Calculate payment amounts
-        this.calculateHybridPayment();
-        
-        // If hybrid payment (wallet + Razorpay)
-        if (this.canUseWallet && this.walletAmountToUse > 0) {
-          // Process Razorpay payment for remaining amount only
-          await this.paymentService.processPayment(
-            this.razorpayAmountToPay,
-            async (paymentResponse) => {
-              // Razorpay payment successful - create ride with hybrid payment details
-              console.log('✅ Razorpay payment successful:', paymentResponse);
-              console.log(`💰 Processing hybrid payment - Wallet: ₹${this.walletAmountToUse}, Razorpay: ₹${this.razorpayAmountToPay}`);
-              
-              try {
-                // Create ride with hybrid payment details
-                // Backend will automatically process wallet deduction
-                await this.requestRideAfterPayment(
-                  paymentMethod,
-                  paymentResponse.razorpay_payment_id,
-                  true // isHybridPayment flag
-                );
-                
-                // Refresh wallet balance after ride creation
-                if (this.userId) {
-                  await this.walletService.getWalletBalance(this.userId).toPromise();
-                  console.log('✅ Wallet balance refreshed after hybrid payment');
-                }
-              } catch (error) {
-                console.error('❌ Error creating ride after hybrid payment:', error);
-                await loading.dismiss();
-                await this.showToast('Failed to create ride. Please contact support.', 'danger');
-              }
-            },
-            async (error) => {
-              // Razorpay payment failed - no wallet deduction yet
-              console.error('❌ Razorpay payment failed:', error);
-              await loading.dismiss();
-              await this.showToast('Payment failed. Please try again.', 'danger');
-            },
-            {
-              name: 'Cerca',
-              description: `Ride payment - ₹${this.razorpayAmountToPay} online${this.walletAmountToUse > 0 ? ` (₹${this.walletAmountToUse} from wallet)` : ''}`,
-              prefill: {
-                // You can add user details here if available
-              },
-              notes: {
-                rideId: 'pending',
-                hybridPayment: 'true',
-                walletAmount: this.walletAmountToUse.toString(),
-              },
-            }
-          );
-          
-          // Dismiss loading here as Razorpay modal will handle the UI
-          await loading.dismiss();
-          return; // Exit early as ride request will be handled in payment success callback
+      // Don't deduct here - payment happens at ride completion
+      // Just create the ride
+      await this.requestRideAfterPayment('WALLET');
+      await loading.dismiss();
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ Wallet payment failed:', error);
+      
+      // Provide specific error messages based on error type
+      let errorMessage = 'Failed to process wallet payment. Please try again.';
+      if (error?.message) {
+        if (error.message.toLowerCase().includes('network') || error.message.toLowerCase().includes('connection')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message.toLowerCase().includes('insufficient')) {
+          errorMessage = 'Insufficient wallet balance. Please add money.';
         } else {
-          // Full Razorpay payment (no wallet usage)
-          await this.paymentService.processPayment(
-            this.totalAmount,
-            async (paymentResponse) => {
-              // Payment successful - refresh wallet balance and proceed with ride request
-              console.log('✅ Razorpay payment successful:', paymentResponse);
-              
-              // Refresh wallet balance after successful payment
-              if (this.userId) {
-                try {
-                  await this.walletService.getWalletBalance(this.userId).toPromise();
-                  console.log('✅ Wallet balance refreshed after Razorpay payment');
-                } catch (error) {
-                  console.warn('⚠️ Failed to refresh wallet balance:', error);
-                  // Continue with ride request even if wallet refresh fails
-                }
-              }
-              
-              await this.requestRideAfterPayment(paymentMethod, paymentResponse.razorpay_payment_id);
-            },
-            async (error) => {
-              // Payment failed
-              console.error('❌ Razorpay payment failed:', error);
-              await loading.dismiss();
-              await this.showToast('Payment failed. Please try again.', 'danger');
-            },
-            {
-              name: 'Cerca',
-              description: `Ride payment of ₹${this.totalAmount}`,
-              prefill: {
-                // You can add user details here if available
-              },
-              notes: {
-                rideId: 'pending', // Will be updated after ride is created
-              },
-            }
-          );
-          
-          // Dismiss loading here as Razorpay modal will handle the UI
-          await loading.dismiss();
-          return; // Exit early as ride request will be handled in payment success callback
+          errorMessage = error.message;
         }
       }
+      
+      await this.showToast(errorMessage, 'danger');
+    }
+  }
 
-      // For cash and wallet payments, proceed directly to ride request
-      await this.requestRideAfterPayment(paymentMethod);
-      await loading.dismiss();
-    } catch (error) {
-      await loading.dismiss();
-      console.error('❌ Payment or ride request failed:', error);
-      await this.showToast(
-        'Failed to process payment. Please try again.',
-        'danger'
+  /**
+   * Handle hybrid payment (wallet + Razorpay) when balance is insufficient
+   */
+  private async handleHybridPayment() {
+    const walletAmountUsed = Math.min(this.walletBalance, this.totalAmount);
+    const razorpayAmountPaid = Math.round((this.totalAmount - walletAmountUsed) * 100) / 100;
+    const minimumGatewayAmount = 10;
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Preparing payment...',
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    try {
+      if (razorpayAmountPaid > 0 && razorpayAmountPaid < minimumGatewayAmount) {
+        await loading.dismiss();
+        await this.showToast(
+          `Remaining amount is ₹${razorpayAmountPaid}. Minimum online payment is ₹${minimumGatewayAmount}. Please add to wallet or pay cash.`,
+          'warning'
+        );
+        return;
+      }
+
+      // Open Razorpay for remaining amount
+      await this.paymentService.processPayment(
+        razorpayAmountPaid,
+        async (paymentResponse) => {
+          console.log('✅ Razorpay payment successful:', paymentResponse);
+
+          try {
+            await this.requestRideAfterPayment('RAZORPAY', {
+              walletAmountUsed,
+              razorpayAmountPaid,
+              razorpayPaymentId: paymentResponse.razorpay_payment_id,
+            });
+            await loading.dismiss();
+          } catch (rideError: any) {
+            await loading.dismiss();
+            console.error('❌ Ride request failed after hybrid payment:', rideError);
+            await this.showToast(
+              'Payment successful but ride request failed. Please try booking again.',
+              'warning'
+            );
+            await this.refreshWalletBalance();
+          }
+        },
+        async (error: any) => {
+          await loading.dismiss();
+          console.error('❌ Razorpay payment failed:', error);
+
+          let errorMessage = 'Payment cancelled or failed. Please try again.';
+          if (error?.error?.description) {
+            errorMessage = error.error.description;
+          } else if (error?.message) {
+            if (error.message.toLowerCase().includes('cancelled') || error.message.toLowerCase().includes('cancel')) {
+              errorMessage = 'Payment cancelled. You can try again.';
+            } else if (error.message.toLowerCase().includes('network') || error.message.toLowerCase().includes('connection')) {
+              errorMessage = 'Network error. Please check your internet connection and try again.';
+            } else {
+              errorMessage = error.message;
+            }
+          }
+
+          await this.showToast(errorMessage, 'danger');
+        },
+        {
+          name: 'Cerca',
+          description: `Pay ₹${razorpayAmountPaid} now + Wallet ₹${walletAmountUsed}`,
+          prefill: {},
+          notes: {
+            purpose: 'hybrid_ride_payment',
+            rideAmount: this.totalAmount.toString(),
+            walletAmountUsed: walletAmountUsed.toString(),
+            razorpayAmountPaid: razorpayAmountPaid.toString(),
+          },
+        }
       );
+
+      await loading.dismiss();
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ Error initiating wallet top-up:', error);
+      const errorMessage = error?.message || 'Failed to initiate payment. Please try again.';
+      await this.showToast(errorMessage, 'danger');
+    }
+  }
+
+  /**
+   * Handle cash payment
+   */
+  private async handleCashPayment() {
+    const loading = await this.loadingCtrl.create({
+      message: 'Requesting ride...',
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    try {
+      // Start ride directly for cash payment
+      try {
+        await this.requestRideAfterPayment('CASH');
+        await loading.dismiss();
+      } catch (rideError: any) {
+        await loading.dismiss();
+        console.error('❌ Cash payment ride request failed:', rideError);
+        
+        let errorMessage = 'Failed to request ride. Please try again.';
+        if (rideError?.message) {
+          if (rideError.message.toLowerCase().includes('network') || rideError.message.toLowerCase().includes('connection')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+          } else if (rideError.message.toLowerCase().includes('already have an active ride')) {
+            errorMessage = 'You already have an active ride. Please cancel it first.';
+          } else {
+            errorMessage = rideError.message;
+          }
+        }
+        
+        await this.showToast(errorMessage, 'danger');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ Cash payment failed:', error);
+      const errorMessage = error?.message || 'Failed to process cash payment. Please try again.';
+      await this.showToast(errorMessage, 'danger');
+    }
+  }
+
+  /**
+   * Refresh wallet balance from backend
+   */
+  private async refreshWalletBalance(): Promise<void> {
+    if (!this.userId) return;
+
+    try {
+      const response = await this.walletService.getWalletBalance(this.userId).toPromise();
+      if (response && response.success) {
+        this.walletBalance = response.data.walletBalance;
+        this.checkWalletBalance();
+        // Also update user service balance
+        this.userService.getWalletBalance().subscribe();
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to refresh wallet balance:', error);
+      // Don't throw - this is a background operation
     }
   }
 
   private async requestRideAfterPayment(
-    paymentMethod: 'CASH' | 'RAZORPAY' | 'WALLET',
-    razorpayPaymentId?: string,
-    isHybridPayment: boolean = false
+    paymentMethod: 'CASH' | 'WALLET' | 'RAZORPAY',
+    paymentDetails?: {
+      razorpayPaymentId?: string;
+      walletAmountUsed?: number;
+      razorpayAmountPaid?: number;
+    }
   ) {
     try {
       console.log('✅ Payment processed:', {
@@ -440,7 +491,6 @@ export class PaymentPage implements OnInit {
         method: paymentMethod,
         promoApplied: this.promoApplied,
         discountAmount: this.discountAmount,
-        razorpayPaymentId: razorpayPaymentId || 'N/A',
       });
 
       // Use actual distance from pending ride details or fallback to default
@@ -453,6 +503,20 @@ export class PaymentPage implements OnInit {
         ? 'suv'
         : 'auto';
 
+      // Log fare information before sending
+      console.log('[Fare Tracking] Sending ride request:', {
+        fare: this.totalAmount,
+        baseFare: this.baseFare,
+        distanceFare: this.distanceFare,
+        subtotal: this.subtotal,
+        finalFare: this.finalFare,
+        discountAmount: this.discountAmount,
+        promoApplied: this.promoApplied,
+        distanceInKm: estimatedDistance,
+        service: service,
+        paymentMethod: paymentMethod
+      });
+
       // Request ride via Socket.IO
       await this.rideService.requestRide({
         pickupLocation: this.pendingRideDetails.pickupLocation,
@@ -464,25 +528,15 @@ export class PaymentPage implements OnInit {
         service: service,
         rideType: 'normal',
         paymentMethod: paymentMethod,
-        // Store Razorpay payment ID if available
-        ...(razorpayPaymentId && { razorpayPaymentId }),
-        // Hybrid payment details
-        ...(isHybridPayment && {
-          walletAmountUsed: this.walletAmountToUse,
-          razorpayAmountPaid: this.razorpayAmountToPay,
-        }),
+        ...(paymentDetails?.razorpayPaymentId && { razorpayPaymentId: paymentDetails.razorpayPaymentId }),
+        ...(paymentDetails?.walletAmountUsed !== undefined && { walletAmountUsed: paymentDetails.walletAmountUsed }),
+        ...(paymentDetails?.razorpayAmountPaid !== undefined && { razorpayAmountPaid: paymentDetails.razorpayAmountPaid }),
         // Promo code if applied
         ...(this.validatedPromoCode && { promoCode: this.validatedPromoCode }),
       });
-      
-      // Hybrid payment details are passed to backend via ride request
-      // Backend will automatically process wallet deduction during ride creation
-      if (isHybridPayment) {
-        console.log('💰 Hybrid payment details sent to backend:', {
-          walletAmount: this.walletAmountToUse,
-          razorpayAmount: this.razorpayAmountToPay,
-          razorpayPaymentId,
-        });
+
+      if (paymentMethod !== 'CASH') {
+        await this.refreshWalletBalance();
       }
 
       // Clear pending ride details
@@ -490,9 +544,11 @@ export class PaymentPage implements OnInit {
 
       // Navigation to cab-searching is handled by RideService
       console.log('🚗 Ride request sent, navigating to cab-searching...');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Ride request failed:', error);
-      await this.showToast('Failed to request ride. Please try again.', 'danger');
+      const errorMessage = error?.message || 'Failed to request ride. Please try again.';
+      await this.showToast(errorMessage, 'danger');
+      throw error; // Re-throw to allow caller to handle
     }
   }
 

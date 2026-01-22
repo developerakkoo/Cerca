@@ -50,6 +50,12 @@ export class Tab3Page implements OnInit, OnDestroy {
     this.subscriptions.push(balanceSub);
   }
 
+  async ionViewWillEnter() {
+    // Refresh wallet data each time the tab becomes active
+    await this.loadUserId();
+    await this.loadWalletData();
+  }
+
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
   }

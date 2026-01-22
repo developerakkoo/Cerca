@@ -125,8 +125,21 @@ export class AppComponent implements OnDestroy {
           this.checkUserStatus(userId);
         }
 
-        console.log('🧭 Navigating to /tabs/tabs/tab1');
-        this.router.navigate(['/tabs/tabs/tab1']);
+        // Check current route - don't auto-navigate if we're on mobile-login or profile-details
+        // Let those pages handle their own navigation
+        const currentUrl = this.router.url;
+        const isOnAuthPage = currentUrl.includes('/mobile-login') || 
+                             currentUrl.includes('/profile-details') ||
+                             currentUrl === '/';
+        
+        if (!isOnAuthPage) {
+          // User is already logged in on app start (existing session) - navigate to tab1
+          console.log('🧭 User already logged in - Navigating to /tabs/tabs/tab1');
+          this.router.navigate(['/tabs/tabs/tab1']);
+        } else {
+          // User just logged in - let mobile-login or profile-details handle navigation
+          console.log('🧭 User logged in from auth page - Navigation handled by auth page');
+        }
       } else {
         console.log('🚪 ========================================');
         console.log('🚪 USER LOGGED OUT - DISCONNECTING SOCKET');

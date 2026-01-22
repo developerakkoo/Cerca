@@ -12,6 +12,8 @@
 .mobile-login-content {
   --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%) !important;
   background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%) !important;
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobile-login-container {
@@ -87,6 +89,9 @@
   width: 100%;
   animation: fadeInUp 0.6s ease-out 0.4s backwards;
   margin-top: 8px;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .input-container {
@@ -100,6 +105,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   backdrop-filter: blur(10px);
   position: relative;
+  -webkit-tap-highlight-color: transparent;
 
   &::before {
     content: '';
@@ -116,6 +122,8 @@
     mask-composite: exclude;
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 0;
   }
 
   &.focused {
@@ -136,6 +144,9 @@
     font-size: 1rem;
     background: rgba(var(--ion-color-primary-contrast-rgb), 0.1);
     border-right: 1px solid rgba(var(--ion-color-primary-contrast-rgb), 0.2);
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
   }
 
   input {
@@ -147,10 +158,21 @@
     color: var(--ion-color-primary-contrast);
     font-size: 1.1rem;
     font-weight: 500;
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    touch-action: manipulation;
 
     &::placeholder {
       color: rgba(var(--ion-color-primary-contrast-rgb), 0.5);
       font-weight: 400;
+    }
+
+    &:focus {
+      outline: none;
     }
   }
 }
@@ -310,6 +332,7 @@
     input {
       padding: 16px 18px;
       font-size: 1rem;
+      min-height: 44px; // Ensure minimum touch target size for mobile
     }
   }
 

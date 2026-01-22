@@ -51,7 +51,7 @@ export class PlacesService {
   getPlacePredictions(
     query: string,
     location?: { lat: number; lng: number },
-    radius: number = 50000
+    radius: number = 10000  // Reduced from 50000 to 10000 (10km)
   ): Observable<PlacePrediction[]> {
     if (!query || query.trim().length === 0) {
       return new Observable(observer => {
@@ -63,8 +63,8 @@ export class PlacesService {
     // Build backend API URL with query parameters
     let url = `${environment.apiUrl}/api/google-maps/places/autocomplete?query=${encodeURIComponent(query)}`;
     
-    // Add location bias if provided
-    if (location) {
+    // Add location bias if provided - always use location when available for accurate results
+    if (location && location.lat && location.lng) {
       url += `&lat=${location.lat}&lng=${location.lng}&radius=${radius}`;
     }
 

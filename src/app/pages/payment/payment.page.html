@@ -33,14 +33,6 @@
           <span class="discount-text">{{ 'PAYMENT.discountApplied' | translate }}</span>
           <span class="discount-amount">-₹{{discountAmount}}</span>
         </div>
-        <div class="summary-row" *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
-          <span>{{ 'PAYMENT.walletPayment' | translate }}</span>
-          <span>₹{{walletAmountToUse}}</span>
-        </div>
-        <div class="summary-row" *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
-          <span>{{ 'PAYMENT.onlinePayment' | translate }}</span>
-          <span>₹{{razorpayAmountToPay}}</span>
-        </div>
         <div class="summary-row total">
           <span>{{ 'PAYMENT.totalAmount' | translate }}</span>
           <span>₹{{totalAmount}}</span>
@@ -77,32 +69,8 @@
             </ion-label>
             <ion-radio slot="end" value="cash"></ion-radio>
           </ion-item>
-
-          <ion-item lines="none" class="payment-method-item">
-            <ion-avatar slot="start">
-              <ion-icon name="card-outline"></ion-icon>
-            </ion-avatar>
-            <ion-label>
-              <h3>{{ 'PAYMENT.onlinePayment' | translate }}</h3>
-              <p *ngIf="canUseWallet && walletAmountToUse > 0">
-                Pay ₹{{razorpayAmountToPay}} ({{ 'PAYMENT.wallet' | translate }}: ₹{{walletAmountToUse}})
-              </p>
-              <p *ngIf="!canUseWallet || walletAmountToUse === 0">
-                {{ 'PAYMENT.payUsingUPI' | translate }}
-              </p>
-            </ion-label>
-            <ion-radio slot="end" value="razorpay"></ion-radio>
-          </ion-item>
         </ion-radio-group>
       </ion-list>
-    </div>
-
-    <!-- Hybrid Payment Info -->
-    <div class="hybrid-payment-info" *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
-      <ion-icon name="information-circle-outline" color="primary"></ion-icon>
-      <p>
-        {{ 'PAYMENT.hybridPaymentInfo' | translate: {walletAmount: walletAmountToUse, razorpayAmount: razorpayAmountToPay} }}
-      </p>
     </div>
 
     <!-- Promo Code -->
@@ -135,19 +103,16 @@
         expand="block" 
         class="pay-button" 
         (click)="proceedToPayment()"
-        [disabled]="isWalletSelected && insufficientBalance">
+        [disabled]="false">
         <ion-icon name="card-outline" slot="start"></ion-icon>
-        <ng-container *ngIf="isWalletSelected">
+        <ng-container *ngIf="isWalletSelected && !insufficientBalance">
           Pay from Wallet ₹{{totalAmount}}
+        </ng-container>
+        <ng-container *ngIf="isWalletSelected && insufficientBalance">
+          Pay ₹{{getRemainingAmount()}} now + Wallet ₹{{getWalletAmountUsed()}}
         </ng-container>
         <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'cash'">
           Pay ₹{{totalAmount}}
-        </ng-container>
-        <ng-container *ngIf="selectedPaymentMethod === 'razorpay' && canUseWallet && walletAmountToUse > 0">
-          Pay ₹{{razorpayAmountToPay}} Online
-        </ng-container>
-        <ng-container *ngIf="selectedPaymentMethod === 'razorpay' && (!canUseWallet || walletAmountToUse === 0)">
-          Pay ₹{{totalAmount}} Online
         </ng-container>
       </ion-button>
     </div>

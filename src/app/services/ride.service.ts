@@ -358,6 +358,7 @@ export class RideService {
         const errorLower = error.message?.toLowerCase() || '';
         const isNoDriverError = 
           error.code === 'NO_DRIVERS_FOUND' ||
+          error.code === 'NO_DRIVER_ACCEPTED_TIMEOUT' ||
           errorLower.includes('no driver') || 
           errorLower.includes('no drivers') ||
           (errorLower.includes('within') && errorLower.includes('radius')) ||

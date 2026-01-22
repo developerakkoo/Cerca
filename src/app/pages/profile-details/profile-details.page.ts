@@ -60,6 +60,7 @@ export class ProfileDetailsPage implements OnInit {
   async getUser(){
     console.log('🔍 Fetching user data...');
     console.log('  userId from route:', this.userId);
+    console.log('  isEdit:', this.isEdit);
     
     try {
       // Fetch user data from API using userId from route params
@@ -73,8 +74,21 @@ export class ProfileDetailsPage implements OnInit {
         console.log('  fullName:', userData.fullName);
         console.log('  email:', userData.email);
         
-        // Validate API response has required fields
-        if (userData && (userData.fullName || userData.email)) {
+        // For new users (isEdit = false), check if profile is incomplete
+        // Profile is incomplete if fullName is "Pending" (placeholder) or email is temporary
+        const isProfileIncomplete = !userData.fullName || 
+                                   userData.fullName.trim() === '' ||
+                                   userData.fullName.trim() === 'Pending' ||
+                                   userData.email?.includes('@cerca.temp');
+        
+        if (isProfileIncomplete && !this.isEdit) {
+          // New user with incomplete profile - keep form empty
+          console.log('🆕 New user with incomplete profile - form will remain empty');
+          this.userForm.patchValue({
+            fullName: '',
+            email: ''
+          });
+        } else if (userData && (userData.fullName || userData.email)) {
           // Populate form with API response values
           // If fullName or email is null/undefined, set to empty string
           this.userForm.patchValue({
@@ -177,56 +191,114 @@ export class ProfileDetailsPage implements OnInit {
 
   async onSubmit() {
     const loading = await this.loadingController.create({
-      message: 'Logging in...',
+      message: this.isEdit ? 'Updating profile...' : 'Completing profile...',
       duration: 3000
     });
     await loading.present();
+    
     if (this.userForm.valid) {
-      console.log(this.userForm.value);
-      if(!this.isEdit){
-
-     
-      // Perform the desired action with the form data
-      let body = {
-        fullName: this.userForm.value.fullName,
-        email: this.userForm.value.email,
-        phoneNumber: this.phoneNumber,
-        lastLogin: new Date()
-      }
-      console.log(body);
-      this.userService.setUser(body).subscribe({
-        next:async (res:any)=>{
-          console.log(res);
-          let body = {
-            isLoggedIn: true,
-            ...res
-          }
-          await loading.dismiss();
-          this.userService.saveUserToStorage(body);
-          this.router.navigate(['/tabs/tabs/tab1']);
-        },
-        error:async (err:any)=>{
-          console.log(err);
-          await loading.dismiss();
+      console.log('📝 Form submission:', this.userForm.value);
+      console.log('  isEdit:', this.isEdit);
+      console.log('  userId:', this.userId);
+      
+      if (!this.isEdit) {
+        // New user completing profile - user already exists (created during login)
+        // Use updateUser to update the existing user with fullName and email
+        if (this.userId) {
+          console.log('🆕 Updating new user profile with userId:', this.userId);
+          
+          // Update the user with profile details
+          const updateData = {
+            fullName: this.userForm.value.fullName,
+            email: this.userForm.value.email
+          };
+          
+          this.userService.updateUser(updateData).subscribe({
+            next: async (res: any) => {
+              console.log('✅ Profile updated successfully:', res);
+              
+              // Fetch complete user data to update UserService
+              try {
+                const updatedUserData = await firstValueFrom(
+                  this.http.get<any>(`${environment.apiUrl}/users/${this.userId}`)
+                );
+                
+                // Update UserService with complete user data
+                const completeUserData = {
+                  _id: updatedUserData._id || updatedUserData.id,
+                  id: updatedUserData._id || updatedUserData.id,
+                  userId: updatedUserData._id || updatedUserData.id,
+                  phoneNumber: updatedUserData.phoneNumber,
+                  fullName: updatedUserData.fullName,
+                  email: updatedUserData.email,
+                  token: this.userService.getCurrentUser()?.token,
+                  isLoggedIn: true,
+                  lastLogin: new Date(),
+                };
+                
+                await this.userService.saveUserToStorage(completeUserData);
+                this.userService['userSubject'].next(completeUserData);
+                
+                await loading.dismiss();
+                console.log('✅ User data updated - Navigating to tab1');
+                this.router.navigate(['/tabs/tabs/tab1']);
+              } catch (fetchError) {
+                console.error('❌ Error fetching updated user data:', fetchError);
+                await loading.dismiss();
+                // Still navigate even if fetch fails
+                this.router.navigate(['/tabs/tabs/tab1']);
+              }
+            },
+            error: async (err: any) => {
+              console.error('❌ Error updating profile:', err);
+              await loading.dismiss();
+            }
+          });
+        } else {
+          // Fallback: if no userId, use setUser (creates new user)
+          console.log('⚠️ No userId found - using setUser (fallback)');
+          const body = {
+            fullName: this.userForm.value.fullName,
+            email: this.userForm.value.email,
+            phoneNumber: this.phoneNumber,
+            lastLogin: new Date()
+          };
+          
+          this.userService.setUser(body).subscribe({
+            next: async (res: any) => {
+              console.log('✅ User created:', res);
+              const userData = {
+                isLoggedIn: true,
+                ...res
+              };
+              await loading.dismiss();
+              await this.userService.saveUserToStorage(userData);
+              this.userService['userSubject'].next(userData);
+              this.router.navigate(['/tabs/tabs/tab1']);
+            },
+            error: async (err: any) => {
+              console.error('❌ Error creating user:', err);
+              await loading.dismiss();
+            }
+          });
         }
-      })
-return;
-      }else{
+      } else {
+        // Existing user editing profile
         this.userService.updateUser(this.userForm.value).subscribe({
-          next: async (res:any)=>{
-            console.log(res);
+          next: async (res: any) => {
+            console.log('✅ Profile updated:', res);
             await loading.dismiss();
-            this.getUser();
+            this.getUser(); // Refresh form data
           },
-          error: async (err:any)=>{
-            console.log(err);
+          error: async (err: any) => {
+            console.error('❌ Error updating profile:', err);
             await loading.dismiss();
           }
-        })
-        return;
+        });
       }
     } else {
-      console.log('Form is invalid');
+      console.log('❌ Form is invalid');
+      await loading.dismiss();
     }
   }
   

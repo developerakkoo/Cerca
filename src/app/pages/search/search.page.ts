@@ -145,10 +145,16 @@ export class SearchPage implements OnInit, OnDestroy {
             this.isLoadingSuggestions = true;
             this.showSuggestions = true;
           });
+          
+          // Ensure location is always provided - use selectedLocation, fallback to currentLocation, then map center
           const mapCenter = this.selectedLocation?.lat && this.selectedLocation?.lng 
             ? { lat: this.selectedLocation.lat, lng: this.selectedLocation.lng }
+            : this.currentLocation?.lat && this.currentLocation?.lng
+            ? { lat: this.currentLocation.lat, lng: this.currentLocation.lng }
             : undefined;
-          return this.placesService.getPlacePredictions(query, mapCenter);
+          
+          // Use reduced radius of 10km (10000 meters) for accurate, location-aware results
+          return this.placesService.getPlacePredictions(query, mapCenter, 10000);
         })
       )
       .subscribe({
