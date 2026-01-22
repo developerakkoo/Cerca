@@ -1,0 +1,91 @@
+.force-update-content {
+  --background: #f5f5f5;
+}
+
+.force-update-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+}
+
+.icon-container {
+  margin-bottom: 2rem;
+}
+
+.update-icon {
+  font-size: 120px;
+  color: #2196F3;
+}
+
+.text-container {
+  margin-bottom: 3rem;
+  max-width: 500px;
+}
+
+.update-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.update-message {
+  font-size: 1.1rem;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.version-info {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.version-text {
+  font-size: 0.95rem;
+  color: #555;
+  margin: 0.5rem 0;
+  
+  strong {
+    color: #333;
+  }
+}
+
+.button-container {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.update-button {
+  --border-radius: 12px;
+  height: 50px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.retry-button {
+  --border-radius: 12px;
+  height: 45px;
+  font-weight: 500;
+}
+
+.platform-info {
+  margin-top: 2rem;
+}
+
+.platform-text {
+  font-size: 0.9rem;
+  color: #999;
+  font-style: italic;
+}
+

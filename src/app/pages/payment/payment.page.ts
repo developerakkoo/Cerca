@@ -12,6 +12,7 @@ import { RideService } from '../../services/ride.service';
 import { PaymentService } from '../../services/payment.service';
 import { WalletService } from '../../services/wallet.service';
 import { CouponService } from '../../services/coupon.service';
+import { SettingsService, PricingConfigurations, VehicleServices } from '../../services/settings.service';
 import { Storage } from '@ionic/storage-angular';
 
 @Component({
@@ -21,10 +22,15 @@ import { Storage } from '@ionic/storage-angular';
   standalone: false,
 })
 export class PaymentPage implements OnInit {
-  // Payment details
-  baseFare: number = 0;
+  // Fare breakdown
+  baseFare: number = 0; // Vehicle service base price
+  distanceFare: number = 0; // Distance × perKmRate
+  subtotal: number = 0; // Base fare + distance fare
+  finalFare: number = 0; // After minimum fare check
   discountAmount: number = 0;
-  totalAmount: number = 0;
+  totalAmount: number = 0; // Final amount after discount
+  
+  // Payment details
   selectedPaymentMethod: string = 'cash';
   walletBalance: number = 0;
   isWalletSelected: boolean = false;
@@ -41,6 +47,11 @@ export class PaymentPage implements OnInit {
   promoMessage: string = '';
   validatedPromoCode: string | null = null;
 
+  // Settings
+  pricingConfig: PricingConfigurations | null = null;
+  vehicleServices: VehicleServices | null = null;
+  minimumFareApplied: boolean = false;
+
   // Pending ride details
   private pendingRideDetails: any = null;
 
@@ -54,6 +65,7 @@ export class PaymentPage implements OnInit {
     private paymentService: PaymentService,
     private walletService: WalletService,
     private couponService: CouponService,
+    private settingsService: SettingsService,
     private storage: Storage,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController
@@ -92,29 +104,8 @@ export class PaymentPage implements OnInit {
       });
     }
 
-    // Calculate fare based on distance and vehicle type
-    this.calculateFareFromDistance();
-    
-    // Get the base fare from the route parameters (fallback)
-    this.route.queryParams.subscribe((params) => {
-      if (params['vehicle']) {
-        // If fare not calculated from distance, use hardcoded values
-        if (this.baseFare === 0) {
-          switch (params['vehicle']) {
-            case 'small':
-              this.baseFare = 299;
-              break;
-            case 'medium':
-              this.baseFare = 499;
-              break;
-            case 'large':
-              this.baseFare = 699;
-              break;
-          }
-        }
-        this.calculateTotal();
-      }
-    });
+    // Load settings (vehicle services and pricing configurations)
+    this.loadSettings();
   }
 
   private async loadUserId() {
@@ -122,6 +113,46 @@ export class PaymentPage implements OnInit {
     if (!this.userId) {
       console.warn('User ID not found');
     }
+  }
+
+  /**
+   * Load settings (vehicle services and pricing configurations)
+   */
+  private loadSettings() {
+    // Load vehicle services
+    this.settingsService.getVehicleServices().subscribe({
+      next: (services) => {
+        this.vehicleServices = services;
+        this.calculateFare();
+      },
+      error: (error) => {
+        console.error('Error loading vehicle services:', error);
+        // Use defaults
+        this.vehicleServices = this.settingsService.getCurrentVehicleServices();
+        this.calculateFare();
+      }
+    });
+
+    // Load pricing configurations
+    this.settingsService.getPricingConfigurations().subscribe({
+      next: (config) => {
+        this.pricingConfig = config;
+        this.calculateFare();
+      },
+      error: (error) => {
+        console.error('Error loading pricing configurations:', error);
+        // Use defaults
+        this.pricingConfig = this.settingsService.getCurrentPricingConfigurations() || {
+          baseFare: 0,
+          perKmRate: 12,
+          minimumFare: 100,
+          cancellationFees: 50,
+          platformFees: 10,
+          driverCommissions: 90
+        };
+        this.calculateFare();
+      }
+    });
   }
 
   onPaymentMethodChange(event: any) {
@@ -168,7 +199,7 @@ export class PaymentPage implements OnInit {
         .validateCoupon({
           couponCode: this.promoCode.trim().toUpperCase(),
           userId: this.userId,
-          rideFare: this.baseFare,
+          rideFare: this.finalFare, // Use final fare (after minimum fare check)
           service: service,
           rideType: 'normal',
         })
@@ -204,7 +235,9 @@ export class PaymentPage implements OnInit {
   }
 
   calculateTotal() {
-    this.totalAmount = this.baseFare - this.discountAmount;
+    // Total = final fare - discount
+    this.totalAmount = Math.max(0, this.finalFare - this.discountAmount);
+    this.totalAmount = Math.round(this.totalAmount * 100) / 100; // Round to 2 decimal places
     this.checkWalletBalance(); // Recheck wallet balance after total calculation
     this.calculateHybridPayment();
   }
@@ -465,34 +498,51 @@ export class PaymentPage implements OnInit {
 
   /**
    * Calculate fare based on distance and vehicle type
-   * Uses simple calculation: base fare + (distance * perKmRate)
-   * Falls back to hardcoded values if distance not available
+   * Formula: Base Fare + (Distance × Per Km Rate)
+   * Then apply minimum fare check
    */
-  private calculateFareFromDistance() {
-    if (!this.pendingRideDetails || !this.pendingRideDetails.distanceInKm) {
-      return; // Will use hardcoded values from route params
+  private calculateFare() {
+    // Wait for both settings to be loaded
+    if (!this.vehicleServices || !this.pricingConfig || !this.pendingRideDetails) {
+      return;
     }
 
-    const distance = this.pendingRideDetails.distanceInKm;
     const vehicle = this.pendingRideDetails.selectedVehicle || 'small';
-    
-    // Base fares (can be moved to settings later)
-    const baseFares: { [key: string]: number } = {
-      small: 50,
-      medium: 80,
-      large: 120,
-    };
-    
-    // Per km rate (can be moved to settings later)
-    const perKmRate = 12;
-    const minimumFare = 100;
+    const distance = this.pendingRideDetails.distanceInKm || 0;
 
-    const baseFare = baseFares[vehicle] || baseFares['small'];
-    let calculatedFare = baseFare + (distance * perKmRate);
-    calculatedFare = Math.max(calculatedFare, minimumFare);
-    calculatedFare = Math.round(calculatedFare * 100) / 100;
+    // Get base fare from vehicle service
+    let vehicleBasePrice = 0;
+    switch (vehicle) {
+      case 'small':
+        vehicleBasePrice = this.vehicleServices.cercaSmall?.price || 299;
+        break;
+      case 'medium':
+        vehicleBasePrice = this.vehicleServices.cercaMedium?.price || 499;
+        break;
+      case 'large':
+        vehicleBasePrice = this.vehicleServices.cercaLarge?.price || 699;
+        break;
+      default:
+        vehicleBasePrice = 299;
+    }
 
-    this.baseFare = calculatedFare;
+    // Calculate fare components
+    this.baseFare = vehicleBasePrice;
+    this.distanceFare = distance * this.pricingConfig.perKmRate;
+    this.subtotal = this.baseFare + this.distanceFare;
+    
+    // Apply minimum fare check
+    const minimumFare = this.pricingConfig.minimumFare;
+    this.finalFare = Math.max(this.subtotal, minimumFare);
+    this.minimumFareApplied = this.finalFare > this.subtotal;
+    
+    // Round to 2 decimal places
+    this.baseFare = Math.round(this.baseFare * 100) / 100;
+    this.distanceFare = Math.round(this.distanceFare * 100) / 100;
+    this.subtotal = Math.round(this.subtotal * 100) / 100;
+    this.finalFare = Math.round(this.finalFare * 100) / 100;
+
+    // Recalculate total with current discount
     this.calculateTotal();
   }
 

@@ -162,6 +162,20 @@ ion-card {
         margin-left: 8px;
       }
 
+      &.timer-btn {
+        --background: var(--ion-color-warning);
+        --background-hover: var(--ion-color-warning-shade);
+        --color: white;
+        margin-left: 8px;
+        font-weight: 600;
+
+        &.timer-low {
+          --background: var(--ion-color-danger);
+          --background-hover: var(--ion-color-danger-shade);
+          animation: timerPulse 1s infinite;
+        }
+      }
+
       &:hover {
         transform: translateY(-2px);
         --box-shadow: 0 6px 16px var(--card-hover-shadow);
@@ -218,6 +232,21 @@ ion-text[color="danger"] {
 
 .call-driver-btn {
   animation: pulse 2s infinite;
+}
+
+@keyframes timerPulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 

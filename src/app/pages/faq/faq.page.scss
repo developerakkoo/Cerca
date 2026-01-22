@@ -1,0 +1,331 @@
+/* Ensure proper background */
+ion-content {
+  --background: var(--ion-color-light) !important;
+}
+
+:root.ion-palette-dark {
+  ion-content {
+    --background: var(--ion-background-color) !important;
+  }
+}
+
+/* Theme variables */
+:root {
+  --card-bg: white;
+  --card-shadow: rgba(0, 0, 0, 0.08);
+  --text-primary: var(--ion-color-dark);
+  --text-secondary: var(--ion-color-medium);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --category-bg: rgba(var(--ion-color-primary-rgb), 0.05);
+}
+
+:root.ion-palette-dark {
+  --card-bg: var(--ion-color-dark);
+  --card-shadow: rgba(0, 0, 0, 0.3);
+  --text-primary: var(--ion-color-light);
+  --text-secondary: var(--ion-color-medium);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --category-bg: rgba(var(--ion-color-primary-rgb), 0.1);
+}
+
+/* Search Container */
+.search-container {
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.faq-searchbar {
+  --background: var(--card-bg);
+  --box-shadow: 0 2px 8px var(--card-shadow);
+  --border-radius: 12px;
+  --placeholder-color: var(--text-secondary);
+  --icon-color: var(--ion-color-primary);
+  --clear-button-color: var(--text-secondary);
+  padding: 0;
+  margin: 0;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  h3 {
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 16px 0 8px;
+  }
+
+  p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-bottom: 24px;
+  }
+}
+
+/* FAQ Container */
+.faq-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+/* Category */
+.faq-category {
+  background: transparent;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--category-bg);
+  border-radius: 12px;
+  border-left: 4px solid var(--ion-color-primary);
+
+  .category-icon {
+    font-size: 24px;
+    color: var(--ion-color-primary);
+  }
+
+  .category-title {
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+/* FAQ Items */
+.faq-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faq-item {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px var(--card-shadow);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+
+  &:hover {
+    box-shadow: 0 4px 12px var(--card-shadow);
+    transform: translateY(-2px);
+  }
+
+  &.expanded {
+    box-shadow: 0 4px 16px rgba(var(--ion-color-primary-rgb), 0.15);
+    border-color: var(--ion-color-primary);
+  }
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+
+  &:active {
+    background-color: rgba(var(--ion-color-primary-rgb), 0.05);
+  }
+
+  .question-text {
+    flex: 1;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.5;
+    padding-right: 12px;
+  }
+
+  .expand-icon {
+    font-size: 20px;
+    color: var(--ion-color-primary);
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+  }
+}
+
+.faq-item.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 20px;
+  background: rgba(var(--ion-color-primary-rgb), 0.02);
+
+  &.show {
+    max-height: 500px;
+    padding: 0 20px 20px;
+  }
+
+  p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0;
+    padding-top: 16px;
+  }
+}
+
+/* Help Section */
+.help-section {
+  margin-top: 32px;
+  margin-bottom: 24px;
+}
+
+.help-card {
+  background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(var(--ion-color-primary-rgb), 0.2);
+  margin: 0;
+
+  ion-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 24px;
+
+    .help-icon {
+      font-size: 48px;
+      color: white;
+      margin-bottom: 16px;
+      opacity: 0.9;
+    }
+
+    h3 {
+      color: white;
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    p {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin: 0 0 24px;
+      max-width: 280px;
+    }
+
+    ion-button {
+      --background: white;
+      --color: var(--ion-color-primary);
+      --border-radius: 12px;
+      --padding-start: 20px;
+      --padding-end: 20px;
+      font-weight: 600;
+      margin-top: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.faq-category {
+  animation: fadeIn 0.4s ease-out;
+  animation-fill-mode: both;
+}
+
+.faq-category:nth-child(1) { animation-delay: 0.1s; }
+.faq-category:nth-child(2) { animation-delay: 0.2s; }
+.faq-category:nth-child(3) { animation-delay: 0.3s; }
+.faq-category:nth-child(4) { animation-delay: 0.4s; }
+.faq-category:nth-child(5) { animation-delay: 0.5s; }
+.faq-category:nth-child(6) { animation-delay: 0.6s; }
+
+/* Responsive Design */
+@media (max-width: 576px) {
+  .category-header {
+    padding: 10px 14px;
+
+    .category-icon {
+      font-size: 20px;
+    }
+
+    .category-title {
+      font-size: 1.1rem;
+    }
+  }
+
+  .faq-question {
+    padding: 16px 18px;
+
+    .question-text {
+      font-size: 0.95rem;
+    }
+  }
+
+  .faq-answer {
+    padding: 0 18px;
+
+    &.show {
+      padding: 0 18px 18px;
+    }
+
+    p {
+      font-size: 0.9rem;
+    }
+  }
+
+  .help-card ion-card-content {
+    padding: 24px 20px;
+
+    .help-icon {
+      font-size: 40px;
+    }
+
+    h3 {
+      font-size: 1.3rem;
+    }
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .faq-item {
+    &:hover {
+      background: rgba(var(--ion-color-primary-rgb), 0.05);
+    }
+  }
+}
+

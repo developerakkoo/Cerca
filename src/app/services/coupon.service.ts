@@ -84,5 +84,25 @@ export class CouponService {
         })
       );
   }
+
+  /**
+   * Get available gifts for a user
+   */
+  getUserGifts(userId: string): Observable<{ success: boolean; message: string; data?: any[] }> {
+    return this.http
+      .get<{ success: boolean; message: string; data?: any[] }>(
+        `${this.apiUrl}/coupons/user/${userId}/gifts`
+      )
+      .pipe(
+        catchError((error) => {
+          console.error('Error fetching user gifts:', error);
+          return of({
+            success: false,
+            message: error.error?.message || 'Failed to fetch gifts',
+            data: [],
+          });
+        })
+      );
+  }
 }
 

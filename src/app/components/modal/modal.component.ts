@@ -15,6 +15,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { UserService } from '../../services/user.service';
 import { RideService } from '../../services/ride.service';
 import { GeocodingService } from '../../services/geocoding.service';
+import { SettingsService, VehicleServices } from '../../services/settings.service';
 import { Subscription } from 'rxjs';
 
 interface Address {
@@ -40,8 +41,11 @@ export class ModalComponent implements OnInit, OnDestroy {
 
   activeInput: 'pickup' | 'destination' | null = null;
   selectedVehicle: string = 'small';
+  vehicleServices: VehicleServices | null = null;
+  isLoadingServices = false;
   private pickupSubscription: Subscription | null = null;
   private destinationSubscription: Subscription | null = null;
+  private vehicleServicesSubscription: Subscription | null = null;
 
   addresses: Address[] = [
     { type: 'Home', address: '123 Main St', isSelected: false },
@@ -58,11 +62,13 @@ export class ModalComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private rideService: RideService,
     private geocodingService: GeocodingService,
-    private loadingCtrl: LoadingController
+    private loadingCtrl: LoadingController,
+    private settingsService: SettingsService
   ) {}
 
   ngOnInit() {
     this.initializeSubscriptions();
+    this.loadVehicleServices();
   }
 
   ngOnDestroy() {
@@ -72,6 +78,37 @@ export class ModalComponent implements OnInit, OnDestroy {
     if (this.destinationSubscription) {
       this.destinationSubscription.unsubscribe();
     }
+    if (this.vehicleServicesSubscription) {
+      this.vehicleServicesSubscription.unsubscribe();
+    }
+  }
+
+  private loadVehicleServices() {
+    this.isLoadingServices = true;
+    // Get current services from subject (may be cached)
+    this.vehicleServices = this.settingsService.getCurrentVehicleServices();
+    
+    // Subscribe to updates
+    this.vehicleServicesSubscription = this.settingsService.vehicleServices$.subscribe(
+      (services) => {
+        this.vehicleServices = services;
+        this.isLoadingServices = false;
+      }
+    );
+
+    // Fetch from API (will update subject)
+    this.settingsService.getVehicleServices().subscribe({
+      next: (services) => {
+        this.vehicleServices = services;
+        this.isLoadingServices = false;
+      },
+      error: (error) => {
+        console.error('Error loading vehicle services:', error);
+        // Use defaults from service
+        this.vehicleServices = this.settingsService.getCurrentVehicleServices();
+        this.isLoadingServices = false;
+      }
+    });
   }
 
   private initializeSubscriptions() {

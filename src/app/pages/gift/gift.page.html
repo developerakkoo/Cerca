@@ -15,19 +15,39 @@
   </ion-header>
 
   <div class="gift-container">
-    <ion-grid>
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-container">
+      <ion-spinner></ion-spinner>
+      <p>Loading your gifts...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && coupons.length === 0" class="empty-state">
+      <ion-icon name="gift-outline" size="large"></ion-icon>
+      <h2>No Gifts Available</h2>
+      <p>You don't have any gifts yet. Complete rides to unlock special rewards!</p>
+    </div>
+
+    <!-- Gifts Grid -->
+    <ion-grid *ngIf="!isLoading && coupons.length > 0">
       <ion-row>
-        <ion-col size="12" size-md="6" size-lg="4" *ngFor="let coupon of coupons">
-          <div class="coupon-card" [id]="'coupon-' + coupon.id" (click)="unlockCoupon(coupon)">
+        <ion-col size="12" size-md="6" size-lg="4" *ngFor="let coupon of coupons; let i = index">
+          <div class="coupon-card" [id]="'coupon-' + (coupon.id || coupon.couponId || i)" 
+               (click)="unlockCoupon(coupon)"
+               [class.used]="coupon.isUsed">
             <div class="confetti"></div>
             
-            <div class="coupon-content" [class.unlocked]="coupon.isUnlocked">
-              <div class="gift-box" *ngIf="!coupon.isUnlocked">
+            <div class="coupon-content" [class.unlocked]="coupon.isUnlocked || coupon.isUsed">
+              <div class="gift-box" *ngIf="!coupon.isUnlocked && !coupon.isUsed">
                 <ion-icon name="gift-outline"></ion-icon>
                 <p>Tap to unlock</p>
               </div>
 
-              <div class="coupon-details" *ngIf="coupon.isUnlocked">
+              <div class="coupon-details" *ngIf="coupon.isUnlocked || coupon.isUsed" [class.unlocked]="coupon.isUnlocked || coupon.isUsed">
+                <div class="used-badge" *ngIf="coupon.isUsed">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>Used</span>
+                </div>
                 <div class="discount-badge">
                   {{ coupon.discount }}
                 </div>
@@ -35,7 +55,9 @@
                 <p>{{ coupon.description }}</p>
                 <div class="coupon-code">
                   <span>{{ coupon.code }}</span>
-                  <ion-button fill="clear" (click)="copyCode(coupon.code); $event.stopPropagation()">
+                  <ion-button fill="clear" 
+                              (click)="copyCode(coupon.code); $event.stopPropagation()"
+                              [disabled]="coupon.isUsed">
                     <ion-icon name="copy-outline"></ion-icon>
                   </ion-button>
                 </div>

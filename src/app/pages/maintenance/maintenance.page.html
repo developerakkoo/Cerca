@@ -1,0 +1,30 @@
+<ion-content [fullscreen]="true" class="maintenance-content">
+  <div class="maintenance-container">
+    <!-- Maintenance Icon -->
+    <div class="icon-container">
+      <ion-icon name="construct" class="maintenance-icon"></ion-icon>
+    </div>
+
+    <!-- Maintenance Message -->
+    <div class="text-container">
+      <h1 class="maintenance-title">Under Maintenance</h1>
+      <p class="maintenance-message">
+        {{ maintenanceMessage }}
+      </p>
+    </div>
+
+    <!-- Retry Button -->
+    <div class="button-container">
+      <ion-button 
+        expand="block" 
+        color="primary" 
+        (click)="retry()"
+        [disabled]="isLoading">
+        <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
+        <ion-text *ngIf="!isLoading">Check Again</ion-text>
+        <ion-text *ngIf="isLoading">Checking...</ion-text>
+      </ion-button>
+    </div>
+  </div>
+</ion-content>
+

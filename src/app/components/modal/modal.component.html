@@ -44,7 +44,67 @@
         </div>
 
         <div *ngIf="pickupInput && destinationInput" class="vehicle-selection">
-          <div class="vehicle-list-container">
+          <!-- Loading State -->
+          <div *ngIf="isLoadingServices" class="vehicle-loading">
+            <ion-spinner></ion-spinner>
+            <p>Loading vehicle options...</p>
+          </div>
+
+          <!-- Vehicle List -->
+          <div *ngIf="!isLoadingServices && vehicleServices" class="vehicle-list-container">
+            <ion-list>
+              <ion-radio-group name="auto" [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="vehicle-radio-group">
+                <!-- Cerca Small -->
+                <ion-item *ngIf="vehicleServices.cercaSmall?.enabled" lines="none" class="vehicle-item">
+                  <ion-avatar class="vehicle-avatar">
+                    <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" alt="Cerca Small Vehicle" />
+                  </ion-avatar>
+                  <ion-radio value="small" class="vehicle-radio">
+                    <div class="vehicle-info">
+                      <div class="vehicle-header">
+                        <span class="vehicle-name">{{ vehicleServices.cercaSmall?.name || ('MODAL.cercaSmall' | translate) }}</span>
+                        <span class="vehicle-price">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
+                      </div>
+                      <span class="vehicle-seats">{{ vehicleServices.cercaSmall?.seats || 4 }} {{ 'MODAL.seats' | translate }}</span>
+                    </div>
+                  </ion-radio>
+                </ion-item>
+                <!-- Cerca Medium -->
+                <ion-item *ngIf="vehicleServices.cercaMedium?.enabled" lines="none" class="vehicle-item">
+                  <ion-avatar class="vehicle-avatar">
+                    <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Cerca Medium Vehicle" />
+                  </ion-avatar>
+                  <ion-radio value="medium" class="vehicle-radio">
+                    <div class="vehicle-info">
+                      <div class="vehicle-header">
+                        <span class="vehicle-name">{{ vehicleServices.cercaMedium?.name || ('MODAL.cercaMedium' | translate) }}</span>
+                        <span class="vehicle-price">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
+                      </div>
+                      <span class="vehicle-seats">{{ vehicleServices.cercaMedium?.seats || 6 }} {{ 'MODAL.seats' | translate }}</span>
+                    </div>
+                  </ion-radio>
+                </ion-item>
+                <!-- Cerca Large -->
+                <ion-item *ngIf="vehicleServices.cercaLarge?.enabled" lines="none" class="vehicle-item">
+                  <ion-avatar class="vehicle-avatar">
+                    <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" alt="Cerca Large Vehicle" />
+                  </ion-avatar>
+                  <ion-radio value="large" class="vehicle-radio">
+                    <div class="vehicle-info">
+                      <div class="vehicle-header">
+                        <span class="vehicle-name">{{ vehicleServices.cercaLarge?.name || ('MODAL.cercaLarge' | translate) }}</span>
+                        <span class="vehicle-price">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
+                      </div>
+                      <span class="vehicle-seats">{{ vehicleServices.cercaLarge?.seats || 8 }} {{ 'MODAL.seats' | translate }}</span>
+                    </div>
+                  </ion-radio>
+                </ion-item>
+              </ion-radio-group>
+            </ion-list>
+          </div>
+
+          <!-- Fallback if no services loaded -->
+          <div *ngIf="!isLoadingServices && !vehicleServices" class="vehicle-fallback">
             <ion-list>
               <ion-radio-group name="auto" [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="vehicle-radio-group">
                 <ion-item lines="none" class="vehicle-item">
@@ -63,7 +123,7 @@
                 </ion-item>
                 <ion-item lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img src="assets/cars/cerca-small.png" alt="Cerca Medium Vehicle" />
+                    <img src="assets/cars/Cerca-medium.png" alt="Cerca Medium Vehicle" />
                   </ion-avatar>
                   <ion-radio value="medium" class="vehicle-radio">
                     <div class="vehicle-info">
@@ -77,7 +137,7 @@
                 </ion-item>
                 <ion-item lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img src="assets/cars/cerca-small.png" alt="Cerca Large Vehicle" />
+                    <img src="assets/cars/cerca-large.png" alt="Cerca Large Vehicle" />
                   </ion-avatar>
                   <ion-radio value="large" class="vehicle-radio">
                     <div class="vehicle-info">

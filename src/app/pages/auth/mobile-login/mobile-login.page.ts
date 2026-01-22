@@ -37,10 +37,6 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     // Cleanup any subscriptions or timers if needed
   }
 
-  goBack() {
-    this.router.navigate(['/login']);
-  }
-
   async onSubmit() {
     if (this.mobileForm.valid) {
       const loading = await this.loadingController.create({
@@ -102,10 +98,18 @@ export class MobileLoginPage implements OnInit, OnDestroy {
           }
         },
         error: async (err: any) => {
-          console.log(err.message.message);
-          console.log(err.status);
-          // this.router.navigate(['/otp']);
           await loading.dismiss();
+          
+          // Check if user is blocked
+          if (err.status === 403 && err.error?.isBlocked) {
+            console.log('🚫 User is blocked');
+            // Navigate to blocked screen
+            this.router.navigate(['/blocked'], { replaceUrl: true });
+          } else {
+            console.log(err.message?.message || err.error?.message || 'Login failed');
+            console.log(err.status);
+            // Handle other errors as before
+          }
         },
       });
 

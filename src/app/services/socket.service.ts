@@ -1,8 +1,9 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, Injector } from '@angular/core';
 import { Socket } from 'ngx-socket-io';
 import { Observable, BehaviorSubject, fromEvent, Subject } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { Storage } from '@ionic/storage-angular';
+import { RideService } from './ride.service';
 
 export interface SocketConfig {
   userId?: string;
@@ -35,12 +36,32 @@ export class SocketService {
     handler: (...args: any[]) => void;
   }[] = [];
 
+  private rideService?: RideService;
+
   constructor(
     private socket: Socket,
     private storage: Storage,
-    private zone: NgZone
+    private zone: NgZone,
+    private injector: Injector
   ) {
     this.initStorage();
+    // Lazy inject RideService to avoid circular dependency
+    // We'll get it when needed
+  }
+
+  /**
+   * Get RideService instance (lazy injection to avoid circular dependency)
+   */
+  private getRideService(): RideService | null {
+    if (!this.rideService) {
+      try {
+        this.rideService = this.injector.get(RideService);
+      } catch (error) {
+        console.error('Failed to get RideService:', error);
+        return null;
+      }
+    }
+    return this.rideService;
   }
 
   private async initStorage() {
@@ -158,6 +179,16 @@ export class SocketService {
 
         // Register as rider
         this.registerRider();
+        
+        // Sync ride state after reconnection
+        // This ensures active rides are restored after socket reconnection
+        const rideService = this.getRideService();
+        if (rideService) {
+          rideService.syncRideStateFromBackend().catch(err => {
+            console.error('❌ Failed to sync ride state after reconnection:', err);
+            // Don't block connection if sync fails
+          });
+        }
       });
     });
 

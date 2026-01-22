@@ -83,7 +83,7 @@ export class PaymentService {
    */
   initiatePayment(amount: number): Observable<RazorpayOrderResponse> {
     return this.http.post<RazorpayOrderResponse>(
-      `${this.apiUrl}/payment/initiate`,
+      `${this.apiUrl}/api/v1/payment/initiate`,
       { amount }
     );
   }

@@ -14,7 +14,7 @@ export class WelcomePage implements OnInit {
   ngOnInit() {
     // Any additional initialization logic can be added here
     this.timeOut = setTimeout(() => {
-      this.router.navigate(['/login']);
+      this.router.navigate(['/']);
     }, 3000);
   }
 

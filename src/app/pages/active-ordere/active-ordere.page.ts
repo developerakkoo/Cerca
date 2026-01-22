@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { GoogleMap, LatLngBounds, MapType } from '@capacitor/google-maps';
-import { interval, Subscription } from 'rxjs';
+import { interval, Subscription, firstValueFrom, take } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import {
   RideService,
@@ -17,7 +17,7 @@ import {
   Location,
   DriverInfo,
 } from 'src/app/services/ride.service';
-import { AlertController, Platform, ModalController } from '@ionic/angular';
+import { AlertController, Platform, ModalController, ToastController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
@@ -95,10 +95,45 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     private http: HttpClient,
     private platform: Platform,
     private modalController: ModalController,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private toastController: ToastController
   ) {}
 
   async ngOnInit() {
+    // Sync ride state from backend first to ensure we have the latest state
+    // This is critical for restoring rides after page navigation or browser refresh
+    try {
+      console.log('🔄 [ActiveOrderPage] Syncing ride state from backend...');
+      await this.rideService.syncRideStateFromBackend();
+      console.log('✅ [ActiveOrderPage] Ride state sync completed');
+      
+      // Check if we have an active ride after sync
+      // If not, redirect to home page (navigation guard)
+      const currentRide = await firstValueFrom(
+        this.rideService.getCurrentRide().pipe(take(1))
+      );
+      
+      if (!currentRide) {
+        console.log('⚠️ [ActiveOrderPage] No active ride found after sync, redirecting to home');
+        this.router.navigate(['/tabs/tab1'], { replaceUrl: true });
+        return;
+      }
+      
+      console.log('✅ [ActiveOrderPage] Active ride found:', currentRide._id);
+    } catch (error) {
+      console.error('❌ [ActiveOrderPage] Error syncing ride state:', error);
+      // Check if we have a ride in memory even if sync failed
+      const currentRide = await firstValueFrom(
+        this.rideService.getCurrentRide().pipe(take(1))
+      );
+      
+      if (!currentRide) {
+        console.log('⚠️ [ActiveOrderPage] No active ride found, redirecting to home');
+        this.router.navigate(['/tabs/tab1'], { replaceUrl: true });
+        return;
+      }
+    }
+
     // Only open modal if we're actually on the active-order page
     // Check current route to ensure we're on the right page
     const currentUrl = this.router.url;
@@ -1136,14 +1171,37 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           role: 'confirm',
           cssClass: 'alert-button-confirm',
           handler: async (reason) => {
-            // Get current location
-            const location = {
-              latitude: this.userLocation.latitude,
-              longitude: this.userLocation.longitude,
-            };
+            try {
+              // Get current location
+              const location = {
+                latitude: this.userLocation.latitude,
+                longitude: this.userLocation.longitude,
+              };
 
-            // Trigger emergency via Socket.IO
-            await this.rideService.triggerEmergency(location, reason);
+              console.log('🚨 Triggering emergency with reason:', reason);
+              console.log('📍 Location:', location);
+
+              // Trigger emergency via Socket.IO
+              await this.rideService.triggerEmergency(location, reason);
+
+              // Show success message
+              const toast = await this.toastController.create({
+                message: '🚨 Emergency alert sent successfully',
+                duration: 3000,
+                color: 'danger',
+                position: 'top',
+              });
+              await toast.present();
+            } catch (error: any) {
+              console.error('❌ Error triggering emergency:', error);
+              const toast = await this.toastController.create({
+                message: error?.message || 'Failed to send emergency alert. Please try again.',
+                duration: 3000,
+                color: 'danger',
+                position: 'top',
+              });
+              await toast.present();
+            }
           },
         },
       ],

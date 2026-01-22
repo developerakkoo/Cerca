@@ -109,7 +109,21 @@
                 </p>
               </ion-col>
               <ion-col size="6">
+                <!-- Timer button for requested rides -->
                 <ion-button 
+                  *ngIf="booking.status === 'requested'"
+                  expand="block" 
+                  mode="ios" 
+                  (click)="cancelRideImmediately(booking)" 
+                  class="timer-btn"
+                  [class.timer-low]="isTimerLow(booking)"
+                  color="warning">
+                  <ion-icon name="time-outline" slot="start"></ion-icon>
+                  Cancel ({{ getTimerText(booking) }})
+                </ion-button>
+                <!-- Call driver button for accepted/in_progress rides -->
+                <ion-button 
+                  *ngIf="booking.status !== 'requested'"
                   expand="block" 
                   mode="ios" 
                   (click)="callDriver(booking.driver?.phone)" 

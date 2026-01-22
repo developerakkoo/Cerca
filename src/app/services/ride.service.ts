@@ -107,10 +107,52 @@ export class RideService {
   ) {
     this.initStorage();
     this.setupSocketListeners();
+    // Load ride state from storage on initialization
+    // This restores state after app restart/browser refresh
+    this.loadRideFromStorage();
   }
 
   private async initStorage() {
     await this.storage.create();
+  }
+
+  /**
+   * Load ride state from storage on service initialization
+   * This provides a fallback if backend sync hasn't completed yet
+   */
+  private async loadRideFromStorage(): Promise<void> {
+    try {
+      const storedRide = await this.storage.get('currentRide');
+      const storedStatus = await this.storage.get('rideStatus');
+      
+      if (storedRide && storedStatus) {
+        // Only restore if status is still active
+        const activeStatuses = ['requested', 'accepted', 'arrived', 'in_progress'];
+        if (activeStatuses.includes(storedStatus)) {
+          console.log('📦 [RideService] Restoring ride from storage:', storedRide._id);
+          console.log('📦 [RideService] Stored status:', storedStatus);
+          
+          // Restore to BehaviorSubject
+          this.currentRide$.next(storedRide);
+          this.rideStatus$.next(storedStatus as RideStatus);
+          
+          console.log('✅ [RideService] Ride restored from storage');
+          
+          // Sync with backend to ensure we have the latest state
+          // This will update if backend has newer information
+          this.syncRideStateFromBackend().catch(err => {
+            console.error('❌ [RideService] Error syncing after storage restore:', err);
+          });
+        } else {
+          // Status is completed/cancelled, clear storage
+          console.log('🧹 [RideService] Stored ride is not active, clearing storage');
+          await this.clearRide();
+        }
+      }
+    } catch (error) {
+      console.error('❌ [RideService] Error loading ride from storage:', error);
+      // Don't throw - this is a background operation
+    }
   }
 
   /**
@@ -158,20 +200,40 @@ export class RideService {
       this.rideStatus$.next('accepted');
       this.storeRide(ride);
       
-      // Check if this is a Full Day booking
-      const isFullDayBooking = ride.bookingType === 'FULL_DAY' || (ride as any).isFullDayBooking === true;
+      // Show toast notification
+      const driverName = ride.driver?.name || 'Driver';
+      this.showToast(`🚗 Driver found! ${driverName} is on the way`);
       
-      if (isFullDayBooking) {
-        // For Full Day bookings: Show toast, add to bookings, DON'T navigate
-        const driverName = ride.driver?.name || 'Driver';
-        this.showToast(`✅ Full Day booking confirmed! ${driverName} has accepted your booking.`);
-        console.log('📅 Full Day booking accepted - not navigating to active ride page');
-      } else {
-        // For instant rides: Navigate to active-ordere page
-        this.showToast(`🚗 Driver found! ${ride.driver?.name} is on the way`);
+      // Navigate to active-ordere page
+      // Check current route to avoid unnecessary navigation if already on target page
+      const currentUrl = this.router.url;
+      if (currentUrl.includes('/active-ordere')) {
+        console.log('ℹ️ Already on active-ordere page, skipping navigation');
+        return;
+      }
+      
+      // Navigate to active-ordere page with error handling
+      try {
+        console.log('🚀 Navigating to active-ordere page from RideService...');
         this.router.navigate(['/active-ordere'], {
           replaceUrl: true, // Replace history so back goes to tab1
+        }).then(() => {
+          console.log('✅ Successfully navigated to active-ordere from RideService');
+        }).catch((error) => {
+          console.error('❌ Navigation error in RideService:', error);
+          // Fallback: Try navigation again after a short delay
+          setTimeout(() => {
+            try {
+              this.router.navigate(['/active-ordere'], {
+                replaceUrl: true,
+              });
+            } catch (retryError) {
+              console.error('❌ Retry navigation also failed:', retryError);
+            }
+          }, 500);
         });
+      } catch (error) {
+        console.error('❌ Error during navigation in RideService:', error);
       }
     });
     this.socketSubscriptions.push(rideAcceptedSub);
@@ -259,22 +321,31 @@ export class RideService {
 
     // Ride cancelled
     const rideCancelledSub = this.socketService
-      .on<{ ride: Ride; reason: string }>('rideCancelled')
+      .on<{ ride: Ride; reason: string; cancelledBy?: string }>('rideCancelled')
       .subscribe((data) => {
         console.log('❌ Ride cancelled:', data);
         this.currentRide$.next(null);
         this.rideStatus$.next('cancelled');
         this.clearRide();
-        this.showToast('Ride cancelled');
-        this.router.navigate(['/tabs/tab1'], {
-          replaceUrl: true, // Clear navigation stack
-        });
+        
+        // Show appropriate message based on cancellation reason
+        const message = data.reason?.includes('No drivers found') 
+          ? 'No drivers found nearby. Ride cancelled.' 
+          : 'Ride cancelled';
+        this.showToast(message);
+        
+        // Only navigate if not already on cab-searching page (let that page handle navigation)
+        if (!this.router.url.includes('cab-searching')) {
+          this.router.navigate(['/tabs/tab1'], {
+            replaceUrl: true, // Clear navigation stack
+          });
+        }
       });
     this.socketSubscriptions.push(rideCancelledSub);
 
     // Ride errors
     const rideErrorSub = this.socketService
-      .on<{ message: string; code?: string; details?: string }>('rideError')
+      .on<{ message: string; code?: string; details?: string; rideId?: string }>('rideError')
       .subscribe((error) => {
         console.error('❌ Ride error:', error);
         console.error('   Error code:', error.code);
@@ -283,8 +354,19 @@ export class RideService {
         // Parse error message to show user-friendly message
         let userMessage = error.message || 'Failed to process ride request';
         
+        // Check if it's a "no driver found" error
+        const errorLower = error.message?.toLowerCase() || '';
+        const isNoDriverError = 
+          error.code === 'NO_DRIVERS_FOUND' ||
+          errorLower.includes('no driver') || 
+          errorLower.includes('no drivers') ||
+          (errorLower.includes('within') && errorLower.includes('radius')) ||
+          errorLower.includes('try again later');
+        
         // Map common error codes to user-friendly messages
-        if (error.code === 'PAYMENT_NOT_VERIFIED' || error.code === 'PAYMENT_VERIFICATION_FAILED') {
+        if (error.code === 'DUPLICATE_RIDE_ATTEMPT' || (error.message && error.message.includes('already have an active ride'))) {
+          userMessage = 'You already have an active ride. Please cancel it before booking a new one.';
+        } else if (error.code === 'PAYMENT_NOT_VERIFIED' || error.code === 'PAYMENT_VERIFICATION_FAILED') {
           userMessage = 'Payment verification failed. Please try again.';
         } else if (error.code === 'PAYMENT_AMOUNT_MISMATCH') {
           userMessage = 'Payment amount mismatch. Please try again.';
@@ -300,10 +382,69 @@ export class RideService {
           userMessage = 'Service temporarily unavailable. Please try again later.';
         }
         
+        // If it's a no driver found error, clear ride state
+        if (isNoDriverError) {
+          console.log('🚫 No driver found error - clearing ride state');
+          this.currentRide$.next(null);
+          this.rideStatus$.next('cancelled');
+          this.clearRide().catch(err => {
+            console.error('Error clearing ride on no driver found:', err);
+          });
+          
+          // Navigate to tab1 if on cab-searching page
+          if (this.router.url.includes('cab-searching')) {
+            // Don't navigate immediately - let cab-searching page handle it
+            // The error will be shown there
+          }
+        }
+        
         this.rideErrors$.next(userMessage);
         this.showToast(userMessage, 'danger');
       });
     this.socketSubscriptions.push(rideErrorSub);
+
+    // Emergency alert created (confirmation)
+    const emergencyAlertCreatedSub = this.socketService
+      .on<{ success: boolean; emergency: any }>('emergencyAlertCreated')
+      .subscribe((data) => {
+        console.log('🚨 Emergency alert created:', data);
+        if (data.success) {
+          this.showToast('🚨 Emergency alert sent successfully', 'warning');
+          // Clear ride state since emergency cancels the ride
+          this.currentRide$.next(null);
+          this.rideStatus$.next('cancelled');
+          this.clearRide();
+          this.router.navigate(['/tabs/tab1'], {
+            replaceUrl: true,
+          });
+        }
+      });
+    this.socketSubscriptions.push(emergencyAlertCreatedSub);
+
+    // Emergency alert (if other party triggers)
+    const emergencyAlertSub = this.socketService
+      .on<any>('emergencyAlert')
+      .subscribe((emergency) => {
+        console.log('🚨 Emergency alert received:', emergency);
+        this.showToast('🚨 Emergency alert has been triggered', 'danger');
+        // Clear ride state since emergency cancels the ride
+        this.currentRide$.next(null);
+        this.rideStatus$.next('cancelled');
+        this.clearRide();
+        this.router.navigate(['/tabs/tab1'], {
+          replaceUrl: true,
+        });
+      });
+    this.socketSubscriptions.push(emergencyAlertSub);
+
+    // Emergency error
+    const emergencyErrorSub = this.socketService
+      .on<{ message: string }>('emergencyError')
+      .subscribe((error) => {
+        console.error('❌ Emergency error:', error);
+        this.showToast(`Emergency alert failed: ${error.message}`, 'danger');
+      });
+    this.socketSubscriptions.push(emergencyErrorSub);
 
     // Rating submitted
     const ratingSubmittedSub = this.socketService.on<any>('ratingSubmitted').subscribe((data) => {
@@ -350,13 +491,6 @@ export class RideService {
     });
     this.socketSubscriptions.push(rideMessagesSub);
 
-    // Emergency alert confirmation
-    const emergencyAlertSub = this.socketService.on<any>('emergencyAlertCreated').subscribe((data) => {
-      console.log('🚨 Emergency alert created:', data);
-      this.showToast('Emergency alert sent successfully!', 'success');
-    });
-    this.socketSubscriptions.push(emergencyAlertSub);
-
     // Notifications
     const notificationsSub = this.socketService.on<any[]>('notifications').subscribe((notifications) => {
       console.log('🔔 Notifications received:', notifications);
@@ -378,15 +512,6 @@ export class RideService {
         this.showToast(`Message error: ${error.message}`, 'danger');
       });
     this.socketSubscriptions.push(messageErrorSub);
-
-    // Emergency errors
-    const emergencyErrorSub = this.socketService
-      .on<{ message: string }>('emergencyError')
-      .subscribe((error) => {
-        console.error('❌ Emergency error:', error);
-        this.showToast(`Emergency error: ${error.message}`, 'danger');
-      });
-    this.socketSubscriptions.push(emergencyErrorSub);
 
     // Rating errors
     const ratingErrorSub = this.socketService
@@ -447,6 +572,21 @@ export class RideService {
       const userId = await this.storage.get('userId');
       if (!userId) {
         throw new Error('User not authenticated');
+      }
+
+      // Sync ride state from backend first to ensure accuracy
+      await this.syncRideStateFromBackend();
+
+      // Check for existing active ride to prevent duplicates
+      const currentRide = this.currentRide$.value;
+      if (currentRide) {
+        const activeStatuses = ['requested', 'accepted', 'arrived', 'in_progress'];
+        if (activeStatuses.includes(currentRide.status)) {
+          const errorMessage = 'You already have an active ride. Please cancel it before booking a new one.';
+          console.warn('Duplicate ride attempt prevented:', currentRide._id);
+          this.showToast(errorMessage, 'warning');
+          throw new Error(errorMessage);
+        }
       }
 
       // Ensure socket is connected (NO TIMEOUT - wait indefinitely)
@@ -593,6 +733,104 @@ export class RideService {
     } catch (error) {
       console.error('Error cancelling ride:', error);
       this.showToast('Failed to cancel ride', 'danger');
+      throw error;
+    }
+  }
+
+  /**
+   * Trigger emergency alert
+   */
+  async triggerEmergency(
+    location: { latitude: number; longitude: number },
+    reason: string,
+    description?: string
+  ): Promise<void> {
+    const ride = this.currentRide$.value;
+    if (!ride) {
+      const errorMsg = 'No active ride to trigger emergency for';
+      console.error('❌', errorMsg);
+      this.showToast(errorMsg, 'danger');
+      throw new Error(errorMsg);
+    }
+
+    try {
+      const userId = await this.storage.get('userId');
+      if (!userId) {
+        const errorMsg = 'User not authenticated';
+        console.error('❌', errorMsg);
+        this.showToast(errorMsg, 'danger');
+        throw new Error(errorMsg);
+      }
+
+      // Validate location
+      if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+        const errorMsg = 'Invalid location. Using last known location.';
+        console.warn('⚠️', errorMsg);
+        // Try to use last known location from driverLocation or userLocation
+        const lastLocation = this.driverLocation$.value;
+        if (lastLocation) {
+          location = {
+            latitude: lastLocation.latitude,
+            longitude: lastLocation.longitude,
+          };
+          console.log('📍 Using last known location:', location);
+        } else {
+          throw new Error('Location unavailable. Please enable GPS and try again.');
+        }
+      }
+
+      // Validate reason
+      if (!reason || reason.trim() === '') {
+        reason = 'other'; // Default reason
+        console.warn('⚠️ No reason provided, using default: other');
+      }
+
+      // Check socket connection
+      if (!this.socketService.isConnected()) {
+        console.warn('⚠️ Socket not connected, attempting to reconnect...');
+        try {
+          // Try to wait for connection
+          await this.socketService.waitForConnection(5000); // 5 second timeout
+        } catch (connError) {
+          const errorMsg = 'Cannot connect to server. Please check your internet connection and try again.';
+          console.error('❌', errorMsg);
+          this.showToast(errorMsg, 'danger');
+          throw new Error(errorMsg);
+        }
+      }
+
+      console.log('🚨 ========================================');
+      console.log('🚨 TRIGGERING EMERGENCY ALERT');
+      console.log('🚨 ========================================');
+      console.log('🚗 Ride ID:', ride._id);
+      console.log('👤 User ID:', userId);
+      console.log('📍 Location:', location);
+      console.log('📝 Reason:', reason);
+      console.log('========================================');
+
+      // Emit emergency alert socket event
+      this.socketService.emit('emergencyAlert', {
+        rideId: ride._id,
+        triggeredBy: userId,
+        triggeredByModel: 'User',
+        location: {
+          longitude: location.longitude,
+          latitude: location.latitude,
+        },
+        reason: reason,
+        description: description || '',
+      });
+
+      console.log('✅ Emergency alert emitted successfully');
+      console.log('⏳ Waiting for confirmation...');
+      console.log('========================================');
+
+      // Note: The actual confirmation will come via emergencyAlertCreated event
+      // which is handled by the socket listener we added earlier
+    } catch (error: any) {
+      console.error('❌ Error triggering emergency:', error);
+      const errorMsg = error?.message || 'Failed to trigger emergency alert. Please try again.';
+      this.showToast(errorMsg, 'danger');
       throw error;
     }
   }
@@ -1060,45 +1298,6 @@ export class RideService {
   }
 
   /**
-   * Trigger emergency alert
-   */
-  async triggerEmergency(
-    location: { latitude: number; longitude: number },
-    reason: string = 'other',
-    description?: string
-  ): Promise<void> {
-    const ride = this.currentRide$.value;
-    if (!ride) {
-      this.showToast('No active ride', 'warning');
-      return;
-    }
-
-    try {
-      const userId = await this.storage.get('userId');
-
-      this.socketService.emit('emergencyAlert', {
-        rideId: ride._id,
-        triggeredBy: userId,
-        triggeredByModel: 'User',
-        location: {
-          longitude: location.longitude,
-          latitude: location.latitude,
-        },
-        reason: reason, // 'accident', 'harassment', 'unsafe_driving', 'medical', 'other'
-        description: description || '',
-      });
-
-      await this.showToast(
-        '🚨 Emergency alert sent. Help is on the way.',
-        'primary'
-      );
-    } catch (error) {
-      console.error('Error triggering emergency:', error);
-      this.showToast('Failed to send emergency alert', 'danger');
-    }
-  }
-
-  /**
    * Get notifications
    */
   async getNotifications(): Promise<void> {
@@ -1221,6 +1420,97 @@ export class RideService {
    */
   getUserRides(userId: string): Observable<Ride[]> {
     return this.http.get<Ride[]>(`${environment.apiUrl}/rides/rides/user/${userId}`);
+  }
+
+  /**
+   * Sync ride state from backend
+   * Checks backend for active rides and updates frontend state if mismatch detected
+   */
+  async syncRideStateFromBackend(): Promise<void> {
+    try {
+      const userId = await this.storage.get('userId');
+      if (!userId) {
+        console.log('⚠️ No userId found, skipping ride state sync');
+        return;
+      }
+
+      console.log('🔄 ========================================');
+      console.log('🔄 SYNCING RIDE STATE FROM BACKEND');
+      console.log('🔄 ========================================');
+      console.log('👤 User ID:', userId);
+
+      // Fetch user's rides from backend
+      const rides = await firstValueFrom(
+        this.http.get<Ride[]>(`${environment.apiUrl}/rides/rides/user/${userId}`)
+      );
+
+      // Find active rides (requested, accepted, arrived, in_progress)
+      const activeStatuses = ['requested', 'accepted', 'arrived', 'in_progress'];
+      const activeRides = rides.filter((ride) =>
+        activeStatuses.includes(ride.status)
+      );
+
+      console.log('📊 Backend active rides:', activeRides.length);
+      console.log('📊 Frontend current ride:', this.currentRide$.value ? this.currentRide$.value._id : 'null');
+
+      // Get current frontend ride
+      const frontendRide = this.currentRide$.value;
+
+      // Case 1: Backend has no active rides, but frontend thinks there is one
+      if (activeRides.length === 0 && frontendRide) {
+        const frontendStatus = frontendRide.status;
+        if (activeStatuses.includes(frontendStatus)) {
+          console.log('⚠️ Mismatch detected: Frontend has active ride but backend does not');
+          console.log('🧹 Clearing frontend ride state...');
+          this.currentRide$.next(null);
+          this.rideStatus$.next('cancelled');
+          await this.clearRide();
+          console.log('✅ Frontend state cleared');
+        }
+      }
+      // Case 2: Backend has active ride, but frontend doesn't know about it
+      else if (activeRides.length > 0 && !frontendRide) {
+        console.log('⚠️ Mismatch detected: Backend has active ride but frontend does not');
+        const activeRide = activeRides[0]; // Take the first active ride
+        console.log('📦 Restoring ride from backend:', activeRide._id);
+        this.currentRide$.next(activeRide);
+        this.rideStatus$.next(activeRide.status as RideStatus);
+        await this.storeRide(activeRide);
+        console.log('✅ Frontend state restored');
+      }
+      // Case 3: Both have rides, but status might differ
+      else if (activeRides.length > 0 && frontendRide) {
+        const backendRide = activeRides.find((r) => r._id === frontendRide._id);
+        if (backendRide && backendRide.status !== frontendRide.status) {
+          console.log('⚠️ Status mismatch detected');
+          console.log(`   Frontend: ${frontendRide.status}`);
+          console.log(`   Backend: ${backendRide.status}`);
+          console.log('🔄 Updating frontend status...');
+          this.currentRide$.next(backendRide);
+          this.rideStatus$.next(backendRide.status as RideStatus);
+          await this.storeRide(backendRide);
+          console.log('✅ Frontend status updated');
+        }
+        // If backend ride is cancelled/completed but frontend still thinks it's active
+        else if (!backendRide && activeStatuses.includes(frontendRide.status)) {
+          const backendRideStatus = rides.find((r) => r._id === frontendRide._id)?.status;
+          if (backendRideStatus === 'cancelled' || backendRideStatus === 'completed') {
+            console.log('⚠️ Ride was cancelled/completed in backend');
+            console.log('🧹 Clearing frontend ride state...');
+            this.currentRide$.next(null);
+            this.rideStatus$.next(backendRideStatus as RideStatus);
+            await this.clearRide();
+            console.log('✅ Frontend state cleared');
+          }
+        }
+      }
+
+      console.log('✅ Ride state sync completed');
+      console.log('========================================');
+    } catch (error) {
+      console.error('❌ Error syncing ride state from backend:', error);
+      // Don't throw - this is a background sync operation
+    }
   }
 
   /**

@@ -1,0 +1,65 @@
+.blocked-content {
+  --background: #ffffff;
+  --color: #333333;
+}
+
+.blocked-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+}
+
+.icon-container {
+  margin-bottom: 2rem;
+}
+
+.blocked-icon {
+  font-size: 120px;
+  color: #dc3545;
+  opacity: 0.8;
+}
+
+.text-container {
+  margin-bottom: 2rem;
+  max-width: 400px;
+}
+
+.blocked-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+.blocked-message {
+  font-size: 1rem;
+  color: #666666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.contact-container {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  max-width: 400px;
+}
+
+.contact-text {
+  font-size: 0.9rem;
+  color: #666666;
+  margin-bottom: 0.5rem;
+}
+
+.contact-email {
+  font-size: 1rem;
+  color: #007bff;
+  font-weight: 500;
+  margin: 0;
+}
+

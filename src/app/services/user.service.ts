@@ -1,9 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Storage } from '@ionic/storage-angular';
-import { BehaviorSubject, Observable, tap, of, switchMap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, of, switchMap, map, catchError } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { WalletService } from './wallet.service';
+import { Router } from '@angular/router';
+import { SocketService } from './socket.service';
+import { StorageService } from './storage.service';
 
 export interface User {
   id?: string;
@@ -12,6 +15,7 @@ export interface User {
   photoURL?: string;
   phoneNumber?: string;
   isLoggedIn: boolean;
+  isActive?: boolean;
   preferences?: {
     notifications: boolean;
     darkMode: boolean;
@@ -63,7 +67,10 @@ export class UserService {
   constructor(
     private http: HttpClient,
     private storage: Storage,
-    private walletService: WalletService
+    private walletService: WalletService,
+    private router: Router,
+    private socketService: SocketService,
+    private storageService: StorageService
   ) {
     this.storage.create();
     // Load user data from storage on service initialization
@@ -173,7 +180,20 @@ export class UserService {
   }
 
   // Logout user
-  logout() {
+  async logout() {
+    // Clear storage
+    await this.storage.remove('user');
+    await this.storage.remove('userId');
+    await this.storage.remove('token');
+    
+    // Disconnect socket
+    try {
+      await this.socketService.disconnect();
+    } catch (error) {
+      console.error('Error disconnecting socket during logout:', error);
+    }
+    
+    // Reset user state
     this.userSubject.next(initialUserState);
   }
 
@@ -326,5 +346,38 @@ export class UserService {
 
   clearPendingRideDetails() {
     this.pendingRideDetailsSubject.next(null);
+  }
+
+  /**
+   * Check if user is blocked by fetching user status from API
+   */
+  checkUserBlockedStatus(userId: string): Observable<boolean> {
+    return this.http.get<any>(`${environment.apiUrl}/users/${userId}`).pipe(
+      map((user) => {
+        return user.isActive === false;
+      }),
+      catchError((error) => {
+        console.error('Error checking user blocked status:', error);
+        return of(false); // Return false on error to avoid blocking user
+      })
+    );
+  }
+
+  /**
+   * Handle blocked user - logout and navigate to blocked screen
+   */
+  async handleBlockedUser() {
+    console.log('🚫 ========================================');
+    console.log('🚫 USER BLOCKED - LOGGING OUT');
+    console.log('🚫 ========================================');
+    
+    // Logout user (clears storage and disconnects socket)
+    await this.logout();
+    
+    // Navigate to blocked screen
+    this.router.navigate(['/blocked'], { replaceUrl: true });
+    
+    console.log('✅ User logged out and redirected to blocked screen');
+    console.log('========================================');
   }
 }

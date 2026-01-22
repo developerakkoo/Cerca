@@ -1,15 +1,19 @@
 import { Component, OnInit } from '@angular/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { AnimationController, ToastController, Platform } from '@ionic/angular';
+import { AnimationController, ToastController, Platform, LoadingController } from '@ionic/angular';
+import { Storage } from '@ionic/storage-angular';
 import confetti from 'canvas-confetti';
+import { CouponService } from '../../services/coupon.service';
 
 interface Coupon {
-  id: number;
+  id?: string;
+  couponId?: string;
   title: string;
   description: string;
   discount: string;
-  expiryDate: string;
+  expiryDate: string | Date;
   isUnlocked: boolean;
+  isUsed?: boolean;
   code: string;
   image: string;
 }
@@ -21,54 +25,120 @@ interface Coupon {
   standalone: false
 })
 export class GiftPage implements OnInit {
-  coupons: Coupon[] = [
-    {
-      id: 1,
-      title: 'Welcome Bonus',
-      description: 'Get 20% off on your first ride',
-      discount: '20% OFF',
-      expiryDate: '2024-12-31',
-      isUnlocked: false,
-      code: 'WELCOME20',
-      image: 'assets/icon/favicon.png'
-    },
-    {
-      id: 2,
-      title: 'Weekend Special',
-      description: 'Enjoy 15% off on weekend rides',
-      discount: '15% OFF',
-      expiryDate: '2024-12-31',
-      isUnlocked: false,
-      code: 'WEEKEND15',
-      image: 'assets/gift-box.png'
-    },
-    {
-      id: 3,
-      title: 'Loyalty Reward',
-      description: 'Special 25% off for loyal customers',
-      discount: '25% OFF',
-      expiryDate: '2024-12-31',
-      isUnlocked: false,
-      code: 'LOYAL25',
-      image: 'assets/gift-box.png'
-    }
-  ];
+  coupons: Coupon[] = [];
+  isLoading = false;
+  userId: string | null = null;
 
   constructor(
     private animationCtrl: AnimationController,
     private toastController: ToastController,
-    private platform: Platform
+    private platform: Platform,
+    private couponService: CouponService,
+    private storage: Storage,
+    private loadingCtrl: LoadingController
   ) {}
 
-  ngOnInit() {}
+  async ngOnInit() {
+    await this.loadUserId();
+    await this.loadUserGifts();
+  }
+
+  private async loadUserId() {
+    this.userId = await this.storage.get('userId');
+    if (!this.userId) {
+      console.warn('User ID not found');
+      await this.presentToast('User not authenticated');
+    }
+  }
+
+  private async loadUserGifts() {
+    if (!this.userId) {
+      return;
+    }
+
+    this.isLoading = true;
+    const loading = await this.loadingCtrl.create({
+      message: 'Loading gifts...',
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    try {
+      const response = await this.couponService.getUserGifts(this.userId).toPromise();
+      
+      if (response && response.success && response.data) {
+        // Map backend response to component format
+        this.coupons = response.data.map((gift: any, index: number) => ({
+          id: gift.couponId || gift.id || `gift-${index}`,
+          couponId: gift.couponId,
+          title: gift.title || 'Gift',
+          description: gift.description || '',
+          discount: gift.discount || '',
+          expiryDate: gift.expiryDate || new Date(),
+          isUnlocked: gift.isUnlocked !== false, // Default to true if not specified
+          isUsed: gift.isUsed || false,
+          code: gift.code || gift.couponCode || '',
+          image: gift.image || 'assets/gift-box.png',
+        }));
+        
+        // Initialize already-unlocked gifts to ensure they display properly
+        setTimeout(() => {
+          this.initializeUnlockedGifts();
+        }, 100);
+      } else {
+        console.warn('No gifts found or error:', response?.message);
+        this.coupons = [];
+      }
+    } catch (error) {
+      console.error('Error loading gifts:', error);
+      await this.presentToast('Failed to load gifts');
+      this.coupons = [];
+    } finally {
+      this.isLoading = false;
+      await loading.dismiss();
+    }
+  }
+
+  private initializeUnlockedGifts() {
+    // Ensure all already-unlocked gifts have their details visible
+    this.coupons.forEach((coupon) => {
+      if (coupon.isUnlocked || coupon.isUsed) {
+        const element = document.querySelector(`#coupon-${coupon.id || coupon.couponId}`);
+        if (element) {
+          const detailsElement = element.querySelector('.coupon-details');
+          if (detailsElement) {
+            detailsElement.classList.add('unlocked');
+          }
+        }
+      }
+    });
+  }
 
   async unlockCoupon(coupon: Coupon) {
-    if (coupon.isUnlocked) return;
-
-    const element = document.querySelector(`#coupon-${coupon.id}`);
+    const element = document.querySelector(`#coupon-${coupon.id || coupon.couponId}`);
     if (!element) return;
 
-    // Create gift box opening animation
+    // If already unlocked or used, show reveal animation
+    if (coupon.isUnlocked || coupon.isUsed) {
+      // Create reveal/bounce animation for already-unlocked gifts
+      const revealAnimation = this.animationCtrl.create()
+        .addElement(element)
+        .duration(600)
+        .easing('cubic-bezier(0.4, 0, 0.2, 1)')
+        .keyframes([
+          { offset: 0, transform: 'scale(1)' },
+          { offset: 0.5, transform: 'scale(1.05)' },
+          { offset: 1, transform: 'scale(1)' }
+        ]);
+
+      await revealAnimation.play();
+      
+      // Trigger confetti for visual feedback
+      this.triggerConfetti();
+      return;
+    }
+
+    // Create gift box opening animation for locked gifts
     const giftBoxAnimation = this.animationCtrl.create()
       .addElement(element)
       .duration(1000)

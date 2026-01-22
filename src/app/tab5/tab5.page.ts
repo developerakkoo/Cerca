@@ -100,7 +100,7 @@ export class Tab5Page implements OnInit {
   }
 
   openFAQ() {
-    // Implement FAQ logic
+    this.router.navigate(['/faq']);
   }
 
   manageAddress() {

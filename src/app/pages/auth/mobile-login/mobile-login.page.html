@@ -1,15 +1,16 @@
 
 <ion-content [fullscreen]="true" class="mobile-login-content">
   <div class="mobile-login-container">
-    <!-- Back Button -->
-    <div class="back-button" (click)="goBack()">
-      <ion-icon name="arrow-back-outline"></ion-icon>
+    <!-- Logo Section -->
+    <div class="logo-section">
+      <img src="assets/logo.svg" alt="Cerca Logo" class="logo">
+      <div class="logo-text">Cerca</div>
     </div>
 
-    <!-- Header Section -->
-    <div class="header-section">
-      <h1 class="title">{{ 'AUTH.mobileLogin.title' | translate }}</h1>
-      <p class="subtitle">{{ 'AUTH.mobileLogin.subtitle' | translate }}</p>
+    <!-- Welcome Message -->
+    <div class="welcome-section">
+      <h2 class="welcome-message">Welcome Back! 👋</h2>
+      <p class="welcome-subtitle">Enter your mobile number to continue</p>
     </div>
 
     <!-- Form Section -->

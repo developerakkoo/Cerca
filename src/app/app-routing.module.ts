@@ -52,7 +52,7 @@ const routes: Routes = [
   },
   {
     path: '',
-    loadChildren: () => import('./pages/auth/login/login.module').then( m => m.LoginPageModule)
+    loadChildren: () => import('./pages/auth/mobile-login/mobile-login.module').then( m => m.MobileLoginPageModule)
   },
   {
     path: 'register',
@@ -77,6 +77,22 @@ const routes: Routes = [
   {
     path: 'manage-address',
     loadChildren: () => import('./pages/manage-address/manage-address.module').then( m => m.ManageAddressPageModule)
+  },
+  {
+    path: 'blocked',
+    loadChildren: () => import('./pages/blocked/blocked.module').then( m => m.BlockedPageModule)
+  },
+  {
+    path: 'faq',
+    loadChildren: () => import('./pages/faq/faq.module').then( m => m.FAQPageModule)
+  },
+  {
+    path: 'maintenance',
+    loadChildren: () => import('./pages/maintenance/maintenance.module').then( m => m.MaintenancePageModule)
+  },
+  {
+    path: 'force-update',
+    loadChildren: () => import('./pages/force-update/force-update.module').then( m => m.ForceUpdatePageModule)
   },
 
 ];

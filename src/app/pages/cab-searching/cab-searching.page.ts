@@ -45,6 +45,7 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   // UI state
   showNoDriverFound = false;
   noDriverMessage = 'No drivers found nearby. Please try again later.';
+  private isNavigating = false; // Navigation guard to prevent duplicate navigations
 
   timeOut: any;
   searchTimeout: any;
@@ -72,6 +73,10 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
         
         if (isNoDriverError) {
           console.log('🚫 No driver found error detected, showing UI');
+          
+          // RideService will handle clearing the state via rideError/rideCancelled events
+          // Just show the UI here
+          
           // Show no driver found UI
           this.noDriverMessage = error;
           this.showNoDriverFound = true;
@@ -108,6 +113,11 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
       .subscribe((ride) => {
         if (ride) {
           console.log('📦 Current ride updated:', ride);
+        } else {
+          // Ride cleared - don't show "No driver Available" here
+          // Only show it when explicitly receiving noDriverFound event
+          // This prevents showing it prematurely when a driver was notified but hasn't accepted yet
+          console.log('📦 Ride cleared - waiting for explicit noDriverFound event');
         }
       });
 
@@ -161,8 +171,9 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
   private handleRideStatusChange(status: RideStatus) {
     switch (status) {
       case 'accepted':
-        // Driver accepted - RideService will navigate to active-ordere
-        console.log('✅ Driver accepted!');
+        // Driver accepted - navigate to active-ordere page
+        console.log('✅ Driver accepted! Navigating to active-ordere...');
+        this.navigateToActiveOrder();
         break;
       case 'cancelled':
         // Ride cancelled - if no driver found UI is showing, don't navigate
@@ -185,6 +196,59 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
         // Continue searching
         break;
     }
+  }
+
+  /**
+   * Navigate to active-ordere page when driver accepts ride
+   * Includes navigation guard to prevent duplicate navigations
+   */
+  private navigateToActiveOrder(): void {
+    // Check navigation guard
+    if (this.isNavigating) {
+      console.log('⚠️ Navigation already in progress, skipping duplicate navigation');
+      return;
+    }
+
+    // Check if we're still on cab-searching page
+    if (!this.router.url.includes('cab-searching')) {
+      console.log('⚠️ Not on cab-searching page, skipping navigation');
+      return;
+    }
+
+    // Set navigation guard
+    this.isNavigating = true;
+    console.log('🚀 Navigating to active-ordere page...');
+
+    // Stop animations before navigation
+    this.stopAnimations();
+
+    // Clear timeouts
+    if (this.timeOut) {
+      clearTimeout(this.timeOut);
+      this.timeOut = null;
+    }
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
+    }
+
+    // Navigate to active-ordere page
+    // Use setTimeout to ensure Angular change detection completes
+    setTimeout(() => {
+      try {
+        this.router.navigate(['/active-ordere'], {
+          replaceUrl: true, // Replace history so back goes to tab1
+        }).then(() => {
+          console.log('✅ Successfully navigated to active-ordere');
+        }).catch((error) => {
+          console.error('❌ Navigation error:', error);
+          this.isNavigating = false; // Reset guard on error
+        });
+      } catch (error) {
+        console.error('❌ Navigation error:', error);
+        this.isNavigating = false; // Reset guard on error
+      }
+    }, 100); // Small delay to ensure change detection completes
   }
 
   private stopAnimations() {

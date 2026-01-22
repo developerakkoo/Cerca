@@ -17,6 +17,18 @@
           <span>{{ 'PAYMENT.baseFare' | translate }}</span>
           <span>₹{{baseFare}}</span>
         </div>
+        <div class="summary-row" *ngIf="distanceFare > 0">
+          <span>Distance Fare</span>
+          <span>₹{{distanceFare}}</span>
+        </div>
+        <div class="summary-row" *ngIf="distanceFare > 0">
+          <span>Subtotal</span>
+          <span>₹{{subtotal}}</span>
+        </div>
+        <div class="summary-row info-row" *ngIf="minimumFareApplied">
+          <span><ion-icon name="information-circle-outline"></ion-icon> Minimum Fare Applied</span>
+          <span>₹{{finalFare}}</span>
+        </div>
         <div class="summary-row" *ngIf="promoApplied">
           <span class="discount-text">{{ 'PAYMENT.discountApplied' | translate }}</span>
           <span class="discount-amount">-₹{{discountAmount}}</span>

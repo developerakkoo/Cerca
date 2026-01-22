@@ -1,0 +1,56 @@
+<ion-content [fullscreen]="true" class="force-update-content">
+  <div class="force-update-container">
+    <!-- Update Icon -->
+    <div class="icon-container">
+      <ion-icon name="cloud-download" class="update-icon"></ion-icon>
+    </div>
+
+    <!-- Update Message -->
+    <div class="text-container">
+      <h1 class="update-title">Update Required</h1>
+      <p class="update-message">
+        A new version of the app is available. Please update to continue using the app.
+      </p>
+      
+      <!-- Version Info -->
+      <div class="version-info">
+        <p class="version-text">
+          <strong>Current Version:</strong> {{ currentVersion }}
+        </p>
+        <p class="version-text">
+          <strong>Required Version:</strong> {{ requiredVersion }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="button-container">
+      <ion-button 
+        expand="block" 
+        color="primary" 
+        (click)="updateNow()"
+        class="update-button">
+        <ion-icon name="storefront" slot="start"></ion-icon>
+        Update Now
+      </ion-button>
+      
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        color="medium" 
+        (click)="retry()"
+        [disabled]="isLoading"
+        class="retry-button">
+        <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
+        <ion-text *ngIf="!isLoading">Check Again</ion-text>
+        <ion-text *ngIf="isLoading">Checking...</ion-text>
+      </ion-button>
+    </div>
+
+    <!-- Platform Info -->
+    <div class="platform-info">
+      <p class="platform-text">{{ platform }} App Store</p>
+    </div>
+  </div>
+</ion-content>
+

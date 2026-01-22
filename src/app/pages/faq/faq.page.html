@@ -1,0 +1,94 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tab5"></ion-back-button>
+    </ion-buttons>
+    <ion-title>
+      Frequently Asked Questions
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ion-header collapse="condense" class="ion-no-border">
+    <ion-toolbar>
+      <ion-title size="large">FAQ</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Search Bar -->
+  <div class="search-container">
+    <ion-searchbar
+      [(ngModel)]="searchQuery"
+      (ionInput)="onSearchChange($event)"
+      placeholder="Search questions..."
+      show-clear-button="focus"
+      debounce="300"
+      class="faq-searchbar">
+    </ion-searchbar>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="filteredCategories.length === 0" class="empty-state">
+    <ion-icon name="search-outline" size="large" color="medium"></ion-icon>
+    <h3>No results found</h3>
+    <p>Try searching with different keywords</p>
+    <ion-button fill="outline" (click)="clearSearch()">
+      Clear Search
+    </ion-button>
+  </div>
+
+  <!-- FAQ Categories -->
+  <div *ngIf="filteredCategories.length > 0" class="faq-container">
+    <div *ngFor="let category of filteredCategories; let categoryIndex = index" class="faq-category">
+      <!-- Category Header -->
+      <div class="category-header">
+        <ion-icon [name]="category.icon" class="category-icon"></ion-icon>
+        <h2 class="category-title">{{ category.title }}</h2>
+      </div>
+
+      <!-- FAQ Items -->
+      <div class="faq-items">
+        <div
+          *ngFor="let item of category.items; let itemIndex = index"
+          class="faq-item"
+          [class.expanded]="isExpanded(categoryIndex, itemIndex)">
+          
+          <!-- Question -->
+          <div
+            class="faq-question"
+            (click)="toggleItem(categoryIndex, itemIndex)">
+            <span class="question-text">{{ item.question }}</span>
+            <ion-icon
+              [name]="isExpanded(categoryIndex, itemIndex) ? 'chevron-up' : 'chevron-down'"
+              class="expand-icon">
+            </ion-icon>
+          </div>
+
+          <!-- Answer -->
+          <div
+            class="faq-answer"
+            [class.show]="isExpanded(categoryIndex, itemIndex)">
+            <p>{{ item.answer }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Section -->
+  <div class="help-section">
+    <ion-card class="help-card">
+      <ion-card-content>
+        <ion-icon name="chatbubbles-outline" class="help-icon"></ion-icon>
+        <h3>Still need help?</h3>
+        <p>Can't find what you're looking for? Contact our support team for assistance.</p>
+        <ion-button expand="block" fill="outline" (click)="contactSupport()">
+          <ion-icon name="mail-outline" slot="start"></ion-icon>
+          Contact Support
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
+
