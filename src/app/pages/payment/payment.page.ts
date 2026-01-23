@@ -407,8 +407,6 @@ export class PaymentPage implements OnInit {
           },
         }
       );
-
-      await loading.dismiss();
     } catch (error: any) {
       await loading.dismiss();
       console.error('❌ Error initiating wallet top-up:', error);

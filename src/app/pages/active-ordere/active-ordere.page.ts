@@ -1055,14 +1055,33 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   navigateToDriverDetails() {
+    // Disabled - driver details navigation is no longer available
     // Close modal first
-    this.isDriverModalOpen = false;
-    // Small delay to ensure modal closes before navigation
-    setTimeout(() => {
-      if (this.realDriver) {
-        this.router.navigate(['/driver-details', this.realDriver._id]);
-      }
-    }, 100);
+    // this.isDriverModalOpen = false;
+    // // Small delay to ensure modal closes before navigation
+    // setTimeout(() => {
+    //   if (this.realDriver) {
+    //     this.router.navigate(['/driver-details', this.realDriver._id]);
+    //   }
+    // }, 100);
+  }
+
+  callDriver() {
+    // Get driver phone number from realDriver (DriverInfo has phone property)
+    const phoneNumber = this.realDriver?.phone;
+    
+    if (!phoneNumber) {
+      // Show error if phone number is not available
+      this.alertCtrl.create({
+        header: 'Phone Number Not Available',
+        message: 'Driver phone number is not available.',
+        buttons: ['OK']
+      }).then(alert => alert.present());
+      return;
+    }
+
+    // Open phone dialer using tel: protocol
+    window.location.href = `tel:${phoneNumber}`;
   }
 
   async chatWithDriver() {

@@ -154,6 +154,27 @@ export class PaymentService {
         reject(response);
       });
 
+      // Handle modal close event (when user cancels/closes modal without payment)
+      rzp.on('modal.close', () => {
+        console.log('Razorpay modal closed by user');
+        
+        const cancellationError: RazorpayError = {
+          error: {
+            code: 'USER_CANCELLED',
+            description: 'Payment cancelled by user',
+            source: 'user',
+            step: 'checkout',
+            reason: 'modal_closed',
+          }
+        };
+
+        if (customOptions?.onFailure) {
+          customOptions.onFailure(cancellationError);
+        }
+        
+        reject(cancellationError);
+      });
+
       rzp.open();
     });
   }

@@ -118,7 +118,7 @@ export class Tab1Page implements OnInit, OnDestroy {
             this.isMapReady = true; // Set to true to hide loading overlay
             this.isMapCreationInProgress = false;
           });
-          await this.presentToast('❌ Map element not ready. Please refresh.');
+          // Toast removed - map initialization feedback not needed
           return;
         }
       }
@@ -273,10 +273,10 @@ export class Tab1Page implements OnInit, OnDestroy {
         this.currentLocationMarker = undefined;
         this.cabMarkers = [];
         console.log('🗺️ Map cleaned up successfully');
-        await this.presentToast('✅ Tab1: Map destroyed');
+        // await this.presentToast('✅ Tab1: Map destroyed');
       } catch (error) {
         console.error('Error cleaning up map:', error);
-        await this.presentToast('❌ Tab1: Cleanup error');
+        // await this.presentToast('❌ Tab1: Cleanup error');
         // Reset flags and clear marker references anyway
         this.newMap = undefined as any;
         this.isMapReady = false;
@@ -407,7 +407,7 @@ export class Tab1Page implements OnInit, OnDestroy {
         // Reset flag after successful map creation
         this.isMapCreationInProgress = false;
       });
-      await this.presentToast('✅ Tab1: Map created & ready!');
+      // Toast removed - map initialization feedback not needed
     } catch (error: any) {
       console.error('Error creating map:', error);
       console.error('Error message:', error?.message);
@@ -435,7 +435,8 @@ export class Tab1Page implements OnInit, OnDestroy {
         }
       });
       
-      this.presentToast(`Map Error: ${errorMessage}`);
+      // Toast removed - map error feedback not needed
+      console.error('Map Error:', errorMessage);
     }
   }
 

@@ -43,7 +43,7 @@
           </ion-label>
         </ion-item>
         <ion-list *ngIf="driver">
-          <ion-item button (click)="navigateToDriverDetails()">
+          <ion-item>
             <ion-avatar slot="start">
               <img src="assets/user.png" alt="Driver Profile" />
             </ion-avatar>
@@ -73,7 +73,7 @@
               </ion-button>
             </ion-col>
             <ion-col size="6">
-              <ion-button expand="block" fill="clear">
+              <ion-button expand="block" fill="clear" (click)="callDriver()">
                 <ion-icon name="call-outline" slot="start"></ion-icon>
                 {{ 'ACTIVE_RIDE.call' | translate }}
               </ion-button>

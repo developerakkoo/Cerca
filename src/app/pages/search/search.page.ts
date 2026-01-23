@@ -178,21 +178,21 @@ export class SearchPage implements OnInit, OnDestroy {
 
   async ionViewDidEnter() {
     console.log('🗺️ Search page entered, initializing map...');
-    await this.presentToast('🗺️ Search: Entering view');
+    // Toast removed - map initialization feedback not needed
 
     setTimeout(async () => {
       if (!this.map || !this.isMapReady) {
-        await this.presentToast('🗺️ Search: Creating map...');
+        // Toast removed - map initialization feedback not needed
         this.initializeMap();
       } else {
-        await this.presentToast('🗺️ Search: Map already exists');
+        // Toast removed - map initialization feedback not needed
       }
     }, 300);
   }
 
   async ionViewWillLeave() {
     console.log('🗺️ Search page leaving, cleaning up map...');
-    await this.presentToast('🗺️ Search: Leaving, destroying map');
+    // Toast removed - map cleanup feedback not needed
     await this.destroyMap();
   }
 
@@ -241,7 +241,7 @@ export class SearchPage implements OnInit, OnDestroy {
 
       this.isMapReady = true;
       console.log('Search map created successfully');
-      await this.presentToast('✅ Search: Map created & ready!');
+      // Toast removed - map initialization feedback not needed
 
       // Listen for map movement
       await this.map.setOnCameraMoveStartedListener((event) => {
@@ -530,10 +530,10 @@ export class SearchPage implements OnInit, OnDestroy {
         this.map = undefined as any;
         this.isMapReady = false;
         console.log('🗺️ Search map destroyed successfully');
-        await this.presentToast('✅ Search: Map destroyed');
+        // await this.presentToast('✅ Search: Map destroyed');
       } catch (error) {
         console.error('Error destroying search map:', error);
-        await this.presentToast('❌ Search: Cleanup error');
+        // await this.presentToast('❌ Search: Cleanup error');
         this.map = undefined as any;
         this.isMapReady = false;
       }

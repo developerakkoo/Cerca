@@ -12,7 +12,8 @@ export const environment = {
   // apiUrl: 'http://192.168.1.14:3000',
   // Razorpay configuration
   razorpay: {
-    key: 'rzp_test_Rp3ejYlVfY449V',
+    key: 'rzp_live_S6q5OGF0WYChTn',
+    // Secret: EZv5VecWiWi0FLyffYLDTM3H (for backend use only - do not expose in client-side code)
     name: 'Cerca',
     description: 'Taxi Booking Service',
     theme: { color: '#FF4C5A' }
