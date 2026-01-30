@@ -9,7 +9,7 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController } from '@ionic/angular';
+import { IonicModule, LoadingController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { UserService } from '../../services/user.service';
@@ -17,6 +17,7 @@ import { RideService } from '../../services/ride.service';
 import { GeocodingService } from '../../services/geocoding.service';
 import { SettingsService, VehicleServices } from '../../services/settings.service';
 import { Subscription } from 'rxjs';
+import { SearchPage, SearchModalResult } from '../../pages/search/search.page';
 
 interface Address {
   type: string;
@@ -63,7 +64,8 @@ export class ModalComponent implements OnInit, OnDestroy {
     private rideService: RideService,
     private geocodingService: GeocodingService,
     private loadingCtrl: LoadingController,
-    private settingsService: SettingsService
+    private settingsService: SettingsService,
+    private modalController: ModalController
   ) {}
 
   ngOnInit() {
@@ -147,22 +149,36 @@ export class ModalComponent implements OnInit, OnDestroy {
     this.isKeyboardOpen = false;
   }
 
-  onFocus(_event: any, type: 'pickup' | 'destination') {
+  async onFocus(_event: any, type: 'pickup' | 'destination') {
     this.activeInput = type;
-    if (type === 'pickup') {
-      this.router.navigate(['/search'], {
-        queryParams: {
-          pickup: this.pickupInput,
-          isPickup: 'true',
-        },
-      });
-    } else {
-      this.router.navigate(['/search'], {
-        queryParams: {
-          destination: this.destinationInput,
-          isPickup: 'false',
-        },
-      });
+    
+    const modal = await this.modalController.create({
+      component: SearchPage,
+      componentProps: {
+        pickup: type === 'pickup' ? this.pickupInput : '',
+        destination: type === 'destination' ? this.destinationInput : '',
+        isPickup: type === 'pickup' ? 'true' : 'false',
+      },
+      showBackdrop: true,
+      backdropDismiss: true,
+      cssClass: 'search-modal',
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    
+    if (data) {
+      const result: SearchModalResult = data;
+      if (type === 'pickup') {
+        this.pickupInput = result.address;
+        this.pickupInputChange.emit(result.address);
+        this.userService.setPickup(result.address);
+      } else {
+        this.destinationInput = result.address;
+        this.destinationInputChange.emit(result.address);
+        this.userService.setDestination(result.address);
+      }
     }
   }
 

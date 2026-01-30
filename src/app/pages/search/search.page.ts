@@ -2,13 +2,9 @@ import {
   Component,
   OnInit,
   OnDestroy,
-  ViewChild,
-  ElementRef,
   NgZone,
 } from '@angular/core';
-import { GoogleMap, MapType, Marker } from '@capacitor/google-maps';
-import { environment } from 'src/environments/environment';
-import { NavController, ToastController } from '@ionic/angular';
+import { ModalController, NavParams, ToastController } from '@ionic/angular';
 import { GeocodingService } from 'src/app/services/geocoding.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
@@ -17,6 +13,23 @@ import { AddressService, CreateAddressRequest } from 'src/app/services/address.s
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { LoadingController } from '@ionic/angular';
+
+export interface SearchModalData {
+  pickup?: string;
+  destination?: string;
+  isPickup?: 'true' | 'false';
+  addressMode?: 'add' | 'edit' | null;
+  addressId?: string | null;
+  returnTo?: string | null;
+}
+
+export interface SearchModalResult {
+  address: string;
+  location: { lat: number; lng: number };
+  isPickup?: 'true' | 'false';
+  addressId?: string; // For address management mode
+}
+
 @Component({
   selector: 'app-search',
   templateUrl: './search.page.html',
@@ -24,12 +37,9 @@ import { LoadingController } from '@ionic/angular';
   standalone: false,
 })
 export class SearchPage implements OnInit, OnDestroy {
-  @ViewChild('map2') mapRef!: ElementRef<HTMLElement>;
-  private map!: GoogleMap;
-  private isMapReady = false;
   pickup: string = '';
   destination: string = '';
-  isPickup!: string;
+  isPickup: 'true' | 'false' | undefined;
   searchQuery: string = '';
   selectedAddress: string = '';
   selectedAddressDetails: any = '';
@@ -49,9 +59,13 @@ export class SearchPage implements OnInit, OnDestroy {
   returnTo: string | null = null;
   currentUserId: string = '';
 
+  // Modal mode flag
+  isModalMode = false;
+
   constructor(
     private geocodingService: GeocodingService,
-    private navCtrl: NavController,
+    private modalController: ModalController,
+    private navParams: NavParams,
     private route: ActivatedRoute,
     private router: Router,
     private userService: UserService,
@@ -63,46 +77,62 @@ export class SearchPage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    // Check if opened as modal or via router
+    // When opened as modal, NavParams will have the componentProps
+    // When opened via router, ActivatedRoute will have queryParams
+    const pickupFromNav = this.navParams?.get('pickup');
+    const destinationFromNav = this.navParams?.get('destination');
+    const isPickupFromNav = this.navParams?.get('isPickup');
+    
+    if (pickupFromNav !== undefined || destinationFromNav !== undefined || isPickupFromNav !== undefined) {
+      // Opened as modal
+      this.isModalMode = true;
+      this.pickup = pickupFromNav || '';
+      this.destination = destinationFromNav || '';
+      this.isPickup = (isPickupFromNav === 'true' || isPickupFromNav === 'false') ? isPickupFromNav : undefined;
+      
+      // Set initial selected address based on which input we're editing
+      if (this.isPickup === 'true') {
+        this.selectedAddress = this.pickup;
+      } else if (this.isPickup === 'false') {
+        this.selectedAddress = this.destination;
+      }
+    } else {
+      // Opened via router (address management mode)
+      this.isModalMode = false;
+      this.route.queryParams.subscribe((params) => {
+        // Check if we're in address management mode
+        this.addressMode = params['mode'] === 'add' ? 'add' : params['mode'] === 'edit' ? 'edit' : null;
+        this.addressId = params['addressId'] || null;
+        this.returnTo = params['returnTo'] || null;
+
+        // If not in address mode, use normal pickup/destination flow
+        if (!this.addressMode) {
+          this.pickup = params['pickup'] || '';
+          this.destination = params['destination'] || '';
+          this.isPickup = (params['isPickup'] === 'true' || params['isPickup'] === 'false') ? params['isPickup'] : undefined;
+
+          // Set initial selected address based on which input we're editing
+          if (this.isPickup === 'true') {
+            this.selectedAddress = this.pickup;
+          } else if (this.isPickup === 'false') {
+            this.selectedAddress = this.destination;
+          }
+        } else {
+          // In address mode, load existing address if editing
+          if (this.addressMode === 'edit' && this.addressId && this.currentUserId) {
+            this.loadAddressForEdit();
+          }
+        }
+      });
+    }
+
     // Subscribe to user to get userId
     this.userService.getUser().subscribe((user) => {
       if (user && user.id) {
         this.currentUserId = user.id;
       }
     });
-
-    this.route.queryParams.subscribe((params) => {
-      // Check if we're in address management mode
-      this.addressMode = params['mode'] === 'add' ? 'add' : params['mode'] === 'edit' ? 'edit' : null;
-      this.addressId = params['addressId'] || null;
-      this.returnTo = params['returnTo'] || null;
-
-      // If not in address mode, use normal pickup/destination flow
-      if (!this.addressMode) {
-        this.pickup = params['pickup'] || '';
-        this.destination = params['destination'] || '';
-        this.isPickup = params['isPickup'];
-
-        // Set initial selected address based on which input we're editing
-        if (this.isPickup === 'true') {
-          this.selectedAddress = this.pickup;
-        } else if (this.isPickup === 'false') {
-          this.selectedAddress = this.destination;
-        }
-      } else {
-        // In address mode, load existing address if editing
-        if (this.addressMode === 'edit' && this.addressId && this.currentUserId) {
-          this.loadAddressForEdit();
-        }
-      }
-    });
-
-    console.log('Pickup From Route');
-    console.log(this.pickup);
-    console.log('Destination From Route');
-    console.log(this.destination);
-    console.log('Is Pickup From Route');
-    console.log(this.isPickup);
-    console.log(typeof this.isPickup);
 
     // Subscribe to service updates
     this.userService.pickup$.subscribe((pickup) => {
@@ -120,12 +150,11 @@ export class SearchPage implements OnInit, OnDestroy {
     });
 
     this.userService.currentLocation$.subscribe((location) => {
-      this.selectedLocation = location;
+      if (!this.selectedLocation?.lat || !this.selectedLocation?.lng) {
+        this.selectedLocation = location;
+        this.currentLocation = location;
+      }
     });
-    console.log('Current Location From User Service');
-    console.log(this.selectedLocation);
-    console.log('Is Pickuo Address Added');
-    console.log(this.isPickup);
 
     // Setup debounced search for places autocomplete
     this.searchSubscription = this.searchQuerySubject
@@ -146,7 +175,7 @@ export class SearchPage implements OnInit, OnDestroy {
             this.showSuggestions = true;
           });
           
-          // Ensure location is always provided - use selectedLocation, fallback to currentLocation, then map center
+          // Use selectedLocation or currentLocation for location-aware results
           const mapCenter = this.selectedLocation?.lat && this.selectedLocation?.lng 
             ? { lat: this.selectedLocation.lat, lng: this.selectedLocation.lng }
             : this.currentLocation?.lat && this.currentLocation?.lng
@@ -176,119 +205,9 @@ export class SearchPage implements OnInit, OnDestroy {
       });
   }
 
-  async ionViewDidEnter() {
-    console.log('🗺️ Search page entered, initializing map...');
-    // Toast removed - map initialization feedback not needed
-
-    setTimeout(async () => {
-      if (!this.map || !this.isMapReady) {
-        // Toast removed - map initialization feedback not needed
-        this.initializeMap();
-      } else {
-        // Toast removed - map initialization feedback not needed
-      }
-    }, 300);
-  }
-
-  async ionViewWillLeave() {
-    console.log('🗺️ Search page leaving, cleaning up map...');
-    // Toast removed - map cleanup feedback not needed
-    await this.destroyMap();
-  }
-
   ngOnDestroy() {
     if (this.searchSubscription) {
       this.searchSubscription.unsubscribe();
-    }
-    this.destroyMap();
-  }
-
-  private async initializeMap() {
-    if (this.isMapReady || this.map) {
-      console.log('Map already exists, skipping creation');
-      return;
-    }
-
-    try {
-      console.log('Creating search map with ID: search-map');
-      console.log('Selected location:', this.selectedLocation);
-
-      const mapElement =
-        this.mapRef?.nativeElement || document.getElementById('map2');
-      if (!mapElement) {
-        console.error('Map element not found');
-        return;
-      }
-
-      this.map = await GoogleMap.create({
-        id: 'search-map', // Unique ID for search page
-        element: mapElement,
-        apiKey: environment.apiKey,
-        config: {
-          mapId: environment.mapId,
-          center: {
-            lat: this.selectedLocation?.lat || 18.5204, // Default to Pune
-            lng: this.selectedLocation?.lng || 73.8567,
-          },
-          zoom: 18,
-          disableDefaultUI: true,
-          zoomControl: true,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        },
-      });
-
-      this.isMapReady = true;
-      console.log('Search map created successfully');
-      // Toast removed - map initialization feedback not needed
-
-      // Listen for map movement
-      await this.map.setOnCameraMoveStartedListener((event) => {
-        // Hide suggestions when user starts moving map
-        this.clearSuggestions();
-      });
-
-      await this.map.setOnCameraIdleListener((event) => {
-        // console.log("Camera Move Idle");
-        this.updateAddressFromLocation(event.latitude, event.longitude);
-      });
-    } catch (error) {
-      console.error('Error creating search map:', error);
-      this.isMapReady = false;
-    }
-  }
-
-  private async updateAddressFromLocation(lat: number, lng: number) {
-    try {
-      console.log('Update Address From Location');
-
-      const address = await this.geocodingService.getAddressFromLatLng(
-        lat,
-        lng
-      );
-
-      this.zone.run(() => {
-        this.selectedAddress = address;
-        this.selectedLocation = { lat, lng };
-      });
-
-      console.log('Selected Address:', this.selectedAddress);
-      console.log('Is Pickup:', this.isPickup);
-
-      // Don't update the service here, only update the local selectedAddress
-      // The actual update will happen in confirmLocation
-    } catch (error) {
-      console.error('Error getting address:', error);
-    }
-  }
-
-  async searchLocation() {
-    // Trigger autocomplete search via subject
-    if (this.searchQuery && this.searchQuery.trim().length > 0) {
-      this.searchQuerySubject.next(this.searchQuery);
-    } else {
-      this.clearSuggestions();
     }
   }
 
@@ -297,20 +216,10 @@ export class SearchPage implements OnInit, OnDestroy {
       this.isLoadingSuggestions = true;
       const placeDetails = await this.placesService.getPlaceDetails(place.place_id).toPromise();
       
-      if (placeDetails && this.map) {
+      if (placeDetails) {
         const location = placeDetails.geometry.location;
         
-        // Update map camera to selected location
-        await this.map.setCamera({
-          coordinate: {
-            lat: location.lat,
-            lng: location.lng,
-          },
-          zoom: 18,
-          animate: true,
-        });
-
-        // Update selected address and location
+        // Update selected address and location (no map updates needed)
         this.zone.run(() => {
           this.selectedAddress = placeDetails.formatted_address;
           this.selectedLocation = { lat: location.lat, lng: location.lng };
@@ -339,10 +248,15 @@ export class SearchPage implements OnInit, OnDestroy {
   }
 
   async confirmLocation() {
+    if (!this.selectedAddress) {
+      await this.presentToast('Please select a location');
+      return;
+    }
+
     // Hide suggestions before confirming
     this.clearSuggestions();
 
-    // If in address management mode, save the address
+    // Address management mode - use router
     if (this.addressMode) {
       await this.saveAddress();
       return;
@@ -353,9 +267,6 @@ export class SearchPage implements OnInit, OnDestroy {
       const lat = this.selectedLocation.lat;
       const lng = this.selectedLocation.lng;
       const address = this.selectedAddress;
-
-      // Destroy map before navigating back
-      await this.destroyMap();
 
       // Navigate back to the calling page with location data
       if (this.returnTo === 'tab4') {
@@ -382,23 +293,51 @@ export class SearchPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Normal flow for pickup/destination
+    // Geocode address if location not set
+    if (!this.selectedLocation?.lat || !this.selectedLocation?.lng) {
+      try {
+        const location = await this.geocodingService.getLatLngFromAddress(
+          this.selectedAddress
+        );
+        if (location) {
+          this.selectedLocation = { lat: location.lat, lng: location.lng };
+        } else {
+          await this.presentToast('Error getting location coordinates');
+          return;
+        }
+      } catch (error) {
+        console.error('Error geocoding address:', error);
+        await this.presentToast('Error getting location coordinates');
+        return;
+      }
+    }
+
+    // If opened as modal, dismiss with result
+    if (this.isModalMode) {
+      const result: SearchModalResult = {
+        address: this.selectedAddress,
+        location: this.selectedLocation,
+        isPickup: this.isPickup,
+      };
+      await this.modalController.dismiss(result);
+      return;
+    }
+
+    // Normal flow for pickup/destination (router mode - fallback)
     if (this.isPickup === 'true') {
       console.log('Confirming Pickup Address:', this.selectedAddress);
-      // Only update pickup, preserve destination
       this.userService.setPickup(this.selectedAddress);
     } else if (this.isPickup === 'false') {
       console.log('Confirming Destination Address:', this.selectedAddress);
-      // Only update destination, preserve pickup
       this.userService.setDestination(this.selectedAddress);
     }
 
-    // Destroy map before navigating back
-    console.log('🗺️ Destroying search map before navigation...');
-    await this.presentToast('🗺️ Search: Confirming & destroying');
-    await this.destroyMap();
-
     this.router.navigate(['/tabs/tabs/tab1']);
+  }
+
+  async dismissModal() {
+    // Dismiss modal without data if user cancels
+    await this.modalController.dismiss();
   }
 
   /**
@@ -422,18 +361,6 @@ export class SearchPage implements OnInit, OnDestroy {
             lng: address.location.coordinates[0], // longitude is first
           };
         });
-
-        // Update map if it exists
-        if (this.map && this.isMapReady) {
-          await this.map.setCamera({
-            coordinate: {
-              lat: this.selectedLocation.lat,
-              lng: this.selectedLocation.lng,
-            },
-            zoom: 18,
-            animate: true,
-          });
-        }
       }
     } catch (error) {
       console.error('Error loading address for edit:', error);
@@ -485,9 +412,6 @@ export class SearchPage implements OnInit, OnDestroy {
           this.addressMode === 'add' ? 'Address saved successfully' : 'Address updated successfully'
         );
 
-        // Destroy map before navigating back
-        await this.destroyMap();
-
         // Navigate back to manage-address page or specified return route
         const returnRoute = this.returnTo || '/manage-address';
         this.router.navigate([returnRoute], {
@@ -503,6 +427,15 @@ export class SearchPage implements OnInit, OnDestroy {
     }
   }
 
+  async searchLocation() {
+    // Trigger autocomplete search via subject
+    if (this.searchQuery && this.searchQuery.trim().length > 0) {
+      this.searchQuerySubject.next(this.searchQuery);
+    } else {
+      this.clearSuggestions();
+    }
+  }
+
   clearSearch() {
     console.log('Clear Search');
     this.searchQuery = '';
@@ -514,29 +447,6 @@ export class SearchPage implements OnInit, OnDestroy {
     const target = event.target as HTMLElement;
     if (!target.closest('.suggestions-modal') && !target.closest('.search-bar')) {
       this.clearSuggestions();
-    }
-  }
-
-  onMapClick(event: Event) {
-    // Hide suggestions when clicking on map
-    event.stopPropagation();
-    this.clearSuggestions();
-  }
-
-  private async destroyMap() {
-    if (this.map) {
-      try {
-        await this.map.destroy();
-        this.map = undefined as any;
-        this.isMapReady = false;
-        console.log('🗺️ Search map destroyed successfully');
-        // await this.presentToast('✅ Search: Map destroyed');
-      } catch (error) {
-        console.error('Error destroying search map:', error);
-        // await this.presentToast('❌ Search: Cleanup error');
-        this.map = undefined as any;
-        this.isMapReady = false;
-      }
     }
   }
 

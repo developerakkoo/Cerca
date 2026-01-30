@@ -1,29 +1,126 @@
-<app-header [showNotificationDot]="true" ></app-header>
+<app-header [showNotificationDot]="true"></app-header>
 
-
-<ion-content [fullscreen]="true">
-  <!-- Loading Overlay -->
-  <div class="loading-overlay" *ngIf="!isMapReady">
-    <div class="loading-container">
-      <div class="loading-animation">
-        <div class="circle circle-1"></div>
-        <div class="circle circle-2"></div>
-        <div class="circle circle-3"></div>
-      </div>
-      <div class="loading-text">
-        <h2>{{ 'HOME.loadingMap' | translate }}</h2>
-        <p class="typewriter-text">{{ 'HOME.initializingLocation' | translate }}</p>
-      </div>
+<ion-content class="tab1-content">
+  
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <h1 class="hero-title">Where would you like to go?</h1>
+    <p class="hero-subtitle">Book a ride in seconds</p>
+    <div class="location-badge" *ngIf="isLocationFetched" (click)="getCurrentPosition()">
+      <ion-icon name="location"></ion-icon>
+      <span>Location ready</span>
+    </div>
+    <div class="location-badge loading" *ngIf="isLoadingLocation">
+      <ion-spinner name="dots"></ion-spinner>
+      <span>Locating...</span>
     </div>
   </div>
 
-  <capacitor-google-map #map id="map" style="width: 100%; height: 100vh;"></capacitor-google-map>
-  <app-modal 
-    [pickupInput]="pickupAddress" 
-    (pickupInputChange)="pickupAddress = $event"
-    [destinationInput]="destinationAddress" 
-    (destinationInputChange)="destinationAddress = $event"
-    [isKeyboardOpen]="isKeyboardOpen" 
-    [isLocationFetched]="isLocationFetched">
-  </app-modal>
+  <!-- Booking Card -->
+  <div class="booking-card">
+    
+    <!-- Pickup Input -->
+    <div class="input-section pickup-section" (click)="onInputFocus('pickup')">
+      <div class="fake-input">
+        <span *ngIf="!pickupAddress" class="placeholder">Where are you?</span>
+        <span *ngIf="pickupAddress" class="value">{{ pickupAddress }}</span>
+      </div>
+      <div class="input-icon" [class.location-ready]="isLocationFetched">
+        <ion-icon name="location-outline"></ion-icon>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="input-divider"></div>
+
+    <!-- Destination Input -->
+    <div class="input-section destination-section" (click)="onInputFocus('destination')">
+      <div class="fake-input">
+        <span *ngIf="!destinationAddress" class="placeholder">Where to?</span>
+        <span *ngIf="destinationAddress" class="value">{{ destinationAddress }}</span>
+      </div>
+      <div class="input-icon">
+        <ion-icon name="location-outline"></ion-icon>
+      </div>
+    </div>
+
+    <!-- Vehicle Selection (Always visible) -->
+    <div class="vehicle-section">
+      <h3 class="section-title">Choose your ride</h3>
+      
+      <div *ngIf="isLoadingServices" class="vehicle-loading">
+        <ion-spinner></ion-spinner>
+        <p>Loading vehicle options...</p>
+      </div>
+
+      <div class="vehicle-list" *ngIf="!isLoadingServices && vehicleServices">
+        <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
+          
+          <!-- Small -->
+          <div class="vehicle-item" *ngIf="vehicleServices.cercaSmall?.enabled" 
+               [class.selected]="selectedVehicle === 'small'"
+               (click)="selectedVehicle = 'small'">
+            <div class="vehicle-info">
+              <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" alt="Small">
+              <div class="details">
+                <span class="name">{{ vehicleServices.cercaSmall?.name || 'Cerca Small' }}</span>
+                <span class="seats">{{ vehicleServices.cercaSmall?.seats || 4 }} seats</span>
+              </div>
+            </div>
+            <div class="price-radio">
+              <span class="price">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
+              <ion-radio value="small" mode="md"></ion-radio>
+            </div>
+          </div>
+
+          <!-- Medium -->
+          <div class="vehicle-item" *ngIf="vehicleServices.cercaMedium?.enabled"
+               [class.selected]="selectedVehicle === 'medium'"
+               (click)="selectedVehicle = 'medium'">
+            <div class="vehicle-info">
+              <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Medium">
+              <div class="details">
+                <span class="name">{{ vehicleServices.cercaMedium?.name || 'Cerca Medium' }}</span>
+                <span class="seats">{{ vehicleServices.cercaMedium?.seats || 6 }} seats</span>
+              </div>
+            </div>
+            <div class="price-radio">
+              <span class="price">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
+              <ion-radio value="medium" mode="md"></ion-radio>
+            </div>
+          </div>
+
+          <!-- Large -->
+          <div class="vehicle-item" *ngIf="vehicleServices.cercaLarge?.enabled"
+               [class.selected]="selectedVehicle === 'large'"
+               (click)="selectedVehicle = 'large'">
+            <div class="vehicle-info">
+              <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" alt="Large">
+              <div class="details">
+                <span class="name">{{ vehicleServices.cercaLarge?.name || 'Cerca Large' }}</span>
+                <span class="seats">{{ vehicleServices.cercaLarge?.seats || 8 }} seats</span>
+              </div>
+            </div>
+            <div class="price-radio">
+              <span class="price">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
+              <ion-radio value="large" mode="md"></ion-radio>
+            </div>
+          </div>
+
+        </ion-radio-group>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <ion-button 
+      expand="block"
+      class="book-button"
+      [disabled]="!pickupAddress || !destinationAddress || !selectedVehicle"
+      (click)="goToPayment()">
+      <span>Make Payment</span>
+      <ion-icon name="arrow-forward" slot="end"></ion-icon>
+    </ion-button>
+
+  </div>
+
 </ion-content>

@@ -16,6 +16,7 @@ import { SearchPage } from './search.page';
     SearchPageRoutingModule
   ],
   declarations: [SearchPage],
+  exports: [SearchPage], // Export so it can be used as modal component
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class SearchPageModule {}

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Cerca</string>
+	<string>Cerca</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -20,8 +20,20 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>GMSApiKey</key>
+	<string>AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>app-settings</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to show you on the map and track your rides</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We need your location to track your ride even when the app is in the background</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to show nearby cabs and provide accurate pickup locations</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -33,29 +45,13 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-  <string>We need your location to show you on the map and track your rides</string>
-  <key>NSLocationWhenInUseUsageDescription</key>
-  <string>We need your location to show nearby cabs and provide accurate pickup locations</string>
-  <key>NSLocationAlwaysUsageDescription</key>
-  <string>We need your location to track your ride even when the app is in the background</string>
-  <key>GMSApiKey</key>
-  <string>AIzaSyADFvEEjDAljOg3u9nBd1154GIZwFWnono</string>
-  <key>LSApplicationQueriesSchemes</key>
-<array>
-    <string>app-settings</string>
-</array>
 </dict>
 </plist>

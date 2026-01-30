@@ -1,219 +1,226 @@
-// capacitor-google-map {
-//     display: inline-block;
-//     width: 100%;
-//     height: 100vh;
-//     border: 2px solid limegreen;
-//   }
-
-// CRITICAL: For Android - Map renders BENEATH the webview
-// Reference: https://capacitorjs.com/docs/apis/google-maps
-// Apply transparency ONLY to this page to avoid affecting other pages
-:host {
-  background: transparent !important;
+.tab1-content {
+  --background: #f5f5f5;
+  background: linear-gradient(180deg, 
+    var(--ion-color-primary-tint) 0%, 
+    #f5f5f5 20%);
 }
 
-ion-content {
-  --background: transparent !important;
-  background: transparent !important;
-}
-
-capacitor-google-map {
-  display: inline-block;
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
-}
-
-// Loading Overlay Styles
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--ion-color-primary);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.loading-container {
+.hero-section {
+  padding: 24px 20px;
   text-align: center;
-  padding: 2rem;
-}
-
-.loading-animation {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 0 auto 2rem;
-}
-
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(var(--ion-color-primary-rgb), 0.1);
-  border: 2px solid var(--ion-color-primary);
-  animation: pulse 2s infinite;
-}
-
-.circle-1 {
-  width: 100%;
-  height: 100%;
-  animation-delay: 0s;
-}
-
-.circle-2 {
-  width: 80%;
-  height: 80%;
-  top: 10%;
-  left: 10%;
-  animation-delay: 0.3s;
-}
-
-.circle-3 {
-  width: 60%;
-  height: 60%;
-  top: 20%;
-  left: 20%;
-  animation-delay: 0.6s;
-}
-
-.loading-text {
-  h2 {
+  background: transparent;
+  
+  .hero-title {
+    font-size: 28px;
+    font-weight: 700;
     color: var(--ion-color-dark);
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+    margin: 0 0 8px 0;
   }
-
-  p {
+  
+  .hero-subtitle {
+    font-size: 16px;
     color: var(--ion-color-medium);
-    font-size: 1rem;
     margin: 0;
   }
-
-  :root.ion-palette-dark & {
-    h2 {
-      color: var(--ion-color-light);
-    }
-
-    p {
+  
+  .location-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 6px 12px;
+    background: rgba(var(--ion-color-success-rgb), 0.1);
+    border-radius: 20px;
+    color: var(--ion-color-success);
+    font-size: 14px;
+    
+    &.loading {
+      background: rgba(var(--ion-color-medium-rgb), 0.1);
       color: var(--ion-color-medium);
     }
+    
+    ion-spinner {
+      width: 16px;
+      height: 16px;
+    }
   }
 }
 
-.typewriter-text {
-  display: inline-block;
-  position: relative;
+.booking-card {
+  margin: 0 16px 24px;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   
-  &::after {
-    content: '|';
-    position: absolute;
-    right: -2px;
-    animation: blink 0.7s infinite;
+  .input-section {
+    position: relative;
+    padding: 12px 12px 12px 48px;
+    background: var(--ion-color-light);
+    border-radius: 12px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+    
+    &:active {
+      background: #e8e8e8;
+    }
+    
+    .fake-input {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      
+      .placeholder {
+        color: var(--ion-color-medium);
+        font-size: 16px;
+      }
+      
+      .value {
+        color: var(--ion-color-dark);
+        font-size: 16px;
+        font-weight: 500;
+      }
+    }
+    
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 20px;
+      color: var(--ion-color-medium);
+      
+      &.location-ready {
+        color: var(--ion-color-success);
+      }
+    }
   }
-}
-
-.location-info {
-  position: absolute;
-  bottom: 20px;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  padding: 0 16px;
-  background: rgba(var(--ion-color-light-rgb), 0.9);
-  border-radius: 12px;
-  margin: 0 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-
-  :root.ion-palette-dark & {
-    background: rgba(var(--ion-color-dark-rgb), 0.9);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  
+  .input-divider {
+    height: 1px;
+    background: transparent;
+    margin: 12px 0;
   }
-}
-
-ion-item {
-  --background: transparent;
-  --padding-start: 0;
-  --inner-padding-end: 0;
-}
-
-ion-label {
-  h2 {
+  
+  .vehicle-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ion-color-light);
+    animation: slideDown 0.4s ease-out;
+    
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ion-color-dark);
+      margin: 0 0 16px 0;
+    }
+    
+    .vehicle-loading {
+      text-align: center;
+      padding: 20px;
+      color: var(--ion-color-medium);
+      
+      p {
+        margin-top: 8px;
+        font-size: 14px;
+      }
+    }
+    
+    .vehicle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .vehicle-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--ion-color-light);
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      
+      &.selected {
+        border-color: var(--ion-color-primary);
+        background: rgba(var(--ion-color-primary-rgb), 0.05);
+      }
+      
+      .vehicle-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        
+        img {
+          width: 48px;
+          height: 48px;
+          object-fit: contain;
+        }
+        
+        .details {
+          display: flex;
+          flex-direction: column;
+          
+          .name {
+            font-weight: 600;
+            color: var(--ion-color-dark);
+            font-size: 15px;
+          }
+          
+          .seats {
+            font-size: 12px;
+            color: var(--ion-color-medium);
+          }
+        }
+      }
+      
+      .price-radio {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        
+        .price {
+          font-weight: 700;
+          color: var(--ion-color-dark);
+          font-size: 16px;
+        }
+      }
+    }
+  }
+  
+  .book-button {
+    margin-top: 24px;
+    --border-radius: 12px;
+    height: 52px;
     font-size: 16px;
     font-weight: 600;
-    color: var(--ion-color-dark);
-    margin-bottom: 4px;
-  }
-
-  p {
-    font-size: 14px;
-    color: var(--ion-color-medium);
-    white-space: normal;
-    line-height: 1.4;
-  }
-
-  :root.ion-palette-dark & {
-    h2 {
-      color: var(--ion-color-light);
-    }
-
-    p {
-      color: var(--ion-color-medium);
-    }
+    --box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+    animation: slideUp 0.3s ease-out;
   }
 }
 
-// Dark mode uses Ionic's default system dark mode
-
-@keyframes pulse {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.5;
+// Animations
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
   }
-  50% {
-    transform: scale(1);
+  to {
     opacity: 1;
-  }
-  100% {
-    transform: scale(0.8);
-    opacity: 0.5;
+    transform: translateY(0);
   }
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.current-location-marker {
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: rgba(33, 150, 243, 0.3);
-    border-radius: 50%;
-    animation: pulse 2s infinite;
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: rgba(33, 150, 243, 0.2);
-    border-radius: 50%;
-    animation: pulse 2s infinite 0.5s;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

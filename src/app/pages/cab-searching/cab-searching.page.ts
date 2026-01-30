@@ -121,17 +121,24 @@ export class CabSearchingPage implements OnInit, OnDestroy, AfterViewInit {
         }
       });
 
-    // Set a timeout for maximum search time (2 minutes)
+    // Set a timeout for maximum search time (2.5 minutes)
     // Note: This is a fallback. The noDriverFound event from backend should handle this first.
     this.searchTimeout = setTimeout(() => {
       const currentStatus = this.rideService.getCurrentRideValue();
       if (currentStatus && this.router.url.includes('cab-searching')) {
-        this.showToast('No drivers found nearby. Please try again.', 'warning');
-        this.router.navigate(['/tabs/tabs/tab1'], {
-          replaceUrl: true,
+        console.log('⏰ Search timeout reached - showing no driver found UI');
+        
+        // Show no driver found UI instead of navigating away
+        this.noDriverMessage = 'We could not find a driver for you at this time. Please try again later.';
+        this.showNoDriverFound = true;
+        this.stopAnimations();
+        
+        // Cancel the ride on backend so drivers stop seeing it
+        this.rideService.cancelRide('Search timeout - no driver found').catch(err => {
+          console.error('Error cancelling ride on timeout:', err);
         });
       }
-    }, 120000); // 2 minutes
+    }, 150000); // 2.5 minutes
   }
 
   ngAfterViewInit() {

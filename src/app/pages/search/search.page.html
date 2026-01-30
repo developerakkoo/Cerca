@@ -1,83 +1,71 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/tabs/tabs/tab1"></ion-back-button>
-    </ion-buttons>
-    <ion-title>{{ addressMode ? (addressMode === 'add' ? 'Add Address' : 'Edit Address') : 'Set Location' }}</ion-title>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true" (click)="onContentClick($event)">
-  <!-- Map Container -->
-  <div class="map-container" (click)="onMapClick($event)">
-    <capacitor-google-map #map2 id="map2"></capacitor-google-map>
-    
-    <!-- Center Marker -->
-    <div class="center-marker">
-      <ion-icon name="location"></ion-icon>
-    </div>
+<div class="search-modal-container">
+  <!-- Modal Header -->
+  <div class="modal-header">
+    <ion-button fill="clear" (click)="dismissModal()" *ngIf="isModalMode">
+      <ion-icon name="close"></ion-icon>
+    </ion-button>
+    <ion-back-button *ngIf="!isModalMode" defaultHref="/tabs/tabs/tab1"></ion-back-button>
+    <ion-title>{{ addressMode ? (addressMode === 'add' ? 'Add Address' : 'Edit Address') : 'Select Location' }}</ion-title>
   </div>
 
-  <!-- Address Card -->
+  <ion-content [fullscreen]="true" (click)="onContentClick($event)">
+    <!-- Search Bar -->
+    <div class="search-bar">
+      <ion-searchbar
+        placeholder="Search for a location"
+        [(ngModel)]="searchQuery"
+        (ionChange)="searchLocation()"
+        (ionInput)="searchLocation()"
+        (ionClear)="clearSearch()"
+        animated
+        clearIcon="close-circle"
+      ></ion-searchbar>
+    </div>
 
-
-  <div class="address-card">
-    <div class="card-content">
-      <div class="location-icon">
+    <!-- Selected Address Display -->
+    <div class="selected-address-card" *ngIf="selectedAddress">
+      <div class="address-content">
         <ion-icon name="location-outline"></ion-icon>
-      </div>
-      <div class="address-details">
-        <p>{{selectedAddress || 'Select Location'}}</p>
-      </div>
-      <ion-button fill="clear" (click)="confirmLocation()">
-        <ion-icon [name]="addressMode ? 'save-outline' : 'checkmark-circle-outline'"></ion-icon>
-      </ion-button>
-    </div>
-  </div> 
-
-  <!-- Search Bar -->
-  <div class="search-bar">
-    <ion-searchbar
-      placeholder="Search for a location"
-      [(ngModel)]="searchQuery"
-      (ionChange)="searchLocation()"
-      (ionInput)="searchLocation()"
-      (ionClear)="clearSearch()"
-      animated
-      clearIcon="close-circle"
-    ></ion-searchbar>
-  </div>
-
-  <!-- Suggestions Modal -->
-  <div class="suggestions-modal" *ngIf="showSuggestions">
-    <div class="suggestions-content">
-      <!-- Loading State -->
-      <div class="loading-container" *ngIf="isLoadingSuggestions">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>Searching places...</p>
-      </div>
-
-      <!-- Suggestions List -->
-      <ion-list *ngIf="!isLoadingSuggestions && placeSuggestions.length > 0" class="suggestions-list">
-        <ion-item 
-          *ngFor="let place of placeSuggestions" 
-          class="suggestion-item"
-          button
-          (click)="selectPlace(place)">
-          <ion-icon name="location-outline" slot="start" class="suggestion-icon"></ion-icon>
-          <ion-label>
-            <h3 class="suggestion-main-text">{{ place.structured_formatting?.main_text || place.description }}</h3>
-            <p class="suggestion-secondary-text">{{ place.structured_formatting?.secondary_text }}</p>
-          </ion-label>
-        </ion-item>
-      </ion-list>
-
-      <!-- Empty State -->
-      <div class="empty-state" *ngIf="!isLoadingSuggestions && placeSuggestions.length === 0 && searchQuery.trim().length > 0">
-        <ion-icon name="search-outline" size="large" color="medium"></ion-icon>
-        <p>No places found</p>
-        <p class="empty-subtitle">Try a different search term</p>
+        <div class="address-details">
+          <p>{{ selectedAddress }}</p>
+        </div>
+        <ion-button fill="clear" (click)="confirmLocation()">
+          <ion-icon [name]="addressMode ? 'save-outline' : 'checkmark-circle-outline'"></ion-icon>
+        </ion-button>
       </div>
     </div>
-  </div>
-</ion-content>
+
+    <!-- Suggestions Modal -->
+    <div class="suggestions-modal" *ngIf="showSuggestions">
+      <div class="suggestions-content">
+        <!-- Loading State -->
+        <div class="loading-container" *ngIf="isLoadingSuggestions">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Searching places...</p>
+        </div>
+
+        <!-- Suggestions List -->
+        <ion-list *ngIf="!isLoadingSuggestions && placeSuggestions.length > 0" class="suggestions-list">
+          <ion-item 
+            *ngFor="let place of placeSuggestions" 
+            class="suggestion-item"
+            button
+            (click)="selectPlace(place)">
+            <ion-icon name="location-outline" slot="start" class="suggestion-icon"></ion-icon>
+            <ion-label>
+              <h3 class="suggestion-main-text">{{ place.structured_formatting?.main_text || place.description }}</h3>
+              <p class="suggestion-secondary-text">{{ place.structured_formatting?.secondary_text }}</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="!isLoadingSuggestions && placeSuggestions.length === 0 && searchQuery.trim().length > 0">
+          <ion-icon name="search-outline" size="large" color="medium"></ion-icon>
+          <p>No places found</p>
+          <p class="empty-subtitle">Try a different search term</p>
+        </div>
+      </div>
+    </div>
+  </ion-content>
+</div>
