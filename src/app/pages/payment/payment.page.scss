@@ -73,6 +73,138 @@
   }
 }
 
+.ride-for-section {
+  background: var(--ion-color-light);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  h2 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+  }
+
+  ion-segment {
+    margin-bottom: 20px;
+    --background: rgba(var(--ion-color-medium-rgb), 0.1);
+    border-radius: 12px;
+    padding: 4px;
+
+    ion-segment-button {
+      --indicator-color: var(--ion-color-primary);
+      --color: var(--ion-color-medium);
+      --color-checked: var(--ion-color-primary);
+      --indicator-height: 100%;
+      --indicator-box-shadow: none;
+      border-radius: 8px;
+      min-height: 44px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+
+      ion-label {
+        font-size: 15px;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .passenger-form {
+    animation: slideDown 0.3s ease-out;
+    margin-top: 8px;
+
+    .form-group {
+      margin-bottom: 16px;
+
+      .form-item {
+        --background: transparent;
+        --padding-start: 0;
+        --inner-padding-end: 0;
+        --border-color: rgba(var(--ion-color-medium-rgb), 0.2);
+        --border-width: 0 0 1px 0;
+        --border-style: solid;
+        margin-bottom: 4px;
+
+        ion-label {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--ion-color-dark);
+          margin-bottom: 8px;
+
+          .required {
+            color: var(--ion-color-danger);
+            margin-left: 2px;
+          }
+        }
+
+        ion-input,
+        ion-textarea {
+          --padding-start: 0;
+          --padding-end: 0;
+          --color: var(--ion-color-dark);
+          font-size: 16px;
+
+          &.invalid {
+            --color: var(--ion-color-danger);
+          }
+        }
+
+        ion-select {
+          --padding-start: 0;
+          --padding-end: 0;
+          --color: var(--ion-color-dark);
+          font-size: 16px;
+        }
+
+        ion-toggle {
+          --handle-background: var(--ion-color-medium);
+          --handle-background-checked: var(--ion-color-primary);
+          --track-background: rgba(var(--ion-color-medium-rgb), 0.3);
+          --track-background-checked: rgba(var(--ion-color-primary-rgb), 0.3);
+        }
+      }
+
+      .error-message {
+        color: var(--ion-color-danger);
+        font-size: 12px;
+        margin-top: 4px;
+        padding-left: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .char-count {
+        font-size: 12px;
+        color: var(--ion-color-medium);
+        text-align: right;
+        margin-top: 4px;
+      }
+
+      .helper-text {
+        font-size: 12px;
+        color: var(--ion-color-medium);
+        margin-top: 4px;
+        padding-left: 0;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .payment-methods {
   background: var(--ion-color-light);
   border-radius: 16px;
@@ -316,12 +448,37 @@
 :root.ion-palette-dark {
   .payment-summary,
   .payment-methods,
-  .promo-section {
+  .promo-section,
+  .ride-for-section {
     background: var(--ion-color-dark);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 
     h2 {
       color: var(--ion-color-light);
+    }
+  }
+
+  .ride-for-section {
+    .passenger-form {
+      .form-group {
+        .form-item {
+          --border-color: rgba(var(--ion-color-light-rgb), 0.2);
+
+          ion-label {
+            color: var(--ion-color-light);
+          }
+
+          ion-input,
+          ion-textarea,
+          ion-select {
+            --color: var(--ion-color-light);
+          }
+        }
+
+        .helper-text {
+          color: var(--ion-color-medium);
+        }
+      }
     }
   }
 

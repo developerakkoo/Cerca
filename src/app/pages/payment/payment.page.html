@@ -40,6 +40,89 @@
       </div>
     </div>
 
+    <!-- Ride For Section -->
+    <div class="ride-for-section">
+      <h2>Booking for</h2>
+      <ion-segment [(ngModel)]="rideFor" (ionChange)="onRideForChange($event)">
+        <ion-segment-button value="SELF">
+          <ion-label>Myself</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="OTHER">
+          <ion-label>Other Person</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <!-- Passenger Form (shown when "Other Person" is selected) -->
+      <div class="passenger-form" *ngIf="rideFor === 'OTHER'">
+        <div class="form-group">
+          <ion-item lines="full" class="form-item">
+            <ion-label position="stacked">Passenger Name <span class="required">*</span></ion-label>
+            <ion-input 
+              [(ngModel)]="passengerName" 
+              type="text"
+              placeholder="Enter passenger name"
+              [class.invalid]="passengerNameError"
+              (ionBlur)="validatePassengerName()">
+            </ion-input>
+          </ion-item>
+          <div class="error-message" *ngIf="passengerNameError">
+            {{ passengerNameError }}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <ion-item lines="full" class="form-item">
+            <ion-label position="stacked">Passenger Phone <span class="required">*</span></ion-label>
+            <ion-input 
+              [(ngModel)]="passengerPhone" 
+              type="tel"
+              placeholder="Enter 10-digit phone number"
+              maxlength="10"
+              [class.invalid]="passengerPhoneError"
+              (ionInput)="formatPhoneNumber()"
+              (ionBlur)="validatePassengerPhone()">
+            </ion-input>
+          </ion-item>
+          <div class="error-message" *ngIf="passengerPhoneError">
+            {{ passengerPhoneError }}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <ion-item lines="full" class="form-item">
+            <ion-label position="stacked">Relation (Optional)</ion-label>
+            <ion-select [(ngModel)]="passengerRelation" placeholder="Select relation">
+              <ion-select-option value="Family">Family</ion-select-option>
+              <ion-select-option value="Friend">Friend</ion-select-option>
+              <ion-select-option value="Colleague">Colleague</ion-select-option>
+              <ion-select-option value="Other">Other</ion-select-option>
+            </ion-select>
+          </ion-item>
+        </div>
+
+        <div class="form-group">
+          <ion-item lines="full" class="form-item">
+            <ion-label position="stacked">Notes (Optional)</ion-label>
+            <ion-textarea 
+              [(ngModel)]="passengerNotes" 
+              placeholder="Add any special instructions..."
+              rows="3"
+              maxlength="200">
+            </ion-textarea>
+          </ion-item>
+          <div class="char-count">{{ passengerNotes.length }}/200</div>
+        </div>
+
+        <div class="form-group">
+          <ion-item lines="none" class="form-item">
+            <ion-label>Use my contact details instead</ion-label>
+            <ion-toggle [(ngModel)]="useRiderContact" (ionChange)="onUseRiderContactChange()"></ion-toggle>
+          </ion-item>
+          <p class="helper-text">Driver will contact you instead of the passenger</p>
+        </div>
+      </div>
+    </div>
+
     <!-- Payment Methods -->
     <div class="payment-methods">
       <h2>{{ 'PAYMENT.selectPaymentMethod' | translate }}</h2>

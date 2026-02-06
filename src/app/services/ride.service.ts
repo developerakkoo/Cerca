@@ -16,6 +16,13 @@ export interface LocationWithAddress extends Location {
   address: string;
 }
 
+export interface PassengerInfo {
+  name: string;
+  phone: string;
+  relation?: string;
+  notes?: string;
+}
+
 export interface DriverInfo {
   _id: string;
   name: string;
@@ -561,6 +568,8 @@ export class RideService {
     walletAmountUsed?: number;
     razorpayAmountPaid?: number;
     promoCode?: string;
+    rideFor?: 'SELF' | 'OTHER';
+    passenger?: PassengerInfo;
     bookingType?: 'FULL_DAY' | 'RENTAL' | 'DATE_WISE' | 'INSTANT';
     bookingMeta?: {
       startTime?: Date | string;
@@ -622,7 +631,18 @@ export class RideService {
         service: rideData.service,
         rideType: rideData.rideType,
         paymentMethod: rideData.paymentMethod,
+        rideFor: rideData.rideFor || 'SELF', // Default to SELF if not provided
       };
+
+      // Add passenger info if booking for someone else
+      if (rideData.rideFor === 'OTHER' && rideData.passenger) {
+        request.passenger = {
+          name: rideData.passenger.name,
+          phone: rideData.passenger.phone,
+          ...(rideData.passenger.relation && { relation: rideData.passenger.relation }),
+          ...(rideData.passenger.notes && { notes: rideData.passenger.notes }),
+        };
+      }
       
       // Add booking type and meta if provided
       if (rideData.bookingType) {

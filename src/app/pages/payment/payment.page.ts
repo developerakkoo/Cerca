@@ -55,6 +55,23 @@ export class PaymentPage implements OnInit {
 
   private userId: string | null = null;
 
+  // Ride For (Myself or Other Person)
+  rideFor: 'SELF' | 'OTHER' = 'SELF';
+  
+  // Passenger details (for OTHER rides)
+  passengerName: string = '';
+  passengerPhone: string = '';
+  passengerRelation: string = '';
+  passengerNotes: string = '';
+  useRiderContact: boolean = false;
+  
+  // Validation errors
+  passengerNameError: string = '';
+  passengerPhoneError: string = '';
+  
+  // Rider contact info (for useRiderContact toggle)
+  private riderPhone: string = '';
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -85,6 +102,24 @@ export class PaymentPage implements OnInit {
     }
 
     console.log('📦 Pending ride details:', this.pendingRideDetails);
+
+    // Restore rideFor and passenger info if present in pending details
+    if (this.pendingRideDetails.rideFor) {
+      this.rideFor = this.pendingRideDetails.rideFor;
+    }
+    if (this.pendingRideDetails.passenger) {
+      this.passengerName = this.pendingRideDetails.passenger.name || '';
+      this.passengerPhone = this.pendingRideDetails.passenger.phone || '';
+      this.passengerRelation = this.pendingRideDetails.passenger.relation || '';
+      this.passengerNotes = this.pendingRideDetails.passenger.notes || '';
+    }
+
+    // Get rider phone number for "use my contact" toggle
+    this.userService.getUser().subscribe((user) => {
+      if (user && user.phoneNumber) {
+        this.riderPhone = user.phoneNumber;
+      }
+    });
 
     // Get wallet balance from user service
     this.userService.getWalletBalance().subscribe((balance) => {
@@ -257,6 +292,14 @@ export class PaymentPage implements OnInit {
     if (!this.userId) {
       await this.showToast('User not authenticated', 'danger');
       return;
+    }
+
+    // Validate passenger info if booking for someone else
+    if (this.rideFor === 'OTHER') {
+      if (!this.validatePassengerInfo()) {
+        await this.showToast('Please fill in all required passenger details', 'warning');
+        return;
+      }
     }
 
     // Re-check wallet balance before processing
@@ -523,6 +566,17 @@ export class PaymentPage implements OnInit {
         paymentMethod: paymentMethod
       });
 
+      // Prepare passenger info if booking for someone else
+      let passengerInfo = undefined;
+      if (this.rideFor === 'OTHER') {
+        passengerInfo = {
+          name: this.passengerName.trim(),
+          phone: this.useRiderContact && this.riderPhone ? this.riderPhone : this.passengerPhone.trim(),
+          ...(this.passengerRelation && { relation: this.passengerRelation }),
+          ...(this.passengerNotes && { notes: this.passengerNotes.trim() }),
+        };
+      }
+
       // Request ride via Socket.IO
       await this.rideService.requestRide({
         pickupLocation: this.pendingRideDetails.pickupLocation,
@@ -535,6 +589,8 @@ export class PaymentPage implements OnInit {
         service: service,
         rideType: 'normal',
         paymentMethod: paymentMethod,
+        rideFor: this.rideFor,
+        ...(passengerInfo && { passenger: passengerInfo }),
         ...(paymentDetails?.razorpayPaymentId && { razorpayPaymentId: paymentDetails.razorpayPaymentId }),
         ...(paymentDetails?.walletAmountUsed !== undefined && { walletAmountUsed: paymentDetails.walletAmountUsed }),
         ...(paymentDetails?.razorpayAmountPaid !== undefined && { razorpayAmountPaid: paymentDetails.razorpayAmountPaid }),
@@ -684,5 +740,121 @@ export class PaymentPage implements OnInit {
       color,
     });
     await toast.present();
+  }
+
+  /**
+   * Handle rideFor segment change
+   */
+  onRideForChange(event: any) {
+    this.rideFor = event.detail.value;
+    
+    // Clear passenger form if switching to SELF
+    if (this.rideFor === 'SELF') {
+      this.passengerName = '';
+      this.passengerPhone = '';
+      this.passengerRelation = '';
+      this.passengerNotes = '';
+      this.useRiderContact = false;
+      this.passengerNameError = '';
+      this.passengerPhoneError = '';
+    }
+  }
+
+  /**
+   * Format phone number (remove non-digits, limit to 10 digits)
+   */
+  formatPhoneNumber() {
+    // Remove all non-digit characters
+    this.passengerPhone = this.passengerPhone.replace(/\D/g, '');
+    
+    // Limit to 10 digits
+    if (this.passengerPhone.length > 10) {
+      this.passengerPhone = this.passengerPhone.substring(0, 10);
+    }
+    
+    // Clear error when user types
+    if (this.passengerPhoneError) {
+      this.passengerPhoneError = '';
+    }
+  }
+
+  /**
+   * Validate passenger name
+   */
+  validatePassengerName(): boolean {
+    if (this.rideFor !== 'OTHER') {
+      return true;
+    }
+
+    const name = this.passengerName.trim();
+    if (!name) {
+      this.passengerNameError = 'Passenger name is required';
+      return false;
+    }
+    if (name.length < 2) {
+      this.passengerNameError = 'Name must be at least 2 characters';
+      return false;
+    }
+    this.passengerNameError = '';
+    return true;
+  }
+
+  /**
+   * Validate passenger phone
+   */
+  validatePassengerPhone(): boolean {
+    if (this.rideFor !== 'OTHER') {
+      return true;
+    }
+
+    // If using rider contact, skip validation
+    if (this.useRiderContact && this.riderPhone) {
+      this.passengerPhoneError = '';
+      return true;
+    }
+
+    const phone = this.passengerPhone.trim();
+    if (!phone) {
+      this.passengerPhoneError = 'Passenger phone is required';
+      return false;
+    }
+    if (phone.length !== 10) {
+      this.passengerPhoneError = 'Phone number must be 10 digits';
+      return false;
+    }
+    // Indian phone validation: must start with 6-9
+    if (!/^[6-9]/.test(phone)) {
+      this.passengerPhoneError = 'Phone number must start with 6, 7, 8, or 9';
+      return false;
+    }
+    this.passengerPhoneError = '';
+    return true;
+  }
+
+  /**
+   * Validate all passenger info
+   */
+  validatePassengerInfo(): boolean {
+    if (this.rideFor !== 'OTHER') {
+      return true;
+    }
+
+    const nameValid = this.validatePassengerName();
+    const phoneValid = this.validatePassengerPhone();
+
+    return nameValid && phoneValid;
+  }
+
+  /**
+   * Handle "use rider contact" toggle change
+   */
+  onUseRiderContactChange() {
+    if (this.useRiderContact) {
+      // Clear phone error since we're using rider's phone
+      this.passengerPhoneError = '';
+    } else {
+      // Re-validate passenger phone if toggle is off
+      this.validatePassengerPhone();
+    }
   }
 }
