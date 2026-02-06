@@ -25,12 +25,14 @@
     "bookings": "बुकिंग्स",
     "wallet": "वॉलेट",
     "service": "सेवा",
-    "profile": "प्रोफ़ाइल"
+    "profile": "प्रोफ़ाइल",
+    "notifications": "सूचनाएं"
   },
   "SETTINGS": {
     "title": "खाता सेटिंग्स",
     "items": {
       "Edit": "प्रोफ़ाइल संपादित करें",
+      "Gifts": "मेरे उपहार और पुरस्कार",
       "Notifications": "सूचनाएं",
       "Address": "पता प्रबंधन करें",
       "Language": "भाषा",

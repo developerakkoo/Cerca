@@ -56,6 +56,8 @@ export class NetworkStatusComponent implements OnInit, OnDestroy {
   statusMessage = '';
   statusIcon = 'wifi-outline';
   private subscription: Subscription = new Subscription();
+  private previousStatus: NetworkStatus | null = null;
+  private hideTimer: any = null;
 
   constructor(private networkService: NetworkService) {}
 
@@ -69,21 +71,56 @@ export class NetworkStatusComponent implements OnInit, OnDestroy {
     if (this.subscription) {
       this.subscription.unsubscribe();
     }
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer);
+    }
   }
 
   private updateStatus(status: NetworkStatus) {
+    // Only update if status actually changed
+    if (this.previousStatus && 
+        this.previousStatus.connected === status.connected &&
+        this.previousStatus.connectionQuality === status.connectionQuality) {
+      return; // No change, don't update UI
+    }
+
+    // Clear any existing hide timer
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+
     if (!status.connected) {
+      // Show disconnected status immediately
       this.showStatus = true;
       this.isPoorConnection = false;
       this.statusMessage = 'No Internet Connection';
       this.statusIcon = 'cloud-offline-outline';
     } else if (status.connectionQuality === 'poor') {
+      // Show poor connection warning
       this.showStatus = true;
       this.isPoorConnection = true;
       this.statusMessage = 'Poor Connection';
       this.statusIcon = 'wifi-outline';
     } else {
-      this.showStatus = false;
+      // Connection is good - hide status with a slight delay to show "restored" message
+      if (this.previousStatus && !this.previousStatus.connected) {
+        // Was disconnected, now connected - show restored message briefly
+        this.statusMessage = 'Connection Restored';
+        this.statusIcon = 'checkmark-circle-outline';
+        this.isPoorConnection = false;
+        this.showStatus = true;
+        
+        // Hide after 3 seconds
+        this.hideTimer = setTimeout(() => {
+          this.showStatus = false;
+        }, 3000);
+      } else {
+        // Already connected, just hide
+        this.showStatus = false;
+      }
     }
+
+    this.previousStatus = { ...status };
   }
 } 

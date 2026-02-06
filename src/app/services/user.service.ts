@@ -82,24 +82,29 @@ export class UserService {
     });
   }
 
-  loadUserFromStorage() {
-    this.storage
-      .get('user')
-      .then((storedUser) => {
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
+  async loadUserFromStorage() {
+    try {
+      const storedUser = await this.storage.get('user');
+      if (storedUser) {
+        try {
+          const parsedUser = typeof storedUser === 'string' ? JSON.parse(storedUser) : storedUser;
+          // If user data exists and has isLoggedIn flag, restore it
+          if (parsedUser && parsedUser.isLoggedIn) {
             this.userSubject.next(parsedUser);
-          } catch (error) {
-            console.error('Error parsing stored user data:', error);
+          } else {
             this.userSubject.next(initialUserState);
           }
+        } catch (error) {
+          console.error('Error parsing stored user data:', error);
+          this.userSubject.next(initialUserState);
         }
-      })
-      .catch((error) => {
-        console.error('Error loading user from storage:', error);
+      } else {
         this.userSubject.next(initialUserState);
-      });
+      }
+    } catch (error) {
+      console.error('Error loading user from storage:', error);
+      this.userSubject.next(initialUserState);
+    }
   }
 
   async saveUserToStorage(user: any) {
@@ -181,10 +186,19 @@ export class UserService {
 
   // Logout user
   async logout() {
-    // Clear storage
+    // Clear all storage keys
     await this.storage.remove('user');
     await this.storage.remove('userId');
     await this.storage.remove('token');
+    await this.storage.remove('tokenExpiry');
+    await this.storage.remove('lastLoginTime');
+    
+    // Also clear via StorageService for consistency
+    await this.storageService.remove('user');
+    await this.storageService.remove('userId');
+    await this.storageService.remove('token');
+    await this.storageService.remove('tokenExpiry');
+    await this.storageService.remove('lastLoginTime');
     
     // Disconnect socket
     try {
@@ -195,6 +209,56 @@ export class UserService {
     
     // Reset user state
     this.userSubject.next(initialUserState);
+  }
+  
+  /**
+   * Check if user has stored credentials (token and user data)
+   * Simple check - no validation
+   */
+  async hasStoredCredentials(): Promise<boolean> {
+    try {
+      const userData = await this.storage.get('user');
+      const token = await this.storage.get('token');
+      const userId = await this.storage.get('userId');
+      
+      return !!(userData && token && userId);
+    } catch (error) {
+      console.error('Error checking stored credentials:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Restore user session from storage (simple - no validation)
+   */
+  async restoreSession(): Promise<boolean> {
+    try {
+      const userData = await this.storage.get('user');
+      const token = await this.storage.get('token');
+      const userId = await this.storage.get('userId');
+      
+      if (!userData || !token || !userId) {
+        return false;
+      }
+      
+      // Parse user data
+      let user;
+      try {
+        user = typeof userData === 'string' ? JSON.parse(userData) : userData;
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        return false;
+      }
+      
+      // Restore user session
+      user.isLoggedIn = true;
+      this.userSubject.next(user);
+      
+      return true;
+    } catch (error) {
+      console.error('Error restoring session:', error);
+      return false;
+    }
   }
 
   // Check if user is logged in

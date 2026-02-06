@@ -1,0 +1,413 @@
+// Header with scroll animation
+ion-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  transition: transform 0.3s ease-in-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  &.header-hidden {
+    transform: translateY(-100%);
+  }
+
+  ion-toolbar {
+    --background: white;
+    --color: var(--ion-color-dark);
+    --border-color: transparent;
+    --min-height: 56px;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  ion-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ion-color-primary);
+    letter-spacing: -0.02em;
+  }
+}
+
+.home-new-content {
+  --background: transparent !important;
+  background: transparent !important;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+// Loading Overlay
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+
+    p {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--ion-color-medium);
+      margin: 0;
+    }
+  }
+}
+
+// Map Container
+.map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+
+  capacitor-google-map {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+// Input Cards - Uber Style (Floating over map)
+.input-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+  margin-left: 0;
+  position: relative;
+  z-index: 100;
+  margin-top: calc(56px + env(safe-area-inset-top) + 20px);
+  margin-right: 20px;
+  margin-left: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-right: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-height: 64px;
+  flex-shrink: 0;
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .input-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+
+    &.pickup-icon {
+      background: rgba(var(--ion-color-primary-rgb), 0.1);
+      
+      ion-icon {
+        font-size: 24px;
+        color: var(--ion-color-primary);
+        transition: color 0.2s ease;
+
+        &.location-ready {
+          color: var(--ion-color-success);
+        }
+
+        &.location-loading {
+          color: var(--ion-color-medium);
+        }
+      }
+    }
+
+    &.destination-icon {
+      background: rgba(var(--ion-color-medium-rgb), 0.1);
+      
+      ion-icon {
+        font-size: 24px;
+        color: var(--ion-color-medium);
+      }
+    }
+  }
+
+  .input-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+
+    .input-placeholder {
+      font-size: 18px;
+      color: var(--ion-color-medium);
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    .input-value {
+      font-size: 18px;
+      color: var(--ion-color-dark);
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+  }
+}
+
+// Vehicle Selection Container - Floating Cards Style
+.vehicle-selection-container {
+  position: fixed;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  left: 20px;
+  right: 20px;
+  z-index: 150;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+
+  &.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .vehicle-loading {
+    background: white;
+    border-radius: 16px;
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+    ion-spinner {
+      --color: var(--ion-color-primary);
+      width: 32px;
+      height: 32px;
+    }
+
+    p {
+      margin-top: 16px;
+      font-size: 15px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  .vehicle-cards-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    ion-radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+  }
+
+  .vehicle-option {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    box-sizing: border-box;
+    animation: fadeInUp 0.3s ease-out forwards;
+    opacity: 0;
+
+    &:nth-child(1) {
+      animation-delay: 0.05s;
+    }
+    &:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+    &:nth-child(3) {
+      animation-delay: 0.15s;
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &.selected {
+      border: 2px solid var(--ion-color-primary);
+      box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.2);
+      background: rgba(var(--ion-color-primary-rgb), 0.04);
+
+      .vehicle-title {
+        color: var(--ion-color-primary);
+        font-weight: 600;
+      }
+    }
+
+    .vehicle-icon {
+      width: 72px;
+      height: 72px;
+      min-width: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 12px;
+      padding: 10px;
+      flex-shrink: 0;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+    }
+
+    .vehicle-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .vehicle-title {
+        font-size: 18px;
+        font-weight: 500;
+        color: rgba(0, 0, 0, 0.87);
+        line-height: 1.4;
+        letter-spacing: -0.01em;
+      }
+
+      .vehicle-subtitle {
+        font-size: 14px;
+        font-weight: 400;
+        color: rgba(0, 0, 0, 0.6);
+        line-height: 1.4;
+      }
+    }
+
+    .vehicle-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 8px;
+      flex-shrink: 0;
+
+      .vehicle-cost {
+        font-size: 20px;
+        font-weight: 600;
+        color: rgba(0, 0, 0, 0.87);
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+      }
+
+      ion-radio {
+        --color: rgba(0, 0, 0, 0.3);
+        --color-checked: var(--ion-color-primary);
+        width: 24px;
+        height: 24px;
+        margin: 0;
+        flex-shrink: 0;
+      }
+    }
+  }
+}
+
+// Sticky Button Container
+.sticky-button-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: white;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+
+  .book-ride-button {
+    --border-radius: 16px;
+    height: 56px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    --box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+    --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+    --background-activated: var(--ion-color-primary-shade);
+    transition: all 0.2s ease;
+    margin: 0;
+    text-transform: none;
+
+    &:not([disabled]):active {
+      transform: scale(0.98);
+      --box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb), 0.2);
+    }
+
+    &[disabled] {
+      --background: rgba(var(--ion-color-medium-rgb), 0.2);
+      --box-shadow: none;
+      opacity: 0.6;
+      color: var(--ion-color-medium);
+    }
+
+    span {
+      font-weight: 600;
+    }
+  }
+}
+
+// Animations
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Icon pulse animation for location ready
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+// Add pulse animation to location-ready icon
+.input-icon-wrapper.pickup-icon ion-icon.location-ready {
+  animation: iconPulse 2s ease-in-out infinite;
+}

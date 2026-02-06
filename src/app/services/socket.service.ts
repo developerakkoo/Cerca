@@ -25,8 +25,8 @@ export class SocketService {
   });
 
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
+  private maxReconnectAttempts = 10;
+  private reconnectDelay = 2000;
   private isInitialized = false;
   private reconnectTimeout: any = null;
   
@@ -429,9 +429,9 @@ export class SocketService {
   }
 
   /**
-   * Wait for connection (NO TIMEOUT - will wait indefinitely)
+   * Wait for connection with default 30-second timeout to prevent infinite hanging
    */
-  async waitForConnection(timeoutMs: number = 0): Promise<void> {
+  async waitForConnection(timeoutMs: number = 30000): Promise<void> {
     console.log('⏳ ========================================');
     console.log('⏳ WAITING FOR SOCKET CONNECTION...');
     console.log('⏳ ========================================');
@@ -440,6 +440,7 @@ export class SocketService {
       this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'
     );
     console.log('🌐 Target URL:', environment.apiUrl);
+    console.log('⏰ Timeout:', timeoutMs, 'ms');
     console.log('⏰ Started waiting at:', new Date().toLocaleTimeString());
     console.log('========================================');
 
@@ -448,36 +449,59 @@ export class SocketService {
       return;
     }
 
+    // Check if max reconnection attempts have been reached
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      const errorMsg = `Max reconnection attempts (${this.maxReconnectAttempts}) reached. Cannot wait for connection.`;
+      console.error('❌', errorMsg);
+      throw new Error(errorMsg);
+    }
+
     return new Promise((resolve, reject) => {
-      // NO TIMEOUT - will wait forever until connected
-      const subscription = this.connectionStatus$.subscribe((status) => {
+      let waitTimeout: any = null;
+      let subscription: any = null;
+
+      // Set up timeout
+      waitTimeout = setTimeout(() => {
+        console.error('⏰ Connection timeout after', timeoutMs, 'ms');
+        if (subscription) {
+          subscription.unsubscribe();
+        }
+        if (waitTimeout) {
+          clearTimeout(waitTimeout);
+          waitTimeout = null;
+        }
+        reject(new Error(`Socket connection timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      // Subscribe to connection status updates
+      subscription = this.connectionStatus$.subscribe((status) => {
         console.log('📊 Connection status update:', status);
 
         if (status.connected) {
           console.log('✅ Connection established! Resolving...');
-          subscription.unsubscribe();
-          resolve();
-        }
-
-        if (status.error) {
-          console.error('❌ Connection error detected:', status.error);
-          // Don't reject - keep waiting
-        }
-      });
-
-      // Optional: Add a very long timeout (5 minutes) just to prevent infinite hanging
-      let waitTimeout: any = null;
-      if (timeoutMs > 0) {
-        waitTimeout = setTimeout(() => {
-          console.error('⏰ Connection timeout after', timeoutMs, 'ms');
-          subscription.unsubscribe();
+          if (subscription) {
+            subscription.unsubscribe();
+          }
           if (waitTimeout) {
             clearTimeout(waitTimeout);
             waitTimeout = null;
           }
-          reject(new Error(`Socket connection timeout after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }
+          resolve();
+        }
+
+        // Reject if max reconnection attempts reached
+        if (status.error === 'Max reconnection attempts reached') {
+          console.error('❌ Max reconnection attempts reached. Rejecting wait promise.');
+          if (subscription) {
+            subscription.unsubscribe();
+          }
+          if (waitTimeout) {
+            clearTimeout(waitTimeout);
+            waitTimeout = null;
+          }
+          reject(new Error(status.error));
+        }
+      });
     });
   }
 }

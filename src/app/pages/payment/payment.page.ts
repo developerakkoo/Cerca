@@ -13,6 +13,7 @@ import { PaymentService } from '../../services/payment.service';
 import { WalletService } from '../../services/wallet.service';
 import { CouponService } from '../../services/coupon.service';
 import { SettingsService, PricingConfigurations, VehicleServices } from '../../services/settings.service';
+import { FareService } from '../../services/fare.service';
 import { Storage } from '@ionic/storage-angular';
 
 @Component({
@@ -25,10 +26,12 @@ export class PaymentPage implements OnInit {
   // Fare breakdown
   baseFare: number = 0; // Vehicle service base price
   distanceFare: number = 0; // Distance × perKmRate
-  subtotal: number = 0; // Base fare + distance fare
+  timeFare: number = 0; // Duration × perMinuteRate
+  subtotal: number = 0; // Base fare + distance fare + time fare
   finalFare: number = 0; // After minimum fare check
   discountAmount: number = 0;
   totalAmount: number = 0; // Final amount after discount
+  estimatedDuration: number = 0; // Estimated duration in minutes
   
   // Payment details
   selectedPaymentMethod: string = 'cash';
@@ -61,6 +64,7 @@ export class PaymentPage implements OnInit {
     private walletService: WalletService,
     private couponService: CouponService,
     private settingsService: SettingsService,
+    private fareService: FareService,
     private storage: Storage,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController
@@ -175,11 +179,12 @@ export class PaymentPage implements OnInit {
     }
 
     // Determine service type from vehicle selection
+    // Mapping: Cerca Small → hatchback, Cerca Medium → sedan, Cerca Large → suv
     const service = this.pendingRideDetails?.selectedVehicle === 'small' 
-      ? 'sedan' 
+      ? 'hatchback'  // Cerca Small needs hatchback drivers
       : this.pendingRideDetails?.selectedVehicle === 'medium'
-      ? 'suv'
-      : 'auto';
+      ? 'sedan'      // Cerca Medium needs sedan drivers
+      : 'suv';       // Cerca Large needs suv drivers
 
     const loading = await this.loadingCtrl.create({
       message: 'Validating promo code...',
@@ -495,22 +500,25 @@ export class PaymentPage implements OnInit {
       const estimatedDistance = this.pendingRideDetails?.distanceInKm || 5.2;
 
       // Determine service type from vehicle selection
+      // Mapping: Cerca Small → hatchback, Cerca Medium → sedan, Cerca Large → suv
       const service = this.pendingRideDetails?.selectedVehicle === 'small' 
-        ? 'sedan' 
+        ? 'hatchback'  // Cerca Small needs hatchback drivers
         : this.pendingRideDetails?.selectedVehicle === 'medium'
-        ? 'suv'
-        : 'auto';
+        ? 'sedan'      // Cerca Medium needs sedan drivers
+        : 'suv';       // Cerca Large needs suv drivers
 
       // Log fare information before sending
       console.log('[Fare Tracking] Sending ride request:', {
         fare: this.totalAmount,
         baseFare: this.baseFare,
         distanceFare: this.distanceFare,
+        timeFare: this.timeFare,
         subtotal: this.subtotal,
         finalFare: this.finalFare,
         discountAmount: this.discountAmount,
         promoApplied: this.promoApplied,
         distanceInKm: estimatedDistance,
+        estimatedDuration: this.estimatedDuration,
         service: service,
         paymentMethod: paymentMethod
       });
@@ -523,6 +531,7 @@ export class PaymentPage implements OnInit {
         dropoffAddress: this.pendingRideDetails.dropoffAddress,
         fare: this.totalAmount,
         distanceInKm: estimatedDistance,
+        estimatedDuration: this.estimatedDuration, // Send estimated duration to backend
         service: service,
         rideType: 'normal',
         paymentMethod: paymentMethod,
@@ -551,11 +560,65 @@ export class PaymentPage implements OnInit {
   }
 
   /**
-   * Calculate fare based on distance and vehicle type
-   * Formula: Base Fare + (Distance × Per Km Rate)
-   * Then apply minimum fare check
+   * Calculate fare using backend API
+   * This ensures consistency with tab1 page and uses backend as source of truth
    */
   private calculateFare() {
+    // Wait for required data to be loaded
+    if (!this.pendingRideDetails || !this.pendingRideDetails.pickupLocation || !this.pendingRideDetails.dropoffLocation) {
+      return;
+    }
+
+    const vehicle = this.pendingRideDetails.selectedVehicle || 'small';
+
+    // Call backend API for fare calculation
+    this.fareService.calculateFare(
+      {
+        latitude: this.pendingRideDetails.pickupLocation.latitude,
+        longitude: this.pendingRideDetails.pickupLocation.longitude
+      },
+      {
+        latitude: this.pendingRideDetails.dropoffLocation.latitude,
+        longitude: this.pendingRideDetails.dropoffLocation.longitude
+      },
+      vehicle as 'small' | 'medium' | 'large',
+      this.validatedPromoCode || undefined,
+      this.userId || undefined
+    ).subscribe({
+      next: (response) => {
+        if (response.success && response.data.fareBreakdown) {
+          const breakdown = response.data.fareBreakdown;
+          
+          // Update fare components from backend response
+          this.baseFare = breakdown.baseFare;
+          this.distanceFare = breakdown.distanceFare;
+          this.timeFare = breakdown.timeFare;
+          this.subtotal = breakdown.subtotal;
+          this.finalFare = breakdown.fareAfterMinimum;
+          this.estimatedDuration = response.data.estimatedDuration;
+          this.minimumFareApplied = breakdown.fareAfterMinimum > breakdown.subtotal;
+
+          // Recalculate total with current discount
+          this.calculateTotal();
+        } else {
+          console.error('Failed to calculate fare from backend');
+          // Fallback to frontend calculation if backend fails
+          this.calculateFareFallback();
+        }
+      },
+      error: (error) => {
+        console.error('Error calculating fare from backend:', error);
+        // Fallback to frontend calculation if backend fails
+        this.calculateFareFallback();
+      }
+    });
+  }
+
+  /**
+   * Fallback fare calculation using frontend logic
+   * Used when backend API is unavailable
+   */
+  private calculateFareFallback() {
     // Wait for both settings to be loaded
     if (!this.vehicleServices || !this.pricingConfig || !this.pendingRideDetails) {
       return;
@@ -564,26 +627,38 @@ export class PaymentPage implements OnInit {
     const vehicle = this.pendingRideDetails.selectedVehicle || 'small';
     const distance = this.pendingRideDetails.distanceInKm || 0;
 
-    // Get base fare from vehicle service
+    // Get base fare and perMinuteRate from vehicle service
     let vehicleBasePrice = 0;
+    let perMinuteRate = 0;
     switch (vehicle) {
       case 'small':
         vehicleBasePrice = this.vehicleServices.cercaSmall?.price || 299;
+        perMinuteRate = this.vehicleServices.cercaSmall?.perMinuteRate || 2;
         break;
       case 'medium':
         vehicleBasePrice = this.vehicleServices.cercaMedium?.price || 499;
+        perMinuteRate = this.vehicleServices.cercaMedium?.perMinuteRate || 3;
         break;
       case 'large':
         vehicleBasePrice = this.vehicleServices.cercaLarge?.price || 699;
+        perMinuteRate = this.vehicleServices.cercaLarge?.perMinuteRate || 4;
         break;
       default:
         vehicleBasePrice = 299;
+        perMinuteRate = 2;
+    }
+
+    // Calculate estimated duration (in minutes)
+    this.estimatedDuration = this.pendingRideDetails.estimatedDuration || Math.round(distance * 2);
+    if (this.estimatedDuration < 1) {
+      this.estimatedDuration = 1; // Minimum 1 minute
     }
 
     // Calculate fare components
     this.baseFare = vehicleBasePrice;
     this.distanceFare = distance * this.pricingConfig.perKmRate;
-    this.subtotal = this.baseFare + this.distanceFare;
+    this.timeFare = this.estimatedDuration * perMinuteRate;
+    this.subtotal = this.baseFare + this.distanceFare + this.timeFare;
     
     // Apply minimum fare check
     const minimumFare = this.pricingConfig.minimumFare;
@@ -593,6 +668,7 @@ export class PaymentPage implements OnInit {
     // Round to 2 decimal places
     this.baseFare = Math.round(this.baseFare * 100) / 100;
     this.distanceFare = Math.round(this.distanceFare * 100) / 100;
+    this.timeFare = Math.round(this.timeFare * 100) / 100;
     this.subtotal = Math.round(this.subtotal * 100) / 100;
     this.finalFare = Math.round(this.finalFare * 100) / 100;
 

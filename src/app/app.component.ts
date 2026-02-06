@@ -10,6 +10,8 @@ import { NetworkService } from './services/network.service';
 import { ThemeService } from './services/theme.service';
 import { SystemSettingsService } from './services/system-settings.service';
 import { Subscription, interval } from 'rxjs';
+import { AlertController } from '@ionic/angular';
+import { App } from '@capacitor/app';
 
 @Component({
   selector: 'app-root',
@@ -22,6 +24,7 @@ export class AppComponent implements OnDestroy {
   private userSubscription?: Subscription;
   private statusCheckInterval?: Subscription;
   private resumeSubscription?: Subscription;
+  private backButtonSubscription?: Subscription;
 
   constructor(
     private userService: UserService,
@@ -33,7 +36,8 @@ export class AppComponent implements OnDestroy {
     private rideService: RideService,
     private networkService: NetworkService,
     private themeService: ThemeService,
-    private systemSettingsService: SystemSettingsService
+    private systemSettingsService: SystemSettingsService,
+    private alertController: AlertController
   ) {}
 
   async ngOnInit() {
@@ -53,8 +57,42 @@ export class AppComponent implements OnDestroy {
     // Initialize language service (must be early to load translations before UI renders)
     await this.languageService.initializeLanguage();
 
-    // Load user from storage
-    await this.userService.loadUserFromStorage();
+    // Simple check: if token and user data exist, restore session
+    const hasCredentials = await this.userService.hasStoredCredentials();
+    
+    if (hasCredentials) {
+      // Restore user session from storage
+      const restored = await this.userService.restoreSession();
+      if (restored) {
+        // Load user from storage to update UI
+        await this.userService.loadUserFromStorage();
+        // Navigate to tab1 if not already on auth pages
+        const currentUrl = this.router.url;
+        const isOnAuthPage = currentUrl.includes('/mobile-login') || 
+                             currentUrl.includes('/profile-details') ||
+                             currentUrl === '/' ||
+                             currentUrl.includes('/splash') ||
+                             currentUrl.includes('/welcome');
+        if (!isOnAuthPage) {
+          this.router.navigate(['/tabs/tabs/tab1']);
+        }
+      } else {
+        // Failed to restore, go to login
+        await this.userService.loadUserFromStorage();
+        if (this.router.url !== '/mobile-login' && this.router.url !== '/') {
+          this.router.navigate(['/mobile-login']);
+        }
+      }
+    } else {
+      // No credentials, go to login page
+      await this.userService.loadUserFromStorage();
+      if (this.router.url !== '/mobile-login' && this.router.url !== '/') {
+        this.router.navigate(['/mobile-login']);
+      }
+    }
+
+    // Setup Android back button handler
+    this.setupBackButtonHandler();
 
     // Subscribe to user changes
     this.userSubscription = this.userService.user$.subscribe(async (user) => {
@@ -125,21 +163,8 @@ export class AppComponent implements OnDestroy {
           this.checkUserStatus(userId);
         }
 
-        // Check current route - don't auto-navigate if we're on mobile-login or profile-details
-        // Let those pages handle their own navigation
-        const currentUrl = this.router.url;
-        const isOnAuthPage = currentUrl.includes('/mobile-login') || 
-                             currentUrl.includes('/profile-details') ||
-                             currentUrl === '/';
-        
-        if (!isOnAuthPage) {
-          // User is already logged in on app start (existing session) - navigate to tab1
-          console.log('🧭 User already logged in - Navigating to /tabs/tabs/tab1');
-          this.router.navigate(['/tabs/tabs/tab1']);
-        } else {
-          // User just logged in - let mobile-login or profile-details handle navigation
-          console.log('🧭 User logged in from auth page - Navigation handled by auth page');
-        }
+        // Don't auto-navigate here - let initial check or login page handle navigation
+        // This subscription is mainly for socket initialization
       } else {
         console.log('🚪 ========================================');
         console.log('🚪 USER LOGGED OUT - DISCONNECTING SOCKET');
@@ -154,8 +179,12 @@ export class AppComponent implements OnDestroy {
         // Stop app resume check
         this.stopAppResumeCheck();
 
-        console.log('🧭 Navigating to /');
-        this.router.navigate(['/']);
+        // Navigate to login page if not already there
+        const currentUrl = this.router.url;
+        if (currentUrl !== '/mobile-login' && currentUrl !== '/') {
+          console.log('🧭 Navigating to /mobile-login');
+          this.router.navigate(['/mobile-login']);
+        }
       }
     });
   }
@@ -272,6 +301,53 @@ export class AppComponent implements OnDestroy {
     });
   }
 
+  /**
+   * Setup Android back button handler
+   */
+  private setupBackButtonHandler() {
+    if (this.platform.is('android')) {
+      // Use priority 10 to override default back button behavior
+      this.backButtonSubscription = this.platform.backButton.subscribeWithPriority(10, () => {
+        const currentUrl = this.router.url;
+        
+        // If on home page (tab1), show exit confirmation
+        if (currentUrl === '/tabs/tabs/tab1' || currentUrl === '/tabs/tab1') {
+          this.showExitConfirm();
+        } else if (currentUrl === '/mobile-login' || currentUrl === '/' || currentUrl.includes('/splash') || currentUrl.includes('/welcome')) {
+          // On login/auth pages, prevent going back (or allow normal behavior)
+          // Don't prevent default - let it work normally
+        } else {
+          // On other pages, allow normal back navigation
+          // The router will handle it automatically
+        }
+      });
+    }
+  }
+
+  /**
+   * Show exit confirmation dialog
+   */
+  private async showExitConfirm() {
+    const alert = await this.alertController.create({
+      header: 'Exit App',
+      message: 'Do you want to exit?',
+      buttons: [
+        {
+          text: 'No',
+          role: 'cancel'
+        },
+        {
+          text: 'Yes',
+          handler: () => {
+            App.exitApp();
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
   ngOnDestroy() {
     // Unsubscribe from user subscription
     if (this.userSubscription) {
@@ -282,6 +358,11 @@ export class AppComponent implements OnDestroy {
     this.stopPeriodicStatusCheck();
     // Stop app resume check
     this.stopAppResumeCheck();
+    // Unsubscribe from back button
+    if (this.backButtonSubscription) {
+      this.backButtonSubscription.unsubscribe();
+      this.backButtonSubscription = undefined;
+    }
     // Cleanup socket connection on app destroy
     this.socketService.disconnect();
     // Cleanup network service (stops polling and removes listeners)

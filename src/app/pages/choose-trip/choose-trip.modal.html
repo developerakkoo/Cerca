@@ -1,0 +1,116 @@
+<ion-modal
+  [initialBreakpoint]="0.25"
+  [breakpoints]="[0.25, 0.55, 0.9]"
+  [backdropDismiss]="true"
+  [showBackdrop]="true"
+  [canDismiss]="true"
+  (ionBreakpointDidChange)="onBreakpointDidChange($event)"
+  cssClass="choose-trip-modal">
+  
+  <ng-template>
+    <!-- Grab Handle -->
+    <div class="modal-handle" #handle>
+      <div class="handle-bar"></div>
+    </div>
+
+    <!-- Sticky Header -->
+    <div class="modal-header">
+      <h2 class="header-title">Choose a trip</h2>
+    </div>
+
+    <!-- Scrollable Content -->
+    <ion-content 
+      #contentWrapper
+      class="modal-content"
+      [scrollEvents]="true"
+      [fullscreen]="false">
+      
+      <!-- Loading State -->
+      <div class="loading-state" *ngIf="isLoadingServices || isCalculatingFares">
+        <ion-spinner></ion-spinner>
+        <p>Finding available rides...</p>
+      </div>
+
+      <!-- Ride Options List -->
+      <div class="ride-options-list" *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares">
+        <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event.detail.value)">
+          
+          <!-- Small Ride Option -->
+          <div class="ride-option" 
+               *ngIf="isVehicleEnabled('small')"
+               [class.selected]="selectedVehicle === 'small'"
+               (click)="onVehicleSelect('small')">
+            <div class="vehicle-image-wrapper">
+              <img [src]="getVehicleImage('small')" 
+                   alt="Small"
+                   onerror="this.src='assets/cars/cerca-small.png'">
+            </div>
+            <div class="ride-info">
+              <h4 class="ride-name">{{ getVehicleName('small') }}</h4>
+              <p class="ride-eta">{{ getETA('small') }} away</p>
+            </div>
+            <div class="ride-price-radio">
+              <p class="ride-price">₹{{ getPrice('small') }}</p>
+              <ion-radio value="small" mode="md" class="ride-radio"></ion-radio>
+            </div>
+          </div>
+
+          <!-- Medium Ride Option -->
+          <div class="ride-option" 
+               *ngIf="isVehicleEnabled('medium')"
+               [class.selected]="selectedVehicle === 'medium'"
+               (click)="onVehicleSelect('medium')">
+            <div class="vehicle-image-wrapper">
+              <img [src]="getVehicleImage('medium')" 
+                   alt="Medium"
+                   onerror="this.src='assets/cars/Cerca-medium.png'">
+            </div>
+            <div class="ride-info">
+              <h4 class="ride-name">{{ getVehicleName('medium') }}</h4>
+              <p class="ride-eta">{{ getETA('medium') }} away</p>
+            </div>
+            <div class="ride-price-radio">
+              <p class="ride-price">₹{{ getPrice('medium') }}</p>
+              <ion-radio value="medium" mode="md" class="ride-radio"></ion-radio>
+            </div>
+          </div>
+
+          <!-- Large Ride Option -->
+          <div class="ride-option" 
+               *ngIf="isVehicleEnabled('large')"
+               [class.selected]="selectedVehicle === 'large'"
+               (click)="onVehicleSelect('large')">
+            <div class="vehicle-image-wrapper">
+              <img [src]="getVehicleImage('large')" 
+                   alt="Large"
+                   onerror="this.src='assets/cars/cerca-large.png'">
+            </div>
+            <div class="ride-info">
+              <h4 class="ride-name">{{ getVehicleName('large') }}</h4>
+              <p class="ride-eta">{{ getETA('large') }} away</p>
+            </div>
+            <div class="ride-price-radio">
+              <p class="ride-price">₹{{ getPrice('large') }}</p>
+              <ion-radio value="large" mode="md" class="ride-radio"></ion-radio>
+            </div>
+          </div>
+
+        </ion-radio-group>
+      </div>
+
+    </ion-content>
+
+    <!-- Footer - Only visible when expanded -->
+    <div class="modal-footer" *ngIf="currentBreakpoint >= 0.55">
+      <ion-button 
+        expand="block" 
+        class="confirm-button"
+        (click)="onConfirmRide()"
+        [disabled]="!selectedVehicle">
+        Confirm Ride
+      </ion-button>
+    </div>
+
+  </ng-template>
+</ion-modal>
+

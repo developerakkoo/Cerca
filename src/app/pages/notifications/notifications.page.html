@@ -1,9 +1,6 @@
 <ion-header [translucent]="true" class="ion-no-border">
   <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/tabs/tabs/tab1"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Notifications</ion-title>
+    <ion-title>{{ 'NOTIFICATIONS.title' | translate }}</ion-title>
     <ion-buttons slot="end">
       <ion-button fill="clear" (click)="markAllAsRead()">
         <ion-icon name="checkmark-done-outline"></ion-icon>

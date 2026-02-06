@@ -8,6 +8,7 @@ import { environment } from 'src/environments/environment';
 export interface VehicleService {
   name: string;
   price: number;
+  perMinuteRate?: number; // Rate per minute for time-based fare calculation
   seats: number;
   enabled: boolean;
   imagePath: string;
@@ -32,6 +33,7 @@ const DEFAULT_VEHICLE_SERVICES: VehicleServices = {
   cercaSmall: {
     name: 'Cerca Small',
     price: 299,
+    perMinuteRate: 2,
     seats: 4,
     enabled: true,
     imagePath: 'assets/cars/cerca-small.png'
@@ -39,6 +41,7 @@ const DEFAULT_VEHICLE_SERVICES: VehicleServices = {
   cercaMedium: {
     name: 'Cerca Medium',
     price: 499,
+    perMinuteRate: 3,
     seats: 6,
     enabled: true,
     imagePath: 'assets/cars/Cerca-medium.png'
@@ -46,6 +49,7 @@ const DEFAULT_VEHICLE_SERVICES: VehicleServices = {
   cercaLarge: {
     name: 'Cerca Large',
     price: 699,
+    perMinuteRate: 4,
     seats: 8,
     enabled: true,
     imagePath: 'assets/cars/cerca-large.png'

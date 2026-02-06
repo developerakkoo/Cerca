@@ -25,12 +25,14 @@
     "bookings": "बुकिंग्ज",
     "wallet": "वॉलेट",
     "service": "सेवा",
-    "profile": "प्रोफाइल"
+    "profile": "प्रोफाइल",
+    "notifications": "सूचना"
   },
   "SETTINGS": {
     "title": "खाते सेटिंग्ज",
     "items": {
       "Edit": "प्रोफाइल संपादित करा",
+      "Gifts": "माझी भेटवस्तू आणि बक्षीस",
       "Notifications": "सूचना",
       "Address": "पत्ता व्यवस्थापित करा",
       "Language": "भाषा",

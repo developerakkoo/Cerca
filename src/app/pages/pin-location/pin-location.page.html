@@ -1,0 +1,56 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Confirm Location</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="pin-location-content">
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="!isMapReady">
+    <div class="loading-container">
+      <ion-spinner></ion-spinner>
+      <p>Loading map...</p>
+    </div>
+  </div>
+
+  <!-- Map Container -->
+  <div class="map-container">
+    <capacitor-google-map #map id="pin-location-map"></capacitor-google-map>
+  </div>
+
+  <!-- Fixed Pin Overlay -->
+  <div class="pin-overlay" *ngIf="isMapReady">
+    <ion-icon name="location" class="pin-icon"></ion-icon>
+  </div>
+
+  <!-- Address Card -->
+  <div class="address-card" *ngIf="isMapReady">
+    <div class="address-content">
+      <div class="address-icon">
+        <ion-icon name="location-outline"></ion-icon>
+      </div>
+      <div class="address-text">
+        <div class="address-loading" *ngIf="isLoadingAddress">
+          <ion-spinner name="crescent" class="small-spinner"></ion-spinner>
+          <span>Updating address...</span>
+        </div>
+        <div class="address-value" *ngIf="!isLoadingAddress">
+          {{ currentAddress || 'Loading address...' }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Button -->
+  <div class="confirm-button-wrapper" *ngIf="isMapReady">
+    <ion-button class="confirm-button" (click)="confirmLocation()" expand="block">
+      Confirm Location
+    </ion-button>
+  </div>
+</ion-content>
+

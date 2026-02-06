@@ -1,126 +1,142 @@
-<app-header [showNotificationDot]="true"></app-header>
-
-<ion-content class="tab1-content">
+<ion-content 
+  [fullscreen]="true"
+  class="tab1-content">
   
-  <!-- Hero Section -->
-  <div class="hero-section">
-    <h1 class="hero-title">Where would you like to go?</h1>
-    <p class="hero-subtitle">Book a ride in seconds</p>
-    <div class="location-badge" *ngIf="isLocationFetched" (click)="getCurrentPosition()">
-      <ion-icon name="location"></ion-icon>
-      <span>Location ready</span>
-    </div>
-    <div class="location-badge loading" *ngIf="isLoadingLocation">
-      <ion-spinner name="dots"></ion-spinner>
-      <span>Locating...</span>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="!isMapReady">
+    <div class="loading-container">
+      <ion-spinner></ion-spinner>
+      <p>Loading map...</p>
     </div>
   </div>
 
-  <!-- Booking Card -->
-  <div class="booking-card">
+  <!-- Map Container -->
+  <div class="map-container">
+    <capacitor-google-map #map id="tab1-map"></capacitor-google-map>
+  </div>
+  
+  <!-- Floating Input Section -->
+  <div class="floating-inputs" [class.inputs-slid-up]="pickupAddress && destinationAddress">
+    <!-- Pickup Input Card -->
+    <div class="input-card pickup-card" (click)="onInputFocus('pickup')">
+      <div class="input-icon-wrapper pickup-icon">
+        <ion-icon 
+          name="location-outline" 
+          [class.location-ready]="isLocationFetched"
+          [class.location-loading]="isLoadingLocation">
+        </ion-icon>
+      </div>
+      <div class="input-content">
+        <span *ngIf="!pickupAddress" class="input-placeholder">Pickup location</span>
+        <span *ngIf="pickupAddress" class="input-value">{{ pickupAddress }}</span>
+      </div>
+    </div>
+
+    <!-- Destination Input Card -->
+    <div class="input-card destination-card" (click)="onInputFocus('destination')">
+      <div class="input-icon-wrapper destination-icon">
+        <ion-icon name="navigate-outline"></ion-icon>
+      </div>
+      <div class="input-content">
+        <span *ngIf="!destinationAddress" class="input-placeholder">Where to?</span>
+        <span *ngIf="destinationAddress" class="input-value">{{ destinationAddress }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ride Cards Section - Only shown when both addresses are set -->
+  <div class="ride-cards-section" *ngIf="pickupAddress && destinationAddress">
+    <h3 class="section-title">Choose a trip</h3>
     
-    <!-- Pickup Input -->
-    <div class="input-section pickup-section" (click)="onInputFocus('pickup')">
-      <div class="fake-input">
-        <span *ngIf="!pickupAddress" class="placeholder">Where are you?</span>
-        <span *ngIf="pickupAddress" class="value">{{ pickupAddress }}</span>
-      </div>
-      <div class="input-icon" [class.location-ready]="isLocationFetched">
-        <ion-icon name="location-outline"></ion-icon>
-      </div>
+    <!-- Loading State -->
+    <div *ngIf="isLoadingServices || isCalculatingFares" class="ride-cards-loading">
+      <ion-spinner></ion-spinner>
+      <p>Finding available rides...</p>
     </div>
 
-    <!-- Divider -->
-    <div class="input-divider"></div>
+    <!-- Ride Cards Vertical List -->
+    <div class="ride-cards-container" *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares">
+      <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
+        
+        <!-- Small Ride Card -->
+        <div class="ride-card" 
+             *ngIf="vehicleServices.cercaSmall?.enabled"
+             [class.selected]="selectedVehicle === 'small'"
+             (click)="selectedVehicle = 'small'">
+          <div class="vehicle-image-wrapper">
+            <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" 
+                 alt="Small"
+                 onerror="this.src='assets/cars/cerca-small.png'">
+          </div>
+          <div class="ride-info">
+            <h4 class="ride-name">{{ vehicleServices.cercaSmall?.name || 'Small' }}</h4>
+            <p class="ride-eta">{{ vehicleETAs.small || '2-4 min' }} away</p>
+          </div>
+          <div class="ride-price-radio">
+            <p class="ride-price">
+              <span *ngIf="calculatedFares?.cercaSmall">₹{{ calculatedFares?.cercaSmall?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaSmall">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
+            </p>
+            <ion-radio value="small" mode="md" class="ride-radio"></ion-radio>
+          </div>
+        </div>
 
-    <!-- Destination Input -->
-    <div class="input-section destination-section" (click)="onInputFocus('destination')">
-      <div class="fake-input">
-        <span *ngIf="!destinationAddress" class="placeholder">Where to?</span>
-        <span *ngIf="destinationAddress" class="value">{{ destinationAddress }}</span>
-      </div>
-      <div class="input-icon">
-        <ion-icon name="location-outline"></ion-icon>
-      </div>
-    </div>
+        <!-- Medium Ride Card -->
+        <div class="ride-card" 
+             *ngIf="vehicleServices.cercaMedium?.enabled"
+             [class.selected]="selectedVehicle === 'medium'"
+             (click)="selectedVehicle = 'medium'">
+          <div class="vehicle-image-wrapper">
+            <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" 
+                 alt="Medium"
+                 onerror="this.src='assets/cars/Cerca-medium.png'">
+          </div>
+          <div class="ride-info">
+            <h4 class="ride-name">{{ vehicleServices.cercaMedium?.name || 'Medium' }}</h4>
+            <p class="ride-eta">{{ vehicleETAs.medium || '3-5 min' }} away</p>
+          </div>
+          <div class="ride-price-radio">
+            <p class="ride-price">
+              <span *ngIf="calculatedFares?.cercaMedium">₹{{ calculatedFares?.cercaMedium?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaMedium">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
+            </p>
+            <ion-radio value="medium" mode="md" class="ride-radio"></ion-radio>
+          </div>
+        </div>
 
-    <!-- Vehicle Selection (Always visible) -->
-    <div class="vehicle-section">
-      <h3 class="section-title">Choose your ride</h3>
+        <!-- Large Ride Card -->
+        <div class="ride-card" 
+             *ngIf="vehicleServices.cercaLarge?.enabled"
+             [class.selected]="selectedVehicle === 'large'"
+             (click)="selectedVehicle = 'large'">
+          <div class="vehicle-image-wrapper">
+            <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" 
+                 alt="Large"
+                 onerror="this.src='assets/cars/cerca-large.png'">
+          </div>
+          <div class="ride-info">
+            <h4 class="ride-name">{{ vehicleServices.cercaLarge?.name || 'Large' }}</h4>
+            <p class="ride-eta">{{ vehicleETAs.large || '4-6 min' }} away</p>
+          </div>
+          <div class="ride-price-radio">
+            <p class="ride-price">
+              <span *ngIf="calculatedFares?.cercaLarge">₹{{ calculatedFares?.cercaLarge?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaLarge">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
+            </p>
+            <ion-radio value="large" mode="md" class="ride-radio"></ion-radio>
+          </div>
+        </div>
+
+      </ion-radio-group>
       
-      <div *ngIf="isLoadingServices" class="vehicle-loading">
-        <ion-spinner></ion-spinner>
-        <p>Loading vehicle options...</p>
-      </div>
-
-      <div class="vehicle-list" *ngIf="!isLoadingServices && vehicleServices">
-        <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
-          
-          <!-- Small -->
-          <div class="vehicle-item" *ngIf="vehicleServices.cercaSmall?.enabled" 
-               [class.selected]="selectedVehicle === 'small'"
-               (click)="selectedVehicle = 'small'">
-            <div class="vehicle-info">
-              <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" alt="Small">
-              <div class="details">
-                <span class="name">{{ vehicleServices.cercaSmall?.name || 'Cerca Small' }}</span>
-                <span class="seats">{{ vehicleServices.cercaSmall?.seats || 4 }} seats</span>
-              </div>
-            </div>
-            <div class="price-radio">
-              <span class="price">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
-              <ion-radio value="small" mode="md"></ion-radio>
-            </div>
-          </div>
-
-          <!-- Medium -->
-          <div class="vehicle-item" *ngIf="vehicleServices.cercaMedium?.enabled"
-               [class.selected]="selectedVehicle === 'medium'"
-               (click)="selectedVehicle = 'medium'">
-            <div class="vehicle-info">
-              <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Medium">
-              <div class="details">
-                <span class="name">{{ vehicleServices.cercaMedium?.name || 'Cerca Medium' }}</span>
-                <span class="seats">{{ vehicleServices.cercaMedium?.seats || 6 }} seats</span>
-              </div>
-            </div>
-            <div class="price-radio">
-              <span class="price">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
-              <ion-radio value="medium" mode="md"></ion-radio>
-            </div>
-          </div>
-
-          <!-- Large -->
-          <div class="vehicle-item" *ngIf="vehicleServices.cercaLarge?.enabled"
-               [class.selected]="selectedVehicle === 'large'"
-               (click)="selectedVehicle = 'large'">
-            <div class="vehicle-info">
-              <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" alt="Large">
-              <div class="details">
-                <span class="name">{{ vehicleServices.cercaLarge?.name || 'Cerca Large' }}</span>
-                <span class="seats">{{ vehicleServices.cercaLarge?.seats || 8 }} seats</span>
-              </div>
-            </div>
-            <div class="price-radio">
-              <span class="price">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
-              <ion-radio value="large" mode="md"></ion-radio>
-            </div>
-          </div>
-
-        </ion-radio-group>
+      <!-- Book Now Button -->
+      <div class="book-now-wrapper" *ngIf="selectedVehicle">
+        <button class="book-now-btn" (click)="goToPayment()">
+          <span class="btn-text">Book Now</span>
+          <ion-icon name="arrow-forward-outline"></ion-icon>
+        </button>
       </div>
     </div>
-
-    <!-- Action Button -->
-    <ion-button 
-      expand="block"
-      class="book-button"
-      [disabled]="!pickupAddress || !destinationAddress || !selectedVehicle"
-      (click)="goToPayment()">
-      <span>Make Payment</span>
-      <ion-icon name="arrow-forward" slot="end"></ion-icon>
-    </ion-button>
-
   </div>
 
 </ion-content>

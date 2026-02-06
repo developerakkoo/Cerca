@@ -63,6 +63,17 @@ export class MobileLoginPage implements OnInit, OnDestroy {
           // Store credentials
           await this.storageService.set('userId', res['userId']);
           await this.storageService.set('token', res['token']);
+          
+          // Store token expiry if provided
+          if (res['expiresIn']) {
+            const expiryTime = new Date(Date.now() + res['expiresIn'] * 1000);
+            await this.storageService.set('tokenExpiry', expiryTime.toISOString());
+          } else if (res['tokenExpiry']) {
+            await this.storageService.set('tokenExpiry', res['tokenExpiry']);
+          }
+          
+          // Store last login time
+          await this.storageService.set('lastLoginTime', new Date().toISOString());
 
           // **CRITICAL: Update UserService to trigger socket initialization**
           const userData = {

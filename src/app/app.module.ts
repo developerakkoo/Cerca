@@ -21,20 +21,22 @@ import { AuthInterceptor } from './interceptors/auth.interceptor';
 const config: SocketIoConfig = {
   url: environment.apiUrl,
   options: {
-    // Try both transports - polling first, then upgrade to websocket
-    transports: ['polling', 'websocket'],
+    // Try websocket first, then fallback to polling (matches driver app)
+    transports: ['websocket', 'polling'],
     autoConnect: false,
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    // Add timeout configuration
-    timeout: 20000,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 2000,
+    // Add timeout configuration (30 seconds for HTTPS)
+    timeout: 30000,
     // Force new connection
-    forceNew: true,
-    // Disable upgrade for initial connection (helps with HTTPS)
+    forceNew: false,
+    // Enable upgrade for better HTTPS compatibility
     upgrade: true,
     // Add path if your backend uses custom path
-    // path: '/socket.io/',
+    path: '/socket.io/',
+    // Better HTTPS compatibility
+    withCredentials: false,
   },
 };
 

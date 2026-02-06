@@ -4,6 +4,8 @@ import { BehaviorSubject } from 'rxjs';
 import { Platform } from '@ionic/angular';
 import { NotificationService } from './notification.service';
 import { Device } from '@capacitor/device';
+import { HttpClient } from '@angular/common/http';
+import { environment } from 'src/environments/environment';
 
 export interface NetworkStatus {
   connected: boolean;
@@ -30,10 +32,19 @@ export class NetworkService {
   private cachedDeviceInfo: any = null;
   private cachedBatteryInfo: any = null;
   private isInitialized = false;
+  
+  // Debouncing and state management
+  private previousStatus: NetworkStatus | null = null;
+  private lastNotificationTime: number = 0;
+  private readonly NOTIFICATION_COOLDOWN = 30000; // 30 seconds
+  private connectivityCheckInProgress = false;
+  private debounceTimer: any = null;
+  private readonly DEBOUNCE_DELAY = 2000; // 2 seconds debounce
 
   constructor(
     private platform: Platform,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private http: HttpClient
   ) {
     this.initializeNetworkSnapshot();
   }
@@ -69,9 +80,13 @@ export class NetworkService {
     }
   }
 
-  /// Cleanup method placeholder (no listeners/intervals to clear in single-run mode)
+  /// Cleanup method
   public cleanup() {
-    console.log('🧹 NetworkService cleanup (single-run mode) - no active listeners');
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    console.log('🧹 NetworkService cleanup completed');
   }
 
   private updateNetworkStatus(status: any, platform: string, batteryInfo: any) {
@@ -95,7 +110,80 @@ export class NetworkService {
     }
 
     this.networkStatus.next(newStatus);
-    this.handleNetworkChange(newStatus);
+    this.debounceNetworkChange(newStatus);
+  }
+  
+  /**
+   * Debounce network status changes to prevent rapid toggling
+   */
+  private debounceNetworkChange(status: NetworkStatus) {
+    // Clear existing timer
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    
+    // Set new timer
+    this.debounceTimer = setTimeout(() => {
+      this.handleNetworkChange(status);
+    }, this.DEBOUNCE_DELAY);
+  }
+  
+  /**
+   * Verify actual connectivity by pinging API endpoint
+   */
+  private async verifyActualConnectivity(): Promise<boolean> {
+    if (this.connectivityCheckInProgress) {
+      return false; // Already checking, don't duplicate
+    }
+    
+    if (!this.platform.is('capacitor')) {
+      // For web platform, assume connected if network status says so
+      return this.networkStatus.value.connected;
+    }
+    
+    this.connectivityCheckInProgress = true;
+    
+    try {
+      // Try to ping a lightweight endpoint (health check)
+      const response = await Promise.race([
+        this.http.get(`${environment.apiUrl}/health`).toPromise(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        )
+      ]);
+      
+      this.connectivityCheckInProgress = false;
+      return true;
+    } catch (error) {
+      this.connectivityCheckInProgress = false;
+      return false;
+    }
+  }
+  
+  /**
+   * Check if notification should be shown based on state and cooldown
+   */
+  private shouldShowNotification(newStatus: NetworkStatus): boolean {
+    const now = Date.now();
+    const timeSinceLastNotification = now - this.lastNotificationTime;
+    
+    // Don't show if within cooldown period
+    if (timeSinceLastNotification < this.NOTIFICATION_COOLDOWN) {
+      return false;
+    }
+    
+    // Don't show if status hasn't actually changed
+    if (this.previousStatus) {
+      const statusChanged = 
+        this.previousStatus.connected !== newStatus.connected ||
+        this.previousStatus.connectionQuality !== newStatus.connectionQuality;
+      
+      if (!statusChanged) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 
   private determineConnectionQuality(status: any, platform: string, batteryInfo: any): 'good' | 'poor' | 'none' {
@@ -132,16 +220,65 @@ export class NetworkService {
     return 'good';
   }
 
-  private handleNetworkChange(status: NetworkStatus) {
-    if (!status.connected && !this.networkAlertShown) {
-      this.showNetworkAlert('No Internet Connection', 'Please check your connection and try again.');
-      this.networkAlertShown = true;
-    } else if (status.connected && status.connectionQuality === 'poor') {
-      this.showNetworkAlert('Poor Connection', 'Your internet connection is weak. Some features may not work properly.');
-    } else if (status.connected && this.networkAlertShown) {
-      this.showNetworkAlert('Connection Restored', 'Your internet connection has been restored.');
-      this.networkAlertShown = false;
+  private async handleNetworkChange(status: NetworkStatus) {
+    // Only proceed if notification should be shown
+    if (!this.shouldShowNotification(status)) {
+      this.previousStatus = { ...status };
+      return;
     }
+    
+    // If status says connected, verify actual connectivity before showing errors
+    if (status.connected) {
+      // Verify actual API connectivity
+      const actuallyConnected = await this.verifyActualConnectivity();
+      
+      if (!actuallyConnected && !this.networkAlertShown) {
+        // Network status says connected but API is unreachable
+        this.showNetworkAlert('Connection Issue', 'Unable to reach server. Please check your connection.');
+        this.networkAlertShown = true;
+        this.lastNotificationTime = Date.now();
+        this.previousStatus = { ...status };
+        return;
+      }
+      
+      // If actually connected and was previously disconnected, show restored message
+      if (actuallyConnected && this.networkAlertShown && this.previousStatus && !this.previousStatus.connected) {
+        this.showNetworkAlert('Connection Restored', 'Your internet connection has been restored.');
+        this.networkAlertShown = false;
+        this.lastNotificationTime = Date.now();
+        this.previousStatus = { ...status };
+        return;
+      }
+      
+      // If connected and quality is poor, show warning (but only once per cooldown)
+      if (status.connectionQuality === 'poor' && (!this.previousStatus || this.previousStatus.connectionQuality !== 'poor')) {
+        this.showNetworkAlert('Poor Connection', 'Your internet connection is weak. Some features may not work properly.');
+        this.lastNotificationTime = Date.now();
+        this.previousStatus = { ...status };
+        return;
+      }
+      
+      // If connected and quality is good, update status without notification
+      this.previousStatus = { ...status };
+      if (this.networkAlertShown && status.connectionQuality === 'good') {
+        this.networkAlertShown = false;
+      }
+      return;
+    }
+    
+    // Status says not connected
+    if (!status.connected && !this.networkAlertShown) {
+      // Double-check with actual connectivity verification
+      const actuallyConnected = await this.verifyActualConnectivity();
+      
+      if (!actuallyConnected) {
+        this.showNetworkAlert('No Internet Connection', 'Please check your connection and try again.');
+        this.networkAlertShown = true;
+        this.lastNotificationTime = Date.now();
+      }
+    }
+    
+    this.previousStatus = { ...status };
   }
 
   private showNetworkAlert(title: string, message: string) {

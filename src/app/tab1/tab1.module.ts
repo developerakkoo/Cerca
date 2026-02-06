@@ -9,6 +9,8 @@ import { ExploreContainerComponentModule } from '../explore-container/explore-co
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { SharedModule } from '../module/shared/shared.module';
+import { HomeNewPageModule } from '../pages/home-new/home-new.module';
+
 @NgModule({
   imports: [
     IonicModule,
@@ -17,7 +19,8 @@ import { SharedModule } from '../module/shared/shared.module';
     TranslateModule,
     ExploreContainerComponentModule,
     Tab1PageRoutingModule,
-    SharedModule
+    SharedModule,
+    HomeNewPageModule
   ],
   declarations: [Tab1Page],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]

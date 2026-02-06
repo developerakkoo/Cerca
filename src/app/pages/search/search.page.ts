@@ -3,8 +3,10 @@ import {
   OnInit,
   OnDestroy,
   NgZone,
+  Input,
+  Optional,
 } from '@angular/core';
-import { ModalController, NavParams, ToastController } from '@ionic/angular';
+import { ModalController, ToastController } from '@ionic/angular';
 import { GeocodingService } from 'src/app/services/geocoding.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
@@ -37,9 +39,14 @@ export interface SearchModalResult {
   standalone: false,
 })
 export class SearchPage implements OnInit, OnDestroy {
-  pickup: string = '';
-  destination: string = '';
-  isPickup: 'true' | 'false' | undefined;
+  // Input properties for modal mode (when opened as modal)
+  @Input() @Optional() pickup: string = '';
+  @Input() @Optional() destination: string = '';
+  @Input() @Optional() isPickup: 'true' | 'false' | undefined;
+  @Input() @Optional() addressMode: 'add' | 'edit' | null = null;
+  @Input() @Optional() addressId: string | null = null;
+  @Input() @Optional() returnTo: string | null = null;
+
   searchQuery: string = '';
   selectedAddress: string = '';
   selectedAddressDetails: any = '';
@@ -53,10 +60,6 @@ export class SearchPage implements OnInit, OnDestroy {
   private searchQuerySubject = new Subject<string>();
   private searchSubscription?: Subscription;
 
-  // Address management properties
-  addressMode: 'add' | 'edit' | null = null;
-  addressId: string | null = null;
-  returnTo: string | null = null;
   currentUserId: string = '';
 
   // Modal mode flag
@@ -65,7 +68,6 @@ export class SearchPage implements OnInit, OnDestroy {
   constructor(
     private geocodingService: GeocodingService,
     private modalController: ModalController,
-    private navParams: NavParams,
     private route: ActivatedRoute,
     private router: Router,
     private userService: UserService,
@@ -77,28 +79,23 @@ export class SearchPage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
-    // Check if opened as modal or via router
-    // When opened as modal, NavParams will have the componentProps
+    // Check if opened as modal (has @Input values) or via router
+    // When opened as modal, @Input properties are set by Ionic
     // When opened via router, ActivatedRoute will have queryParams
-    const pickupFromNav = this.navParams?.get('pickup');
-    const destinationFromNav = this.navParams?.get('destination');
-    const isPickupFromNav = this.navParams?.get('isPickup');
     
-    if (pickupFromNav !== undefined || destinationFromNav !== undefined || isPickupFromNav !== undefined) {
-      // Opened as modal
+    // Check if we have input values (modal mode)
+    if (this.pickup !== undefined || this.destination !== undefined || this.isPickup !== undefined) {
+      // Opened as modal - @Input properties are already set
       this.isModalMode = true;
-      this.pickup = pickupFromNav || '';
-      this.destination = destinationFromNav || '';
-      this.isPickup = (isPickupFromNav === 'true' || isPickupFromNav === 'false') ? isPickupFromNav : undefined;
       
       // Set initial selected address based on which input we're editing
       if (this.isPickup === 'true') {
-        this.selectedAddress = this.pickup;
+        this.selectedAddress = this.pickup || '';
       } else if (this.isPickup === 'false') {
-        this.selectedAddress = this.destination;
+        this.selectedAddress = this.destination || '';
       }
     } else {
-      // Opened via router (address management mode)
+      // Opened via router (address management mode or normal flow)
       this.isModalMode = false;
       this.route.queryParams.subscribe((params) => {
         // Check if we're in address management mode
@@ -219,7 +216,7 @@ export class SearchPage implements OnInit, OnDestroy {
       if (placeDetails) {
         const location = placeDetails.geometry.location;
         
-        // Update selected address and location (no map updates needed)
+        // Update selected address and location
         this.zone.run(() => {
           this.selectedAddress = placeDetails.formatted_address;
           this.selectedLocation = { lat: location.lat, lng: location.lng };
@@ -228,33 +225,58 @@ export class SearchPage implements OnInit, OnDestroy {
 
         // Hide suggestions
         this.clearSuggestions();
+
+        // Navigate to pin-location page instead of auto-confirming
+        await this.navigateToPinLocation();
       }
     } catch (error) {
       console.error('Error getting place details:', error);
       await this.presentToast('Error loading place details');
-    } finally {
       this.zone.run(() => {
         this.isLoadingSuggestions = false;
       });
     }
   }
 
-  clearSuggestions() {
-    this.zone.run(() => {
-      this.placeSuggestions = [];
-      this.showSuggestions = false;
-      this.isLoadingSuggestions = false;
-    });
-  }
-
-  async confirmLocation() {
-    if (!this.selectedAddress) {
-      await this.presentToast('Please select a location');
+  /**
+   * Navigate to pin-location page with selected location data
+   */
+  private async navigateToPinLocation() {
+    if (!this.selectedLocation?.lat || !this.selectedLocation?.lng) {
       return;
     }
 
-    // Hide suggestions before confirming
-    this.clearSuggestions();
+    // If opened as modal, dismiss first then navigate
+    if (this.isModalMode) {
+      await this.modalController.dismiss();
+    }
+
+    // Navigate to pin-location page with query params
+    this.router.navigate(['/pin-location'], {
+      queryParams: {
+        address: this.selectedAddress,
+        lat: this.selectedLocation.lat,
+        lng: this.selectedLocation.lng,
+        isPickup: this.isPickup,
+        addressMode: this.addressMode || '',
+        addressId: this.addressId || '',
+        returnTo: this.returnTo || '',
+        modalMode: this.isModalMode ? 'true' : 'false',
+      },
+    });
+  }
+
+  /**
+   * Execute confirmation logic (extracted from confirmLocation for reuse)
+   */
+  private async executeConfirmation() {
+    if (!this.selectedAddress) {
+      await this.presentToast('Please select a location');
+      this.zone.run(() => {
+        this.isLoadingSuggestions = false;
+      });
+      return;
+    }
 
     // Address management mode - use router
     if (this.addressMode) {
@@ -293,7 +315,7 @@ export class SearchPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Geocode address if location not set
+    // Geocode address if location not set (shouldn't happen with place details, but safety check)
     if (!this.selectedLocation?.lat || !this.selectedLocation?.lng) {
       try {
         const location = await this.geocodingService.getLatLngFromAddress(
@@ -303,11 +325,17 @@ export class SearchPage implements OnInit, OnDestroy {
           this.selectedLocation = { lat: location.lat, lng: location.lng };
         } else {
           await this.presentToast('Error getting location coordinates');
+          this.zone.run(() => {
+            this.isLoadingSuggestions = false;
+          });
           return;
         }
       } catch (error) {
         console.error('Error geocoding address:', error);
         await this.presentToast('Error getting location coordinates');
+        this.zone.run(() => {
+          this.isLoadingSuggestions = false;
+        });
         return;
       }
     }
@@ -333,6 +361,20 @@ export class SearchPage implements OnInit, OnDestroy {
     }
 
     this.router.navigate(['/tabs/tabs/tab1']);
+  }
+
+  clearSuggestions() {
+    this.zone.run(() => {
+      this.placeSuggestions = [];
+      this.showSuggestions = false;
+      this.isLoadingSuggestions = false;
+    });
+  }
+
+  async confirmLocation() {
+    // This method is kept for backward compatibility but now delegates to executeConfirmation
+    // It may still be called from address management mode or other edge cases
+    await this.executeConfirmation();
   }
 
   async dismissModal() {

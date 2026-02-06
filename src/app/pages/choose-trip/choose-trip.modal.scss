@@ -1,0 +1,326 @@
+// Choose Trip Modal - Uber-style Bottom Sheet
+// Smooth scroll-driven expansion/collapse with drag support
+
+.choose-trip-modal {
+  --border-radius: 24px 24px 0 0;
+  --backdrop-opacity: 0.4;
+  --box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  
+  // Smooth transitions
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  // Prevent content overflow
+  overflow: hidden;
+}
+
+// Grab Handle
+.modal-handle {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0 8px;
+  background: white;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  
+  &:active {
+    cursor: grabbing;
+  }
+
+  .handle-bar {
+    width: 40px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    transition: background 0.2s ease;
+  }
+
+  &:active .handle-bar {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+// Sticky Header
+.modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  background: white;
+  padding: 0 20px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 8px;
+
+  .header-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.87);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+}
+
+// Scrollable Content
+.modal-content {
+  --background: white;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  
+  // Smooth momentum scrolling
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  
+  // Performance optimizations
+  will-change: scroll-position;
+  transform: translateZ(0);
+}
+
+// Loading State
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: rgba(0, 0, 0, 0.6);
+
+  p {
+    margin-top: 16px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+}
+
+// Ride Options List
+.ride-options-list {
+  padding: 0 20px 20px;
+  
+  ion-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+// Ride Option Card (Uber-style full-width, short height)
+.ride-option {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  border: 2px solid rgba(var(--ion-color-medium-rgb), 0.1);
+  width: 100%;
+  min-height: 80px;
+  height: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  will-change: transform, border-color, background, box-shadow;
+  animation: fadeInStagger 0.3s ease-out forwards;
+
+  &:nth-child(1) {
+    animation-delay: 0.05s;
+  }
+  &:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+  &:nth-child(3) {
+    animation-delay: 0.15s;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &.selected {
+    border-color: var(--ion-color-primary);
+    border-width: 2px;
+    background: rgba(var(--ion-color-primary-rgb), 0.04);
+    box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb), 0.15);
+  }
+
+  .vehicle-image-wrapper {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(var(--ion-color-light-rgb), 0.5);
+    border-radius: 8px;
+    padding: 8px;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: transform 0.2s ease;
+    }
+  }
+
+  .ride-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+
+    .ride-name {
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.87);
+      font-size: 16px;
+      letter-spacing: 0.15px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .ride-eta {
+      font-size: 14px;
+      color: rgba(0, 0, 0, 0.6);
+      font-weight: 400;
+      margin: 0;
+      line-height: 1.43;
+    }
+  }
+
+  .ride-price-radio {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    flex-shrink: 0;
+
+    .ride-price {
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.87);
+      font-size: 18px;
+      letter-spacing: 0.15px;
+      line-height: 1.33;
+      margin: 0;
+    }
+
+    .ride-radio {
+      --color: var(--ion-color-medium);
+      --color-checked: var(--ion-color-primary);
+      width: 24px;
+      height: 24px;
+      margin: 0;
+    }
+  }
+}
+
+// Footer (Only visible when expanded)
+.modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  background: white;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  animation: slideUpFade 0.3s ease-out;
+
+  .confirm-button {
+    --border-radius: 12px;
+    height: 56px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    --box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+    --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
+    --background-activated: var(--ion-color-primary-shade);
+    transition: all 0.2s ease;
+    margin: 0;
+    text-transform: none;
+
+    &:not([disabled]):active {
+      transform: scale(0.98);
+      --box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb), 0.2);
+    }
+
+    &[disabled] {
+      --background: rgba(var(--ion-color-medium-rgb), 0.2);
+      --box-shadow: none;
+      opacity: 0.6;
+      color: var(--ion-color-medium);
+    }
+  }
+}
+
+// Animations
+@keyframes fadeInStagger {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 360px) {
+  .ride-option {
+    padding: 12px;
+    min-height: 72px;
+
+    .vehicle-image-wrapper {
+      width: 56px;
+      height: 56px;
+      min-width: 56px;
+    }
+
+    .ride-info {
+      .ride-name {
+        font-size: 15px;
+      }
+    }
+
+    .ride-price-radio {
+      .ride-price {
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+// Performance optimizations
+.ride-option,
+.modal-handle,
+.modal-header,
+.modal-footer {
+  // GPU acceleration
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+

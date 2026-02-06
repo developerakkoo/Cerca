@@ -1,0 +1,83 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tab5"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Support</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="refreshIssues()">
+        <ion-icon name="refresh-outline"></ion-icon>
+      </ion-button>
+      <ion-button (click)="createNewIssue()">
+        <ion-icon name="add-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <!-- Filter Segment -->
+  <ion-segment [(ngModel)]="selectedFilter" (ionChange)="onFilterChange($event)" class="filter-segment">
+    <ion-segment-button value="all">
+      <ion-label>All</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="active">
+      <ion-label>Active</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="resolved">
+      <ion-label>Resolved</ion-label>
+    </ion-segment-button>
+  </ion-segment>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner></ion-spinner>
+    <p>Loading support issues...</p>
+  </div>
+
+  <!-- Issues List -->
+  <div *ngIf="!isLoading && filteredIssues.length > 0" class="issues-list">
+    <ion-card *ngFor="let issue of filteredIssues" (click)="openIssue(issue)" class="issue-card">
+      <ion-card-header>
+        <div class="issue-header">
+          <div class="issue-info">
+            <ion-icon [name]="getIssueTypeIcon(issue.issueType)" class="issue-icon"></ion-icon>
+            <div>
+              <h3>{{ issue.issueType }}</h3>
+              <p class="issue-id">ID: {{ issue._id }}</p>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <ion-badge *ngIf="getUnreadCount(issue._id) > 0" color="danger" style="font-size: 12px;">
+              {{ getUnreadCount(issue._id) }}
+            </ion-badge>
+            <ion-badge [color]="getStatusColor(issue.status)">
+              {{ getStatusText(issue.status) }}
+            </ion-badge>
+          </div>
+        </div>
+      </ion-card-header>
+      <ion-card-content>
+        <div class="issue-meta">
+          <p><ion-icon name="time-outline"></ion-icon> {{ issue.createdAt | date:'short' }}</p>
+          <p *ngIf="issue.resolvedAt">
+            <ion-icon name="checkmark-circle-outline"></ion-icon> Resolved: {{ issue.resolvedAt | date:'short' }}
+          </p>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredIssues.length === 0" class="empty-state">
+    <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+    <h2>No Support Issues</h2>
+    <p *ngIf="selectedFilter === 'all'">You don't have any support issues yet.</p>
+    <p *ngIf="selectedFilter === 'active'">You don't have any active support issues.</p>
+    <p *ngIf="selectedFilter === 'resolved'">You don't have any resolved issues.</p>
+    <ion-button *ngIf="selectedFilter === 'all'" (click)="createNewIssue()" color="primary">
+      <ion-icon name="add-outline" slot="start"></ion-icon>
+      Create Support Request
+    </ion-button>
+  </div>
+</ion-content>

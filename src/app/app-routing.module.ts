@@ -11,6 +11,10 @@ const routes: Routes = [
     loadChildren: () => import('./pages/search/search.module').then( m => m.SearchPageModule)
   },
   {
+    path: 'pin-location',
+    loadChildren: () => import('./pages/pin-location/pin-location.module').then( m => m.PinLocationPageModule)
+  },
+  {
     path: 'gift',
     loadChildren: () => import('./pages/gift/gift.module').then( m => m.GiftPageModule)
   },
@@ -83,6 +87,10 @@ const routes: Routes = [
     loadChildren: () => import('./pages/blocked/blocked.module').then( m => m.BlockedPageModule)
   },
   {
+    path: 'shared-ride',
+    loadChildren: () => import('./pages/shared-ride/shared-ride.module').then( m => m.SharedRidePageModule)
+  },
+  {
     path: 'faq',
     loadChildren: () => import('./pages/faq/faq.module').then( m => m.FAQPageModule)
   },
@@ -93,6 +101,30 @@ const routes: Routes = [
   {
     path: 'force-update',
     loadChildren: () => import('./pages/force-update/force-update.module').then( m => m.ForceUpdatePageModule)
+  },
+  {
+    path: 'support-list',
+    loadChildren: () => import('./pages/support-list/support-list.module').then( m => m.SupportListPageModule)
+  },
+  {
+    path: 'support-chat/:issueId',
+    loadChildren: () => import('./pages/support-chat/support-chat.module').then( m => m.SupportChatPageModule)
+  },
+  {
+    path: 'support-feedback/:issueId',
+    loadChildren: () => import('./pages/support-feedback/support-feedback.module').then( m => m.SupportFeedbackPageModule)
+  },
+  {
+    path: 'support-list',
+    loadChildren: () => import('./pages/support-list/support-list.module').then( m => m.SupportListPageModule)
+  },
+  {
+    path: 'support-chat',
+    loadChildren: () => import('./pages/support-chat/support-chat.module').then( m => m.SupportChatPageModule)
+  },
+  {
+    path: 'support-feedback',
+    loadChildren: () => import('./pages/support-feedback/support-feedback.module').then( m => m.SupportFeedbackPageModule)
   },
 
 ];

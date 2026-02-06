@@ -3,6 +3,8 @@
   display: block;
   height: 100%;
   background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%) !important;
+  position: relative;
+  overflow: hidden;
 
   ion-content {
     --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%) !important;
@@ -12,34 +14,86 @@
 .login-content {
   --background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%) !important;
   background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%) !important;
+  position: relative;
+  z-index: 1;
+}
+
+// Background Pattern Overlay
+.background-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(var(--ion-color-primary-contrast-rgb), 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(var(--ion-color-primary-contrast-rgb), 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+  animation: patternMove 20s ease-in-out infinite;
+}
+
+@keyframes patternMove {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-10px, -10px);
+  }
 }
 
 .login-container {
-  padding: 32px;
+  padding: var(--spacing-xl);
   height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 32px;
+  gap: var(--spacing-xl);
+  position: relative;
+  z-index: 1;
+}
+
+// Logo Section
+.logo-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+  animation: fadeInScale 0.8s var(--transition-bounce) backwards;
+  animation-delay: 0.1s;
+
+  .logo-image {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+    will-change: transform;
+  }
 }
 
 // Header Section
 .header-section {
   text-align: left;
-  animation: fadeInDown 0.8s ease-out;
+  animation: fadeInDown 0.8s var(--transition-base) backwards;
+  animation-delay: 0.2s;
+  will-change: transform, opacity;
 
   .title {
     font-size: 2.8rem;
     font-weight: 700;
     color: var(--ion-color-primary-contrast);
     margin: 0;
-    margin-bottom: 8px;
+    margin-bottom: var(--spacing-sm);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
   .subtitle {
     font-size: 1rem;
-    color: rgba(var(--ion-color-primary-contrast-rgb), 0.8);
+    color: rgba(var(--ion-color-primary-contrast-rgb), 0.85);
     margin: 0;
+    line-height: 1.5;
+    font-weight: 400;
   }
 }
 
@@ -115,29 +169,68 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  border: 2px solid rgba(var(--ion-color-primary-contrast-rgb), 0.2);
-  background: transparent;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  min-height: 56px;
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(var(--ion-color-primary-contrast-rgb), 0.25);
+  background: rgba(var(--ion-color-primary-contrast-rgb), 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--ion-color-primary-contrast);
   font-size: 1rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all var(--transition-base);
   cursor: pointer;
-  animation: fadeInUp 0.8s ease-out 0.6s backwards;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 0.8s var(--transition-base) backwards;
+  animation-delay: 0.4s;
+  box-shadow: var(--shadow-medium);
+  position: relative;
+  overflow: hidden;
+  will-change: transform, box-shadow, background;
 
-  ion-icon {
-    font-size: 20px;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(var(--ion-color-secondary-rgb), 0.2),
+      transparent
+    );
+    transition: left 0.5s ease;
+  }
+
+  .button-icon {
+    font-size: 24px;
+    transition: transform var(--transition-base);
+    will-change: transform;
+  }
+
+  &:hover,
+  &:focus {
+    background: rgba(var(--ion-color-primary-contrast-rgb), 0.15);
+    border-color: rgba(var(--ion-color-primary-contrast-rgb), 0.35);
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-2px);
+
+    &::before {
+      left: 100%;
+    }
+
+    .button-icon {
+      transform: scale(1.1) rotate(5deg);
+    }
   }
 
   &:active {
-    transform: scale(0.98);
-  }
-
-  &:hover {
-    background: rgba(var(--ion-color-primary-contrast-rgb), 0.1);
+    transform: translateY(0) scale(0.98);
+    box-shadow: var(--shadow-subtle);
   }
 }
 
@@ -164,7 +257,7 @@
 @keyframes fadeInDown {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-24px);
   }
   to {
     opacity: 1;
@@ -175,7 +268,7 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(24px);
   }
   to {
     opacity: 1;
@@ -189,5 +282,16 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }

@@ -3,6 +3,83 @@
   height: 100%;
   width: 100%;
 }
+
+// Fix header above modal - modal covers entire screen (z-index: 20005)
+// Header must be fixed with z-index higher than modal
+ion-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 99999 !important; // Must be higher than modal's 20005
+  pointer-events: none !important; // Allow clicks to pass through container
+  
+  ion-toolbar {
+    position: relative !important;
+    z-index: 100000 !important;
+    pointer-events: auto !important; // Re-enable on toolbar
+    background: var(--ion-background-color, #fff) !important; // Ensure visible
+    
+    ion-button {
+      position: relative !important;
+      pointer-events: auto !important;
+      z-index: 100001 !important;
+      cursor: pointer !important;
+      opacity: 1 !important;
+      touch-action: manipulation !important;
+      
+      &.share-button {
+        --opacity: 1 !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        
+        &:not([disabled]) {
+          pointer-events: auto !important;
+          cursor: pointer !important;
+          opacity: 1 !important;
+        }
+        
+        ion-icon {
+          pointer-events: none !important;
+        }
+      }
+      
+      &[disabled] {
+        opacity: 0.5 !important;
+        pointer-events: none !important;
+      }
+    }
+    
+    ion-buttons {
+      pointer-events: auto !important;
+    }
+  }
+}
+
+// Exclude header area from modal's pointer-events coverage
+// Modal wrapper covers entire screen (z-index: 20005)
+// We'll use JavaScript to modify modal's pointer-events, but also add CSS fallback
+ion-modal {
+  // Modal content should start below header
+  &::part(content) {
+    margin-top: 56px !important; // Standard header height
+    top: 56px !important; // Push content down
+  }
+}
+
+// Add a CSS overlay that sits above modal in header area to allow clicks through
+// This creates a "window" for the header
+ion-modal::after {
+  content: '' !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 56px !important; // Header height
+  z-index: 99998 !important; // Between modal (20005) and header (99999)
+  pointer-events: none !important; // Allow clicks to pass through to header
+  background: transparent !important;
+}
 capacitor-google-map {
     display: inline-block;
     width: 100%;
@@ -10,6 +87,9 @@ capacitor-google-map {
   }
 ion-content{
     --background: transparent;
+    // Add padding-top to account for fixed header
+    --padding-top: 56px;
+    padding-top: 56px !important;
 }
 .map-container {
   width: 100%;

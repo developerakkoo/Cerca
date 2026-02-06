@@ -8,13 +8,64 @@
   overflow: hidden;
 }
 
+// Animated Background
+.animated-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    var(--ion-color-light) 0%,
+    rgba(var(--ion-color-primary-rgb), 0.05) 50%,
+    var(--ion-color-light) 100%
+  );
+  background-size: 200% 200%;
+  animation: gradientShift 8s ease infinite;
+  z-index: 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(var(--ion-color-primary-rgb), 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(var(--ion-color-secondary-rgb), 0.06) 0%, transparent 50%);
+    animation: patternFloat 12s ease-in-out infinite;
+  }
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes patternFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-20px, -20px) scale(1.1);
+  }
+}
+
 .splash-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 24px;
+  gap: var(--spacing-lg);
+  position: relative;
+  z-index: 1;
 }
 
 // Logo Container
@@ -22,38 +73,71 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  animation: fadeIn 1s ease-out;
+  animation: fadeIn 0.8s var(--transition-base) backwards;
+  will-change: transform, opacity;
+}
+
+.logo-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logo {
   width: 140px;
   height: 140px;
   object-fit: contain;
-  animation: scaleIn 1.2s ease-out;
+  animation: scaleInBounce 1.2s var(--transition-bounce) backwards;
+  filter: drop-shadow(0 8px 24px rgba(var(--ion-color-primary-rgb), 0.2));
+  will-change: transform;
+  position: relative;
+  z-index: 1;
+}
+
+.logo-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(
+    circle,
+    rgba(var(--ion-color-primary-rgb), 0.15) 0%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  animation: glowPulse 2s ease-in-out infinite;
+  z-index: 0;
 }
 
 .logo-text {
-  margin-top: 16px;
-  font-size: 32px;
+  margin-top: var(--spacing-md);
+  font-size: 36px;
   font-weight: 700;
   color: var(--ion-color-primary);
-  letter-spacing: 2px;
-  animation: fadeIn 1s ease-out 0.3s both;
+  letter-spacing: 3px;
+  animation: fadeInUp 1s var(--transition-base) 0.4s backwards;
+  will-change: transform, opacity;
 }
 
 // Made in India Text
 .made-in-india {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   font-size: 16px;
   color: var(--ion-color-medium);
-  animation: fadeIn 1s ease-out 0.6s both;
+  font-weight: 500;
+  animation: fadeInUp 1s var(--transition-base) 0.6s backwards;
+  will-change: transform, opacity;
 
   .heart-icon {
-    color: #ff3b30;
-    font-size: 20px;
+    color: var(--ion-color-secondary);
+    font-size: 22px;
     animation: heartBeat 1.5s ease-in-out infinite;
+    will-change: transform;
   }
 }
 
@@ -67,14 +151,42 @@
   }
 }
 
-@keyframes scaleIn {
-  0% {
-    transform: scale(0.8);
+@keyframes fadeInUp {
+  from {
     opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleInBounce {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  80% {
+    transform: scale(0.95);
   }
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.1);
   }
 }
 
@@ -118,15 +230,17 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--ion-color-primary);
+  background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-primary-shade) 100%);
   opacity: 0;
   transform: scale(0);
   transform-origin: center;
-  transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+  transition: transform var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity var(--transition-slow) ease-out;
   z-index: 1000;
+  will-change: transform, opacity;
 
   &.active {
     opacity: 1;
-    transform: scale(2);
+    transform: scale(2.5);
   }
 }

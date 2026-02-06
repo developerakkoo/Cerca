@@ -90,6 +90,34 @@
 	--ion-color-dark-shade: #292929;
 	--ion-color-dark-tint: #444444;
 
+	// Custom spacing scale
+	--spacing-xs: 4px;
+	--spacing-sm: 8px;
+	--spacing-md: 16px;
+	--spacing-lg: 24px;
+	--spacing-xl: 32px;
+	--spacing-2xl: 48px;
+
+	// Shadow system
+	--shadow-subtle: 0 2px 4px rgba(0, 0, 0, 0.05);
+	--shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.08);
+	--shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.12);
+	--shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+	--shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.06);
+
+	// Transition timing
+	--transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-bounce: 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+	// Border radius scale
+	--radius-sm: 8px;
+	--radius-md: 12px;
+	--radius-lg: 16px;
+	--radius-xl: 20px;
+	--radius-full: 9999px;
+
 }
 
 /* Dark Theme Overrides */

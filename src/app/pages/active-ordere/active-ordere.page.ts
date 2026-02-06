@@ -19,6 +19,7 @@ import {
 } from 'src/app/services/ride.service';
 import { AlertController, Platform, ModalController, ToastController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
+import { RideShareService } from 'src/app/services/ride-share.service';
 
 @Component({
   selector: 'app-active-ordere',
@@ -29,11 +30,14 @@ import { HttpClient } from '@angular/common/http';
 export class ActiveOrderePage implements OnInit, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef;
   private map!: GoogleMap;
+  private modalElement: HTMLElement | null = null;
   private driverMarkerId!: string;
   private userMarkerId!: string;
   private destinationMarkerId!: string;
   private routeLineId!: string;
   private routePolylines: string[] = []; // Store multiple polyline IDs
+  private modalObserver?: MutationObserver;
+  private modalCheckInterval?: any;
 
   // Socket.IO subscriptions
   private rideSubscription?: Subscription;
@@ -73,6 +77,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   statusText = 'Preparing...';
   isDriverModalOpen = true;
   unreadMessageCount: number = 0;
+  isSharing: boolean = false;
 
   // Rating properties
   showRating = false;
@@ -96,7 +101,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     private platform: Platform,
     private modalController: ModalController,
     private ngZone: NgZone,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private rideShareService: RideShareService
   ) {}
 
   async ngOnInit() {
@@ -143,6 +149,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     
     // Set up Android back button handler
     this.setupBackButtonHandler();
+    
+    // Setup modal pointer-events fix for header clickability
+    this.setupModalPointerEventsFix();
     
     // Get ride ID from route params (if navigated with params)
     const rideId = this.route.snapshot.paramMap.get('rideId');
@@ -405,6 +414,20 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.rateUsTimeout = undefined;
     }
 
+    // Cleanup modal observer and interval
+    if (this.modalObserver) {
+      this.modalObserver.disconnect();
+    }
+    if (this.modalCheckInterval) {
+      clearInterval(this.modalCheckInterval);
+    }
+    
+    // Remove overlay if it exists
+    const overlay = document.getElementById('header-click-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
+
     // Destroy map
     if (this.map) {
       this.map.destroy();
@@ -423,7 +446,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       console.log('🔍 Fetching ride details via API for ride:', rideId);
 
       const response = await this.http
-        .get(`${environment.apiUrl}/rides/rides/${rideId}`)
+        .get(`${environment.apiUrl}/rides/${rideId}`)
         .toPromise();
 
       console.log('📦 ========================================');
@@ -1227,5 +1250,309 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     });
 
     await alert.present();
+  }
+
+  async shareRide(event?: Event) {
+    console.log('🔗 Share button clicked', event?.target);
+    // Prevent event bubbling
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    console.log('🔗 Share button clicked', {
+      currentRide: this.currentRide?._id,
+      isSharing: this.isSharing,
+      currentRideStatus: this.currentRideStatus,
+      hasRide: !!this.currentRide
+    });
+
+    // Check if ride exists and is not completed/cancelled
+    if (!this.currentRide) {
+      console.warn('⚠️ No current ride available');
+      const toast = await this.toastController.create({
+        message: 'No active ride to share',
+        duration: 2000,
+        color: 'warning',
+        position: 'top',
+      });
+      await toast.present();
+      return;
+    }
+
+    // Check if ride is completed or cancelled
+    if (this.currentRideStatus === 'completed' || this.currentRideStatus === 'cancelled') {
+      console.warn('⚠️ Cannot share completed or cancelled ride');
+      const toast = await this.toastController.create({
+        message: 'Cannot share a completed or cancelled ride',
+        duration: 2000,
+        color: 'warning',
+        position: 'top',
+      });
+      await toast.present();
+      return;
+    }
+
+    // Prevent multiple simultaneous share attempts
+    if (this.isSharing) {
+      console.log('⏳ Already sharing, ignoring click');
+      return;
+    }
+
+    try {
+      this.isSharing = true;
+      console.log('📤 Generating share link for ride:', this.currentRide._id);
+      
+      const shareUrl = await this.rideShareService.generateShareLink(this.currentRide._id);
+      console.log('✅ Share URL generated:', shareUrl);
+      
+      // Show share modal with URL and options
+      await this.showShareModal(shareUrl);
+    } catch (error: any) {
+      console.error('❌ Error sharing ride:', error);
+      const errorMessage = error?.error?.message || error?.message || 'Failed to generate share link. Please try again.';
+      const toast = await this.toastController.create({
+        message: errorMessage,
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+      await toast.present();
+    } finally {
+      this.isSharing = false;
+      console.log('✅ Share process completed, isSharing reset to false');
+    }
+  }
+
+  /**
+   * Show share modal with URL and copy/share options
+   */
+  private async showShareModal(shareUrl: string) {
+    const alert = await this.alertCtrl.create({
+      header: '🔗 Share Ride Link',
+      message: 'Share this link to let others track your ride in real-time',
+      cssClass: 'share-ride-alert',
+      backdropDismiss: true,
+      inputs: [
+        {
+          name: 'shareUrl',
+          type: 'textarea',
+          value: shareUrl,
+          attributes: {
+            readonly: true,
+            rows: 3,
+            maxlength: 500
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Copy Link',
+          cssClass: 'share-alert-button-copy',
+          handler: async () => {
+            await this.copyShareUrl(shareUrl);
+            return false; // Keep alert open
+          }
+        },
+        {
+          text: 'Share',
+          cssClass: 'share-alert-button-share',
+          handler: async () => {
+            await this.openNativeShare(shareUrl);
+            return false; // Keep alert open
+          }
+        },
+        {
+          text: 'Close',
+          role: 'cancel',
+          cssClass: 'share-alert-button-close'
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Copy share URL to clipboard
+   */
+  private async copyShareUrl(shareUrl: string) {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      const toast = await this.toastController.create({
+        message: '✅ Link copied to clipboard!',
+        duration: 2000,
+        color: 'success',
+        position: 'top',
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('❌ Error copying to clipboard:', error);
+      // Fallback: try using execCommand
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const toast = await this.toastController.create({
+          message: '✅ Link copied to clipboard!',
+          duration: 2000,
+          color: 'success',
+          position: 'top',
+        });
+        await toast.present();
+      } catch (fallbackError) {
+        console.error('❌ Fallback copy also failed:', fallbackError);
+        const toast = await this.toastController.create({
+          message: 'Failed to copy link. Please copy manually.',
+          duration: 3000,
+          color: 'danger',
+          position: 'top',
+        });
+        await toast.present();
+      }
+    }
+  }
+
+  /**
+   * Open native share dialog
+   */
+  private async openNativeShare(shareUrl: string) {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Track My Ride',
+          text: 'Track my ride in real-time using this link:',
+          url: shareUrl
+        });
+      } else {
+        // No native share available, copy to clipboard instead
+        await this.copyShareUrl(shareUrl);
+        const toast = await this.toastController.create({
+          message: 'Native share not available. Link copied to clipboard!',
+          duration: 2000,
+          color: 'primary',
+          position: 'top',
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      // User cancelled share or error occurred
+      if (error.name !== 'AbortError') {
+        console.error('❌ Error sharing:', error);
+        const toast = await this.toastController.create({
+          message: 'Share cancelled or failed',
+          duration: 2000,
+          color: 'warning',
+          position: 'top',
+        });
+        await toast.present();
+      }
+    }
+  }
+
+  /**
+   * Fix modal pointer-events to allow header clicks
+   * Modal covers entire screen, so we need to exclude header area
+   */
+  setupModalPointerEventsFix() {
+    // Use MutationObserver to watch for modal element creation
+    this.modalObserver = new MutationObserver(() => {
+      const modal = document.querySelector('ion-modal.show-modal');
+      if (modal) {
+        this.fixModalPointerEvents(modal as HTMLElement);
+      }
+    });
+
+    // Start observing
+    this.modalObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Also check immediately and periodically
+    const checkModal = () => {
+      if (this.isDriverModalOpen) {
+        const modal = document.querySelector('ion-modal.show-modal');
+        if (modal) {
+          this.fixModalPointerEvents(modal as HTMLElement);
+        }
+      }
+    };
+
+    // Check immediately
+    setTimeout(checkModal, 100);
+
+    // Check periodically when modal might be open
+    this.modalCheckInterval = setInterval(checkModal, 500);
+  }
+
+  /**
+   * Fix modal's pointer-events to exclude header area
+   * The modal covers entire screen, so we create a "window" for the header
+   */
+  fixModalPointerEvents(modalElement: HTMLElement) {
+    if (!modalElement) return;
+
+    console.log('🔧 Fixing modal pointer-events for header area');
+
+    // Method 1: Use CSS clip-path to exclude header area from pointer-events
+    // This creates a "hole" in the modal's clickable area
+    try {
+      const modalId = modalElement.id || 'ion-overlay-4';
+      const styleId = 'modal-header-pointer-fix';
+      let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+      
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = styleId;
+        document.head.appendChild(styleEl);
+      }
+
+      // Use clip-path to exclude top 56px from modal's pointer-events
+      // This makes clicks pass through to the header
+      styleEl.textContent = `
+        ion-modal#${modalId}.show-modal {
+          clip-path: polygon(0 56px, 100% 56px, 100% 100%, 0 100%) !important;
+        }
+      `;
+    } catch (e) {
+      console.warn('Could not set clip-path via style element:', e);
+    }
+
+    // Method 2: Direct style manipulation as fallback
+    try {
+      (modalElement as any).style.clipPath = 'polygon(0 56px, 100% 56px, 100% 100%, 0 100%)';
+    } catch (e) {
+      console.warn('Could not set clip-path directly:', e);
+    }
+
+    // Method 3: Create a transparent overlay above modal in header area
+    // This sits between modal and header, allowing clicks to pass through
+    const overlayId = 'header-click-overlay';
+    let overlay = document.getElementById(overlayId) as HTMLElement;
+    
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = overlayId;
+      document.body.appendChild(overlay);
+    }
+
+    // Position overlay above modal but below header
+    overlay.style.cssText = `
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      height: 56px !important;
+      z-index: 99998 !important;
+      pointer-events: none !important;
+      background: transparent !important;
+    `;
   }
 }

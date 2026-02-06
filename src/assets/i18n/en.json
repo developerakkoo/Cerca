@@ -25,12 +25,14 @@
     "bookings": "Bookings",
     "wallet": "Wallet",
     "service": "Service",
-    "profile": "Profile"
+    "profile": "Profile",
+    "notifications": "Alerts"
   },
   "SETTINGS": {
     "title": "Account Settings",
     "items": {
       "Edit": "Edit Profile",
+      "Gifts": "My Gifts & Rewards",
       "Notifications": "Notifications",
       "Address": "Manage Address",
       "Language": "Language",

@@ -3,17 +3,24 @@ import {
   OnInit,
   OnDestroy,
   NgZone,
+  ViewChild,
+  ElementRef,
 } from '@angular/core';
 import { Geolocation } from '@capacitor/geolocation';
+import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { PermissionService } from '../services/permission.service';
 import { ToastController, ModalController, LoadingController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { GeocodingService } from '../services/geocoding.service';
 import { SettingsService, VehicleServices } from '../services/settings.service';
 import { RideService } from '../services/ride.service';
+import { FareService, FareBreakdown } from '../services/fare.service';
+import { MapService } from '../services/map.service';
 import { Subscription } from 'rxjs';
 import { Router } from '@angular/router';
 import { SearchPage, SearchModalResult } from '../pages/search/search.page';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-tab1',
@@ -22,6 +29,13 @@ import { SearchPage, SearchModalResult } from '../pages/search/search.page';
   standalone: false,
 })
 export class Tab1Page implements OnInit, OnDestroy {
+  @ViewChild('map') mapRef!: ElementRef;
+
+  // Map properties
+  map: GoogleMap | null = null;
+  isMapReady = false;
+  isMapInitializing = false;
+
   private currentLocation: { lat: number; lng: number } = { lat: 0, lng: 0 };
   isLocationFetched = false;
   isLoadingLocation = false;
@@ -32,6 +46,23 @@ export class Tab1Page implements OnInit, OnDestroy {
   selectedVehicle: string = 'small';
   vehicleServices: VehicleServices | null = null;
   isLoadingServices = false;
+  
+  // Fare calculation properties
+  calculatedFares: { cercaSmall?: FareBreakdown; cercaMedium?: FareBreakdown; cercaLarge?: FareBreakdown } = {};
+  isCalculatingFares = false;
+  fareCalculationError: string | null = null;
+  private fareCalculationTimeout: any = null;
+  
+  // ETA properties
+  vehicleETAs: { small?: string; medium?: string; large?: string } = {};
+  
+  // Route animation properties
+  routeAnimationInProgress = false;
+  basePolylineId: string | null = null;
+  animatedPolylineId: string | null = null;
+  pickupMarkerId: string | null = null;
+  destinationMarkerId: string | null = null;
+  private routeAnimationTimeout: any = null;
   
   // Subscriptions
   private pickupSubscription: Subscription | null = null;
@@ -45,6 +76,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private userService: UserService,
     private geocodingService: GeocodingService,
     private settingsService: SettingsService,
+    private fareService: FareService,
+    private mapService: MapService,
     private modalController: ModalController,
     private loadingCtrl: LoadingController,
     private router: Router
@@ -66,6 +99,18 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (this.vehicleServicesSubscription) {
       this.vehicleServicesSubscription.unsubscribe();
     }
+    // Clear fare calculation timeout
+    if (this.fareCalculationTimeout) {
+      clearTimeout(this.fareCalculationTimeout);
+    }
+    // Clear route animation timeout
+    if (this.routeAnimationTimeout) {
+      clearTimeout(this.routeAnimationTimeout);
+    }
+    // Cleanup route animation
+    this.cleanupRouteAnimation();
+    // Cleanup map
+    this.cleanupMap();
   }
 
   ionViewDidEnter() {
@@ -78,6 +123,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.pickupSubscription = this.userService.pickup$.subscribe((pickup) => {
       this.zone.run(() => {
         this.pickupAddress = pickup || '';
+        this.calculateFares();
       });
     });
 
@@ -85,6 +131,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.destinationSubscription = this.userService.destination$.subscribe((destination) => {
       this.zone.run(() => {
         this.destinationAddress = destination || '';
+        this.calculateFares();
       });
     });
   }
@@ -101,6 +148,10 @@ export class Tab1Page implements OnInit, OnDestroy {
           this.zone.run(() => {
             this.vehicleServices = services;
             this.isLoadingServices = false;
+            // Calculate ETAs when services are loaded and addresses are set
+            if (this.pickupAddress && this.destinationAddress) {
+              this.calculateVehicleETAs();
+            }
           });
         }
       );
@@ -112,6 +163,10 @@ export class Tab1Page implements OnInit, OnDestroy {
         this.zone.run(() => {
           this.vehicleServices = services;
           this.isLoadingServices = false;
+          // Calculate ETAs when services are loaded and addresses are set
+          if (this.pickupAddress && this.destinationAddress) {
+            this.calculateVehicleETAs();
+          }
         });
       },
       error: (error) => {
@@ -168,10 +223,14 @@ export class Tab1Page implements OnInit, OnDestroy {
           this.userService.setPickup(address);
           this.isLocationFetched = true;
           this.isLoadingLocation = false;
+          // Initialize map after location is fetched
+          this.initializeMap();
         });
       } catch (geocodeError) {
         console.error('Error geocoding address:', geocodeError);
         this.isLoadingLocation = false;
+        // Still try to initialize map even if geocoding fails
+        this.initializeMap();
       }
 
     } catch (error: any) {
@@ -216,6 +275,419 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   onVehicleSelect(event: any) {
     this.selectedVehicle = event.detail.value;
+    // Recalculate fares when vehicle changes (in case promo code applies differently)
+    this.calculateFares();
+  }
+
+  /**
+   * Initialize Google Maps
+   */
+  private async initializeMap() {
+    // Prevent multiple simultaneous initializations
+    if (this.isMapInitializing || this.isMapReady) {
+      return;
+    }
+
+    // Check if we have location
+    if (!this.currentLocation.lat || !this.currentLocation.lng) {
+      console.warn('Cannot initialize map: location not available');
+      return;
+    }
+
+    // Check if map element exists
+    if (!this.mapRef || !this.mapRef.nativeElement) {
+      console.warn('Map element not found, retrying...');
+      setTimeout(() => this.initializeMap(), 500);
+      return;
+    }
+
+    try {
+      this.isMapInitializing = true;
+
+      // Use ViewChild reference or fallback to getElementById
+      const mapElement = this.mapRef?.nativeElement || document.getElementById('tab1-map');
+      if (!mapElement) {
+        console.error('Map element not found');
+        this.isMapInitializing = false;
+        return;
+      }
+
+      // Create map
+      this.map = await GoogleMap.create({
+        id: 'tab1-map',
+        element: mapElement,
+        apiKey: environment.apiKey,
+        config: {
+          center: {
+            lat: this.currentLocation.lat,
+            lng: this.currentLocation.lng,
+          },
+          zoom: 18,
+          mapId: environment.mapId,
+          disableDefaultUI: true,
+          zoomControl: false,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        },
+      });
+
+      // Set map ready immediately
+      this.zone.run(() => {
+        this.isMapReady = true;
+        this.isMapInitializing = false;
+      });
+
+      // Defer other map operations
+      setTimeout(async () => {
+        try {
+          if (this.map) {
+            await this.map.setMapType(MapType.Normal);
+            await this.map.enableCurrentLocation(false);
+            await this.map.setCamera({
+              coordinate: {
+                lat: this.currentLocation.lat,
+                lng: this.currentLocation.lng,
+              },
+              zoom: 18,
+              animate: false,
+            });
+          }
+        } catch (error) {
+          console.warn('Map operations failed (non-critical):', error);
+        }
+      }, 500);
+
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      this.zone.run(() => {
+        this.isMapInitializing = false;
+        // Still set map ready to hide loading overlay
+        this.isMapReady = true;
+      });
+    }
+  }
+
+  /**
+   * Trigger route animation when both pickup and destination are selected
+   */
+  private async triggerRouteAnimation() {
+    // Clear existing timeout
+    if (this.routeAnimationTimeout) {
+      clearTimeout(this.routeAnimationTimeout);
+    }
+
+    // Check prerequisites
+    if (!this.pickupAddress || !this.destinationAddress || !this.map || !this.isMapReady) {
+      return;
+    }
+
+    // Check if Google Maps JavaScript API is loaded
+    if (typeof google === 'undefined' || !google.maps) {
+      console.warn('Google Maps JavaScript API not loaded, skipping route animation');
+      return;
+    }
+
+    // Debounce route animation (wait 300ms after addresses are set)
+    this.routeAnimationTimeout = setTimeout(async () => {
+      try {
+        // Get coordinates for both locations
+        const currentLocation = this.userService.getCurrentLocation();
+        
+        let pickupCoords: { lat: number; lng: number } | null = null;
+        let destCoords: { lat: number; lng: number } | null = null;
+
+        // Use current location as pickup if available
+        if (currentLocation && currentLocation.lat) {
+          pickupCoords = { lat: currentLocation.lat, lng: currentLocation.lng };
+        } else {
+          // Try to geocode pickup address
+          try {
+            const geocodedPickup = await this.geocodingService.getLatLngFromAddress(this.pickupAddress);
+            if (geocodedPickup) {
+              pickupCoords = { lat: geocodedPickup.lat, lng: geocodedPickup.lng };
+            }
+          } catch (error) {
+            console.error('Error geocoding pickup for route animation:', error);
+          }
+        }
+
+        // Geocode destination address
+        try {
+          const geocodedDest = await this.geocodingService.getLatLngFromAddress(this.destinationAddress);
+          if (geocodedDest) {
+            destCoords = { lat: geocodedDest.lat, lng: geocodedDest.lng };
+          }
+        } catch (error) {
+          console.error('Error geocoding destination for route animation:', error);
+        }
+
+        if (pickupCoords && destCoords && this.map) {
+          // Cleanup previous route and markers
+          await this.cleanupRouteAnimation();
+
+          // Set animation in progress
+          this.zone.run(() => {
+            this.routeAnimationInProgress = true;
+          });
+
+          // Fetch and animate route with markers
+          const result = await this.mapService.fetchAndAnimateRoute(
+            this.map,
+            pickupCoords,
+            destCoords,
+            {
+              addMarkers: true,
+              pickupAddress: this.pickupAddress,
+              destinationAddress: this.destinationAddress,
+            }
+          );
+
+          // Store polyline and marker IDs
+          this.basePolylineId = result.basePolylineId;
+          this.animatedPolylineId = result.animatedPolylineId;
+          this.pickupMarkerId = result.pickupMarkerId || null;
+          this.destinationMarkerId = result.destinationMarkerId || null;
+
+          // Animation complete
+          this.zone.run(() => {
+            this.routeAnimationInProgress = false;
+          });
+        }
+      } catch (error) {
+        console.error('Error animating route:', error);
+        this.zone.run(() => {
+          this.routeAnimationInProgress = false;
+        });
+        // Don't show error toast - route animation is a nice-to-have feature
+      }
+    }, 300);
+  }
+
+  /**
+   * Cleanup route animation and remove polylines and markers
+   */
+  private async cleanupRouteAnimation() {
+    try {
+      // Cancel any ongoing animations
+      if (this.map) {
+        await this.mapService.cancelAnimation(this.map);
+      }
+
+      // Remove polylines
+      const polylineIds: string[] = [];
+      if (this.basePolylineId) {
+        polylineIds.push(this.basePolylineId);
+      }
+      if (this.animatedPolylineId) {
+        polylineIds.push(this.animatedPolylineId);
+      }
+
+      if (polylineIds.length > 0 && this.map) {
+        await this.mapService.removeRoute(this.map, polylineIds);
+      }
+
+      // Remove markers
+      const markerIds: string[] = [];
+      if (this.pickupMarkerId) {
+        markerIds.push(this.pickupMarkerId);
+      }
+      if (this.destinationMarkerId) {
+        markerIds.push(this.destinationMarkerId);
+      }
+
+      if (markerIds.length > 0 && this.map) {
+        await this.mapService.removeMarkers(this.map, markerIds);
+      }
+
+      // Reset state
+      this.basePolylineId = null;
+      this.animatedPolylineId = null;
+      this.pickupMarkerId = null;
+      this.destinationMarkerId = null;
+      this.routeAnimationInProgress = false;
+    } catch (error) {
+      console.error('Error cleaning up route animation:', error);
+    }
+  }
+
+  /**
+   * Cleanup map instance
+   */
+  private async cleanupMap() {
+    // Cleanup route animation first
+    await this.cleanupRouteAnimation();
+
+    if (this.map) {
+      try {
+        await this.map.destroy();
+        this.map = null;
+        this.isMapReady = false;
+      } catch (error) {
+        console.error('Error cleaning up map:', error);
+      }
+    }
+  }
+
+  /**
+   * Calculate driver ETA based on vehicle type
+   * Returns estimated time in minutes as a string
+   */
+  calculateDriverETA(vehicleType: string): string {
+    // Base ETA ranges (can be enhanced with real driver data)
+    const etaRanges: { [key: string]: { min: number; max: number } } = {
+      small: { min: 2, max: 4 },
+      medium: { min: 3, max: 5 },
+      large: { min: 4, max: 6 }
+    };
+    
+    const range = etaRanges[vehicleType] || { min: 3, max: 5 };
+    const eta = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+    
+    return `${eta} min`;
+  }
+
+  /**
+   * Calculate ETAs for all vehicle types
+   */
+  private calculateVehicleETAs() {
+    if (this.vehicleServices) {
+      if (this.vehicleServices.cercaSmall?.enabled) {
+        this.vehicleETAs.small = this.calculateDriverETA('small');
+      }
+      if (this.vehicleServices.cercaMedium?.enabled) {
+        this.vehicleETAs.medium = this.calculateDriverETA('medium');
+      }
+      if (this.vehicleServices.cercaLarge?.enabled) {
+        this.vehicleETAs.large = this.calculateDriverETA('large');
+      }
+    }
+  }
+
+  /**
+   * Calculate fares for all vehicle types when pickup/destination changes
+   * Uses debouncing to avoid excessive API calls
+   */
+  private calculateFares() {
+    // Clear existing timeout
+    if (this.fareCalculationTimeout) {
+      clearTimeout(this.fareCalculationTimeout);
+    }
+
+    // Check if we have both pickup and destination addresses
+    if (!this.pickupAddress || !this.destinationAddress) {
+      // Clear calculated fares and ETAs if addresses are incomplete
+      this.calculatedFares = {};
+      this.vehicleETAs = {};
+      this.fareCalculationError = null;
+      // Clear route animation
+      this.cleanupRouteAnimation();
+      return;
+    }
+
+    // Debounce fare calculation (wait 500ms after user stops typing)
+    this.fareCalculationTimeout = setTimeout(() => {
+      this.performFareCalculation();
+      // Trigger route animation after fare calculation
+      this.triggerRouteAnimation();
+    }, 500);
+  }
+
+  /**
+   * Perform the actual fare calculation API call
+   */
+  private async performFareCalculation() {
+    try {
+      this.isCalculatingFares = true;
+      this.fareCalculationError = null;
+
+      const currentLocation = this.userService.getCurrentLocation();
+      
+      // Get coordinates for pickup and dropoff
+      let pickupLocation: { latitude: number; longitude: number } | null = null;
+      let dropoffLocation: { latitude: number; longitude: number } | null = null;
+
+      // Use current location as pickup if available
+      if (currentLocation && currentLocation.lat) {
+        pickupLocation = {
+          latitude: currentLocation.lat,
+          longitude: currentLocation.lng
+        };
+      } else {
+        // Try to geocode pickup address
+        try {
+          const geocodedPickup = await this.geocodingService.getLatLngFromAddress(this.pickupAddress);
+          if (geocodedPickup) {
+            pickupLocation = {
+              latitude: geocodedPickup.lat,
+              longitude: geocodedPickup.lng
+            };
+          }
+        } catch (error) {
+          console.error('Error geocoding pickup:', error);
+        }
+      }
+
+      // Geocode dropoff address
+      try {
+        const geocodedDropoff = await this.geocodingService.getLatLngFromAddress(this.destinationAddress);
+        if (geocodedDropoff) {
+          dropoffLocation = {
+            latitude: geocodedDropoff.lat,
+            longitude: geocodedDropoff.lng
+          };
+        }
+      } catch (error) {
+        console.error('Error geocoding dropoff:', error);
+      }
+
+      if (!pickupLocation || !dropoffLocation) {
+        throw new Error('Could not determine locations');
+      }
+
+      // Calculate ETAs for vehicles
+      this.calculateVehicleETAs();
+
+      // Get user ID for promo code validation (if needed in future)
+      // const userId = await this.userService.getUserId();
+
+      // Call fare calculation API
+      this.fareService.calculateAllFares(
+        pickupLocation,
+        dropoffLocation
+        // promoCode and userId can be added later if needed
+      ).subscribe({
+        next: (response) => {
+          this.zone.run(() => {
+            if (response.success && response.data.fares) {
+              this.calculatedFares = response.data.fares;
+              this.fareCalculationError = null;
+              // Recalculate ETAs when fares are successfully calculated
+              this.calculateVehicleETAs();
+            } else {
+              this.fareCalculationError = 'Failed to calculate fares';
+              this.calculatedFares = {};
+            }
+            this.isCalculatingFares = false;
+          });
+        },
+        error: (error) => {
+          console.error('Error calculating fares:', error);
+          this.zone.run(() => {
+            this.fareCalculationError = 'Error calculating fares';
+            this.calculatedFares = {};
+            this.isCalculatingFares = false;
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error in fare calculation:', error);
+      this.zone.run(() => {
+        this.fareCalculationError = 'Error calculating fares';
+        this.calculatedFares = {};
+        this.isCalculatingFares = false;
+      });
+    }
   }
 
   async goToPayment() {

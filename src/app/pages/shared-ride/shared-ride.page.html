@@ -1,0 +1,105 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Track Ride</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner></ion-spinner>
+    <p>Loading ride information...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-container">
+    <ion-icon name="alert-circle-outline" color="danger" style="font-size: 64px;"></ion-icon>
+    <h2>Unable to Load Ride</h2>
+    <p>{{ error }}</p>
+    <ion-button *ngIf="errorReason === 'EXPIRED' || errorReason === 'RIDE_ENDED'" fill="outline" (click)="goHome()">
+      Go Home
+    </ion-button>
+  </div>
+
+  <!-- Ride Content -->
+  <div *ngIf="ride && !isLoading && !error" class="ride-container">
+    <!-- Map -->
+    <div id="shared-ride-map" style="width: 100%; height: 300px;"></div>
+
+    <!-- Status Card -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>{{ getStatusText() }}</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item lines="none" *ngIf="ride.driver">
+          <ion-avatar slot="start">
+            <img src="assets/user.png" alt="Driver" />
+          </ion-avatar>
+          <ion-label>
+            <h2>{{ ride.driver.name }}</h2>
+            <p>
+              <ion-icon name="star" color="warning"></ion-icon>
+              {{ ride.driver.rating }}
+            </p>
+          </ion-label>
+          <ion-label slot="end" text-end *ngIf="ride.driver.vehicleInfo">
+            <h3>{{ ride.driver.vehicleInfo.licensePlate }}</h3>
+            <p>{{ ride.driver.vehicleInfo.color }} {{ ride.driver.vehicleInfo.make }} {{ ride.driver.vehicleInfo.model }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Route Information -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Route</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-icon name="location" slot="start" color="success"></ion-icon>
+          <ion-label>
+            <h3>Pickup</h3>
+            <p>{{ ride.pickupAddress }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item>
+          <ion-icon name="location" slot="start" color="danger"></ion-icon>
+          <ion-label>
+            <h3>Destination</h3>
+            <p>{{ ride.dropoffAddress }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Ride Details -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Ride Details</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item>
+          <ion-label>
+            <h3>Distance</h3>
+            <p>{{ ride.distanceInKm }} km</p>
+          </ion-label>
+        </ion-item>
+        <ion-item>
+          <ion-label>
+            <h3>Estimated Fare</h3>
+            <p>₹{{ ride.fare }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item *ngIf="ride.estimatedDuration">
+          <ion-label>
+            <h3>Estimated Duration</h3>
+            <p>{{ ride.estimatedDuration }} minutes</p>
+          </ion-label>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
+

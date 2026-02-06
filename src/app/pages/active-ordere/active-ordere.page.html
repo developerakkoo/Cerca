@@ -8,6 +8,14 @@
       </ion-back-button>
     </ion-buttons>
     <ion-title>{{ 'ACTIVE_RIDE.title' | translate }}</ion-title>
+    <ion-button slot="end" 
+        *ngIf="currentRide && currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled'"
+        (click)="shareRide($event)"
+        fill="clear"
+        color="primary"
+        class="share-button">
+        <ion-icon name="share-outline" slot="icon-only"></ion-icon>
+      </ion-button>
   </ion-toolbar>
 </ion-header>
 

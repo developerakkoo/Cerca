@@ -22,49 +22,34 @@
       ></ion-searchbar>
     </div>
 
-    <!-- Selected Address Display -->
-    <div class="selected-address-card" *ngIf="selectedAddress">
-      <div class="address-content">
-        <ion-icon name="location-outline"></ion-icon>
-        <div class="address-details">
-          <p>{{ selectedAddress }}</p>
-        </div>
-        <ion-button fill="clear" (click)="confirmLocation()">
-          <ion-icon [name]="addressMode ? 'save-outline' : 'checkmark-circle-outline'"></ion-icon>
-        </ion-button>
+    <!-- Suggestions List -->
+    <div class="suggestions-container" *ngIf="showSuggestions">
+      <!-- Loading State -->
+      <div class="loading-container" *ngIf="isLoadingSuggestions">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Searching places...</p>
       </div>
-    </div>
 
-    <!-- Suggestions Modal -->
-    <div class="suggestions-modal" *ngIf="showSuggestions">
-      <div class="suggestions-content">
-        <!-- Loading State -->
-        <div class="loading-container" *ngIf="isLoadingSuggestions">
-          <ion-spinner name="crescent"></ion-spinner>
-          <p>Searching places...</p>
-        </div>
+      <!-- Suggestions List -->
+      <ion-list *ngIf="!isLoadingSuggestions && placeSuggestions.length > 0" class="suggestions-list">
+        <ion-item 
+          *ngFor="let place of placeSuggestions" 
+          class="suggestion-item"
+          button
+          (click)="selectPlace(place)">
+          <ion-icon name="location-outline" slot="start" class="suggestion-icon"></ion-icon>
+          <ion-label>
+            <h3 class="suggestion-main-text">{{ place.structured_formatting?.main_text || place.description }}</h3>
+            <p class="suggestion-secondary-text">{{ place.structured_formatting?.secondary_text }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-list>
 
-        <!-- Suggestions List -->
-        <ion-list *ngIf="!isLoadingSuggestions && placeSuggestions.length > 0" class="suggestions-list">
-          <ion-item 
-            *ngFor="let place of placeSuggestions" 
-            class="suggestion-item"
-            button
-            (click)="selectPlace(place)">
-            <ion-icon name="location-outline" slot="start" class="suggestion-icon"></ion-icon>
-            <ion-label>
-              <h3 class="suggestion-main-text">{{ place.structured_formatting?.main_text || place.description }}</h3>
-              <p class="suggestion-secondary-text">{{ place.structured_formatting?.secondary_text }}</p>
-            </ion-label>
-          </ion-item>
-        </ion-list>
-
-        <!-- Empty State -->
-        <div class="empty-state" *ngIf="!isLoadingSuggestions && placeSuggestions.length === 0 && searchQuery.trim().length > 0">
-          <ion-icon name="search-outline" size="large" color="medium"></ion-icon>
-          <p>No places found</p>
-          <p class="empty-subtitle">Try a different search term</p>
-        </div>
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="!isLoadingSuggestions && placeSuggestions.length === 0 && searchQuery.trim().length > 0">
+        <ion-icon name="search-outline" size="large" color="medium"></ion-icon>
+        <p>No places found</p>
+        <p class="empty-subtitle">Try a different search term</p>
       </div>
     </div>
   </ion-content>

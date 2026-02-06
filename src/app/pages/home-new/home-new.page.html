@@ -1,0 +1,149 @@
+<ion-header [class.header-hidden]="!headerVisible">
+  <ion-toolbar>
+    <ion-title>Cerca</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content 
+  class="home-new-content"
+  (ionScroll)="onScroll($event)"
+  [scrollEvents]="true"
+  [fullscreen]="true">
+  
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="!isMapReady">
+    <div class="loading-container">
+      <ion-spinner></ion-spinner>
+      <p>Loading map...</p>
+    </div>
+  </div>
+
+  <!-- Map Container -->
+  <div class="map-container">
+    <capacitor-google-map #map id="home-new-map"></capacitor-google-map>
+  </div>
+  
+  <!-- Pickup Input Card -->
+  <div class="input-card pickup-card" (click)="onInputFocus('pickup')">
+    <div class="input-icon-wrapper pickup-icon">
+      <ion-icon 
+        name="location-outline" 
+        [class.location-ready]="isLocationFetched"
+        [class.location-loading]="isLoadingLocation">
+      </ion-icon>
+    </div>
+    <div class="input-content">
+      <span *ngIf="!pickupAddress" class="input-placeholder">Where are you?</span>
+      <span *ngIf="pickupAddress" class="input-value">{{ pickupAddress }}</span>
+    </div>
+  </div>
+
+  <!-- Destination Input Card -->
+  <div class="input-card destination-card" (click)="onInputFocus('destination')">
+    <div class="input-icon-wrapper destination-icon">
+      <ion-icon name="navigate-outline"></ion-icon>
+    </div>
+    <div class="input-content">
+      <span *ngIf="!destinationAddress" class="input-placeholder">Where to?</span>
+      <span *ngIf="destinationAddress" class="input-value">{{ destinationAddress }}</span>
+    </div>
+  </div>
+
+  <!-- Vehicle Selection Section - Floating Cards -->
+  <div class="vehicle-selection-container" *ngIf="showVehicleSection" [class.visible]="showVehicleSection">
+    
+    <!-- Loading State -->
+    <div *ngIf="isLoadingServices || isCalculatingFares" class="vehicle-loading">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Finding available rides...</p>
+    </div>
+
+    <!-- Vehicle Cards -->
+    <div class="vehicle-cards-wrapper" *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares">
+      <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
+        
+        <!-- Small -->
+        <div class="vehicle-option" 
+             *ngIf="vehicleServices.cercaSmall?.enabled" 
+             [class.selected]="selectedVehicle === 'small'"
+             (click)="selectedVehicle = 'small'">
+          <div class="vehicle-icon">
+            <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" 
+                 alt="Small"
+                 onerror="this.src='assets/cars/cerca-small.png'">
+          </div>
+          <div class="vehicle-info">
+            <div class="vehicle-title">{{ vehicleServices.cercaSmall?.name || 'Cerca Small' }}</div>
+            <div class="vehicle-subtitle">{{ vehicleETAs.small || '2-4 min' }} away</div>
+          </div>
+          <div class="vehicle-right">
+            <div class="vehicle-cost">
+              <span *ngIf="calculatedFares?.cercaSmall">₹{{ calculatedFares?.cercaSmall?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaSmall">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
+            </div>
+            <ion-radio value="small" mode="md"></ion-radio>
+          </div>
+        </div>
+
+        <!-- Medium -->
+        <div class="vehicle-option" 
+             *ngIf="vehicleServices.cercaMedium?.enabled"
+             [class.selected]="selectedVehicle === 'medium'"
+             (click)="selectedVehicle = 'medium'">
+          <div class="vehicle-icon">
+            <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" 
+                 alt="Medium"
+                 onerror="this.src='assets/cars/Cerca-medium.png'">
+          </div>
+          <div class="vehicle-info">
+            <div class="vehicle-title">{{ vehicleServices.cercaMedium?.name || 'Cerca Medium' }}</div>
+            <div class="vehicle-subtitle">{{ vehicleETAs.medium || '3-5 min' }} away</div>
+          </div>
+          <div class="vehicle-right">
+            <div class="vehicle-cost">
+              <span *ngIf="calculatedFares?.cercaMedium">₹{{ calculatedFares?.cercaMedium?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaMedium">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
+            </div>
+            <ion-radio value="medium" mode="md"></ion-radio>
+          </div>
+        </div>
+
+        <!-- Large -->
+        <div class="vehicle-option" 
+             *ngIf="vehicleServices.cercaLarge?.enabled"
+             [class.selected]="selectedVehicle === 'large'"
+             (click)="selectedVehicle = 'large'">
+          <div class="vehicle-icon">
+            <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" 
+                 alt="Large"
+                 onerror="this.src='assets/cars/cerca-large.png'">
+          </div>
+          <div class="vehicle-info">
+            <div class="vehicle-title">{{ vehicleServices.cercaLarge?.name || 'Cerca Large' }}</div>
+            <div class="vehicle-subtitle">{{ vehicleETAs.large || '4-6 min' }} away</div>
+          </div>
+          <div class="vehicle-right">
+            <div class="vehicle-cost">
+              <span *ngIf="calculatedFares?.cercaLarge">₹{{ calculatedFares?.cercaLarge?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaLarge">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
+            </div>
+            <ion-radio value="large" mode="md"></ion-radio>
+          </div>
+        </div>
+
+      </ion-radio-group>
+    </div>
+  </div>
+
+</ion-content>
+
+<!-- Sticky Book Ride Button -->
+<div class="sticky-button-container" *ngIf="showVehicleSection && selectedVehicle">
+  <ion-button 
+    expand="block"
+    class="book-ride-button"
+    (click)="bookRide()">
+    <span>Book Ride</span>
+    <ion-icon name="arrow-forward" slot="end"></ion-icon>
+  </ion-button>
+</div>

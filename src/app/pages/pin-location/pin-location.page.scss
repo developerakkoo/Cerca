@@ -1,0 +1,228 @@
+// Pin Location Page - Uber-Style Design
+
+:host {
+  --background: transparent;
+}
+
+.pin-location-content {
+  --background: transparent;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+// Loading Overlay
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+
+    p {
+      font-size: 16px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.6);
+      margin: 0;
+    }
+  }
+}
+
+// Map Container
+.map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+
+  capacitor-google-map {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+}
+
+// Fixed Pin Overlay
+.pin-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  z-index: 100;
+  pointer-events: none;
+  animation: pinDrop 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  .pin-icon {
+    font-size: 48px;
+    color: var(--ion-color-primary);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  }
+}
+
+@keyframes pinDrop {
+  0% {
+    transform: translate(-50%, -120%);
+    opacity: 0;
+  }
+  60% {
+    transform: translate(-50%, -95%);
+  }
+  100% {
+    transform: translate(-50%, -100%);
+    opacity: 1;
+  }
+}
+
+// Address Card
+.address-card {
+  position: absolute;
+  bottom: 100px;
+  left: 16px;
+  right: 16px;
+  z-index: 200;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.3s ease-out;
+
+  .address-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    .address-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(var(--ion-color-primary-rgb), 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      ion-icon {
+        font-size: 20px;
+        color: var(--ion-color-primary);
+      }
+    }
+
+    .address-text {
+      flex: 1;
+      min-width: 0;
+
+      .address-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(0, 0, 0, 0.6);
+        font-size: 14px;
+
+        .small-spinner {
+          width: 16px;
+          height: 16px;
+        }
+      }
+
+      .address-value {
+        font-size: 15px;
+        color: rgba(0, 0, 0, 0.87);
+        font-weight: 400;
+        line-height: 1.5;
+        word-wrap: break-word;
+      }
+    }
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Confirm Button
+.confirm-button-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.95) 70%, transparent 100%);
+  pointer-events: none;
+
+  .confirm-button {
+    pointer-events: auto;
+    --background: var(--ion-color-primary);
+    --color: white;
+    --border-radius: 12px;
+    height: 52px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+    margin: 0;
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
+// Header Styling
+ion-header {
+  ion-toolbar {
+    --background: rgba(255, 255, 255, 0.95);
+    --border-color: rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
+
+    ion-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #000000;
+    }
+
+    ion-button {
+      --color: #000000;
+    }
+  }
+}
+
+// Responsive adjustments
+@media (min-width: 768px) {
+  .address-card {
+    max-width: 600px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .confirm-button-wrapper {
+    max-width: 600px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+

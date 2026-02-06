@@ -553,6 +553,7 @@ export class RideService {
     dropoffAddress: string;
     fare: number;
     distanceInKm: number;
+    estimatedDuration?: number; // Estimated duration in minutes
     service: string;
     rideType: string;
     paymentMethod: string;
@@ -590,11 +591,11 @@ export class RideService {
         }
       }
 
-      // Ensure socket is connected (NO TIMEOUT - wait indefinitely)
+      // Ensure socket is connected (30-second timeout to prevent hanging)
       console.log('🔌 Checking socket connection status...');
       if (!this.socketService.isConnected()) {
         console.log('⏳ Socket not connected, waiting for connection...');
-        await this.socketService.waitForConnection(); // No timeout parameter = infinite wait
+        await this.socketService.waitForConnection(30000); // 30-second timeout
         console.log('✅ Socket connected! Proceeding with ride request...');
       } else {
         console.log('✅ Socket already connected!');
@@ -617,6 +618,7 @@ export class RideService {
         dropoffAddress: rideData.dropoffAddress,
         fare: rideData.fare,
         distanceInKm: rideData.distanceInKm,
+        estimatedDuration: rideData.estimatedDuration || 0, // Include estimated duration
         service: rideData.service,
         rideType: rideData.rideType,
         paymentMethod: rideData.paymentMethod,
@@ -1420,7 +1422,7 @@ export class RideService {
    * @returns Observable of Ride array
    */
   getUserRides(userId: string): Observable<Ride[]> {
-    return this.http.get<Ride[]>(`${environment.apiUrl}/rides/rides/user/${userId}`);
+    return this.http.get<Ride[]>(`${environment.apiUrl}/rides/user/${userId}`);
   }
 
   /**
@@ -1442,7 +1444,7 @@ export class RideService {
 
       // Fetch user's rides from backend
       const rides = await firstValueFrom(
-        this.http.get<Ride[]>(`${environment.apiUrl}/rides/rides/user/${userId}`)
+        this.http.get<Ride[]>(`${environment.apiUrl}/rides/user/${userId}`)
       );
 
       // Find active rides (requested, accepted, arrived, in_progress)

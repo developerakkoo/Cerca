@@ -30,144 +30,332 @@ ion-content {
   --segment-shadow: rgba(0, 0, 0, 0.2);
 }
 
-/* active-booking-card.component.scss */
-ion-card {
-  margin: 16px;
-  border-radius: 20px;
-  box-shadow: 0 8px 20px var(--card-shadow);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: var(--card-bg);
+/* Professional Booking Cards */
+.booking-card {
+  margin: var(--spacing-md);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  background: white;
   overflow: hidden;
   position: relative;
+  transition: all var(--transition-base);
+  animation: cardSlideIn 0.5s var(--transition-base) backwards;
+  will-change: transform, box-shadow;
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: var(--ion-color-primary);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 0.3s ease;
+  &.active-booking {
+    border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
+  }
+
+  &.past-booking {
+    opacity: 0.95;
+    border: 1px solid rgba(var(--ion-color-medium-rgb), 0.1);
   }
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 28px var(--card-hover-shadow);
-
-    &::before {
-      transform: scaleX(1);
-    }
+    box-shadow: var(--shadow-card-hover);
   }
 
-  ion-card-header {
-    padding: 20px;
+  // Status Accent Bar
+  .status-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
     background: var(--ion-color-primary);
-    color: var(--ion-color-light);
-    position: relative;
-    overflow: hidden;
+    z-index: 1;
 
-    // &::after {
-    //   content: '';
-    //   position: absolute;
-    //   top: -50%;
-    //   right: -50%;
-    //   width: 200%;
-    //   height: 200%;
-    //   background: rgba(255, 255, 255, 0.1);
-    //   transform: rotate(30deg);
-    //   transition: transform 0.5s ease;
-    // }
+    &.status-requested {
+      background: var(--ion-color-warning);
+    }
 
-    // &:hover::after {
-    //   transform: rotate(30deg) translate(50%, 50%);
-    // }
+    &.status-accepted,
+    &.status-in_progress {
+      background: var(--ion-color-success);
+    }
 
-    ion-card-title {
-      font-size: 1.3rem;
-      font-weight: 600;
-      margin: 0;
-      position: relative;
-      z-index: 1;
-      color: var(--ion-color-light);
+    &.status-completed {
+      background: var(--ion-color-primary);
+    }
+
+    &.status-cancelled {
+      background: var(--ion-color-danger);
     }
   }
 
-  ion-card-content {
-    padding: 20px;
+  // Card Header
+  .card-header {
+    padding: var(--spacing-lg);
+    background: white;
+    border-bottom: 1px solid rgba(var(--ion-color-medium-rgb), 0.1);
+    position: relative;
+    z-index: 0;
 
-    ion-grid {
-      padding: 0;
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--spacing-md);
     }
 
-    ion-row {
-        display: flex
-        ;
-            align-items: center;
-            /* gap: 12px; */
-            flex-direction: row;
-            flex-wrap: nowrap;
-            align-content: center;
-            justify-content: space-between;
+    .ride-info {
+      flex: 1;
+    }
 
-      &:last-child {
-        margin-bottom: 0;
+    .ride-id {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ion-color-dark);
+      margin: 0 0 var(--spacing-xs) 0;
+      letter-spacing: -0.02em;
+    }
+
+    .ride-date {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      font-size: 13px;
+      color: var(--ion-color-medium);
+      margin: 0;
+      font-weight: 400;
+
+      ion-icon {
+        font-size: 14px;
       }
     }
 
-    ion-label {
-      display: block;
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-bottom: 4px;
-      font-weight: 500;
+    .status-badge {
+      padding: var(--spacing-xs) var(--spacing-md);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+
+      &.badge-success {
+        background: rgba(var(--ion-color-success-rgb), 0.15);
+        color: var(--ion-color-success);
+      }
+
+      &.badge-warning {
+        background: rgba(var(--ion-color-warning-rgb), 0.15);
+        color: var(--ion-color-warning-shade);
+      }
+
+      &.badge-danger {
+        background: rgba(var(--ion-color-danger-rgb), 0.15);
+        color: var(--ion-color-danger);
+      }
+
+      &.badge-primary {
+        background: rgba(var(--ion-color-primary-rgb), 0.15);
+        color: var(--ion-color-primary);
+      }
+    }
+  }
+
+  // Card Content
+  .card-content {
+    padding: var(--spacing-lg);
+
+    // Info Row (Driver & Vehicle)
+    .info-row {
+      display: flex;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .info-item {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-md);
+      background: rgba(var(--ion-color-primary-rgb), 0.04);
+      border-radius: var(--radius-md);
+    }
+
+    .info-icon {
+      font-size: 20px;
+      color: var(--ion-color-primary);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .info-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .info-label {
+      font-size: 11px;
+      color: var(--ion-color-medium);
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    ion-text {
-      font-size: 1rem;
-      color: var(--text-primary);
+    .info-value {
+      font-size: 14px;
+      color: var(--ion-color-dark);
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    // Location Rows
+    .location-row {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      padding: var(--spacing-md);
+      background: rgba(var(--ion-color-medium-rgb), 0.03);
+      border-radius: var(--radius-md);
+    }
+
+    .location-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 2px;
+
+      &.pickup-icon {
+        color: var(--ion-color-success);
+      }
+
+      &.destination-icon {
+        color: var(--ion-color-primary);
+      }
+    }
+
+    .location-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .location-label {
+      font-size: 11px;
+      color: var(--ion-color-medium);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .location-value {
+      font-size: 14px;
+      color: var(--ion-color-dark);
       font-weight: 500;
-      transition: color 0.2s ease;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    // Fare Section
+    .fare-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-md);
+      background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.08) 0%, rgba(var(--ion-color-secondary-rgb), 0.05) 100%);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-md);
+      border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
+    }
+
+    .fare-label {
+      font-size: 13px;
+      color: var(--ion-color-medium);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .fare-amount {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ion-color-primary);
+      letter-spacing: -0.02em;
+    }
+
+    // Completed Section
+    .completed-section {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-md);
+      background: rgba(var(--ion-color-success-rgb), 0.08);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .completed-icon {
+      font-size: 20px;
+      color: var(--ion-color-success);
+      flex-shrink: 0;
+    }
+
+    .completed-text {
+      font-size: 13px;
+      color: var(--ion-color-dark);
+      font-weight: 500;
+    }
+
+    // Action Buttons
+    .action-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin-top: var(--spacing-md);
+    }
+
+    .disabled-hint {
+      font-size: 12px;
+      color: var(--ion-color-medium);
+      margin: -var(--spacing-sm) 0 0 0;
+      text-align: center;
+      font-weight: 400;
     }
 
     ion-button {
-      margin-top: 20px;
-      --border-radius: 12px;
-      --box-shadow: 0 4px 12px var(--card-shadow);
+      --border-radius: var(--radius-md);
+      --box-shadow: var(--shadow-subtle);
       height: 48px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-      transition: all 0.3s ease;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      transition: all var(--transition-base);
+      margin: 0;
+      will-change: transform, box-shadow;
 
       ion-icon {
-        font-size: 1.2rem;
-        margin-right: 8px;
+        font-size: 18px;
+        margin-right: var(--spacing-xs);
       }
 
       &.view-details-btn {
         --background: var(--ion-color-primary);
         --background-hover: var(--ion-color-primary-shade);
         --color: white;
-        margin-right: 8px;
       }
 
       &.call-driver-btn {
         --background: var(--ion-color-success);
         --background-hover: var(--ion-color-success-shade);
         --color: white;
-        margin-left: 8px;
       }
 
       &.timer-btn {
         --background: var(--ion-color-warning);
         --background-hover: var(--ion-color-warning-shade);
         --color: white;
-        margin-left: 8px;
-        font-weight: 600;
+        font-weight: 700;
 
         &.timer-low {
           --background: var(--ion-color-danger);
@@ -176,16 +364,31 @@ ion-card {
         }
       }
 
-      &:hover {
+      &:hover:not([disabled]) {
         transform: translateY(-2px);
-        --box-shadow: 0 6px 16px var(--card-hover-shadow);
+        --box-shadow: var(--shadow-medium);
       }
 
-      &:active {
+      &:active:not([disabled]) {
         transform: translateY(0);
-        --box-shadow: 0 2px 8px var(--card-shadow);
+        --box-shadow: var(--shadow-subtle);
+      }
+
+      &[disabled] {
+        opacity: 0.5;
       }
     }
+  }
+}
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
