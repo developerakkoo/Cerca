@@ -4,6 +4,45 @@
   width: 100%;
 }
 
+// Grab Handle for Driver Details Modal
+.modal-handle {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0 8px;
+  background: var(--ion-color-light);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  
+  &:active {
+    cursor: grabbing;
+  }
+
+  .handle-bar {
+    width: 40px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+    transition: background 0.2s ease;
+  }
+
+  &:active .handle-bar {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root.ion-palette-dark {
+  .modal-handle {
+    background: var(--ion-color-dark);
+  }
+}
+
 // Fix header above modal - modal covers entire screen (z-index: 20005)
 // Header must be fixed with z-index higher than modal
 ion-header {
@@ -491,6 +530,14 @@ ion-modal ion-content {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 44px; // WCAG touch target
+  min-width: 44px;
+  outline: none;
+
+  &:focus {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
 
   &:hover {
     background: rgba(var(--ion-color-primary-rgb), 0.1);
@@ -514,6 +561,14 @@ ion-modal ion-content {
 
 .submit-rating {
   margin-top: 16px;
+  min-height: 44px; // WCAG touch target
+}
+
+.skip-rating {
+  margin-top: 8px;
+  --color: var(--ion-color-medium);
+  font-weight: 500;
+  min-height: 44px; // WCAG touch target
 }
 
 // Thank You Alert

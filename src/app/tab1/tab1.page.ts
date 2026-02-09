@@ -5,22 +5,23 @@ import {
   NgZone,
   ViewChild,
   ElementRef,
+  AfterViewInit,
+  ChangeDetectorRef,
 } from '@angular/core';
-import { Geolocation } from '@capacitor/geolocation';
-import { GoogleMap, MapType } from '@capacitor/google-maps';
-import { PermissionService } from '../services/permission.service';
 import { ToastController, ModalController, LoadingController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { GeocodingService } from '../services/geocoding.service';
 import { SettingsService, VehicleServices } from '../services/settings.service';
 import { RideService } from '../services/ride.service';
 import { FareService, FareBreakdown } from '../services/fare.service';
-import { MapService } from '../services/map.service';
 import { Subscription } from 'rxjs';
 import { Router } from '@angular/router';
 import { SearchPage, SearchModalResult } from '../pages/search/search.page';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { environment } from '../../environments/environment';
+import { Geolocation } from '@capacitor/geolocation';
+import { PermissionService } from '../services/permission.service';
 
 @Component({
   selector: 'app-tab1',
@@ -28,17 +29,8 @@ import { environment } from '../../environments/environment';
   styleUrls: ['tab1.page.scss'],
   standalone: false,
 })
-export class Tab1Page implements OnInit, OnDestroy {
+export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('map') mapRef!: ElementRef;
-
-  // Map properties
-  map: GoogleMap | null = null;
-  isMapReady = false;
-  isMapInitializing = false;
-
-  private currentLocation: { lat: number; lng: number } = { lat: 0, lng: 0 };
-  isLocationFetched = false;
-  isLoadingLocation = false;
 
   // Booking properties
   pickupAddress = '';
@@ -56,13 +48,23 @@ export class Tab1Page implements OnInit, OnDestroy {
   // ETA properties
   vehicleETAs: { small?: string; medium?: string; large?: string } = {};
   
-  // Route animation properties
-  routeAnimationInProgress = false;
-  basePolylineId: string | null = null;
-  animatedPolylineId: string | null = null;
-  pickupMarkerId: string | null = null;
-  destinationMarkerId: string | null = null;
-  private routeAnimationTimeout: any = null;
+  // Map and confirm mode properties
+  map: GoogleMap | null = null;
+  isMapReady = false;
+  confirmMode: 'pickup' | 'destination' | null = null;
+  confirmAddress: string = '';
+  confirmLat: number = 0;
+  confirmLng: number = 0;
+  isLoadingAddress = false;
+  mapError: string | null = null;
+  showMapOnLoad = true; // Show map when page loads with current location
+  
+  // Stored coordinates for fare calculation (avoid re-geocoding)
+  pickupCoords: { lat: number; lng: number } | null = null;
+  destinationCoords: { lat: number; lng: number } | null = null;
+  
+  private geocodeTimeout: any = null;
+  private cameraCheckInterval: any = null;
   
   // Subscriptions
   private pickupSubscription: Subscription | null = null;
@@ -70,23 +72,112 @@ export class Tab1Page implements OnInit, OnDestroy {
   private vehicleServicesSubscription: Subscription | null = null;
 
   constructor(
-    private permissionService: PermissionService,
     private zone: NgZone,
     private toastController: ToastController,
     private userService: UserService,
     private geocodingService: GeocodingService,
     private settingsService: SettingsService,
     private fareService: FareService,
-    private mapService: MapService,
     private modalController: ModalController,
     private loadingCtrl: LoadingController,
-    private router: Router
+    private router: Router,
+    private changeDetectorRef: ChangeDetectorRef,
+    private permissionService: PermissionService
   ) {}
 
   ngOnInit() {
     this.initializeSubscriptions();
     this.loadVehicleServices();
-    this.getCurrentPosition();
+    this.getCurrentLocation();
+  }
+
+  ngAfterViewInit() {
+    // Wait for view to initialize, then check if we need to load map
+    setTimeout(() => {
+      if (this.showMapOnLoad && this.confirmLat && this.confirmLng) {
+        this.waitForMapRef().then((ready) => {
+          if (ready) {
+            this.initializeMap();
+          }
+        });
+      }
+    }, 100);
+  }
+
+  /**
+   * Get current location of the user and set as pickup address
+   */
+  async getCurrentLocation() {
+    try {
+      const permissionResult = await this.permissionService.requestLocationPermission();
+      if (!permissionResult.granted) {
+        // Permission denied - silently fail, user can still use search
+        console.log('Location permission denied');
+        return;
+      }
+      
+      const coordinates = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      });
+      
+      const location = { 
+        lat: coordinates.coords.latitude, 
+        lng: coordinates.coords.longitude 
+      };
+      
+      this.userService.setCurrentLocation(location);
+      console.log('Current location set:', location);
+      
+      // Geocode the location to get address
+      try {
+        const address = await this.geocodingService.getAddressFromLatLng(
+          location.lat,
+          location.lng
+        );
+        
+        // Set as pickup address
+        this.zone.run(() => {
+          this.pickupAddress = address;
+          this.pickupCoords = location;
+          this.confirmLat = location.lat;
+          this.confirmLng = location.lng;
+          this.confirmAddress = address;
+        });
+        
+        this.userService.setPickup(address);
+        console.log('Pickup address set from current location:', address);
+        
+        // Initialize map with current location after a short delay to ensure view is ready
+        setTimeout(async () => {
+          const mapRefReady = await this.waitForMapRef();
+          if (mapRefReady && this.showMapOnLoad) {
+            await this.initializeMap();
+          }
+        }, 300);
+        
+      } catch (geocodeError) {
+        console.error('Error geocoding current location:', geocodeError);
+        // Still set coordinates even if geocoding fails
+        this.zone.run(() => {
+          this.confirmLat = location.lat;
+          this.confirmLng = location.lng;
+          this.pickupCoords = location;
+        });
+        
+        // Try to initialize map anyway
+        setTimeout(async () => {
+          const mapRefReady = await this.waitForMapRef();
+          if (mapRefReady && this.showMapOnLoad) {
+            await this.initializeMap();
+          }
+        }, 300);
+      }
+    } catch (error) {
+      console.error('Error getting current location:', error);
+      // Don't show error to user - they can still use search
+    }
   }
 
   ngOnDestroy() {
@@ -103,14 +194,16 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (this.fareCalculationTimeout) {
       clearTimeout(this.fareCalculationTimeout);
     }
-    // Clear route animation timeout
-    if (this.routeAnimationTimeout) {
-      clearTimeout(this.routeAnimationTimeout);
-    }
-    // Cleanup route animation
-    this.cleanupRouteAnimation();
     // Cleanup map
     this.cleanupMap();
+    // Clear geocode timeout
+    if (this.geocodeTimeout) {
+      clearTimeout(this.geocodeTimeout);
+    }
+    // Clear camera check interval
+    if (this.cameraCheckInterval) {
+      clearInterval(this.cameraCheckInterval);
+    }
   }
 
   ionViewDidEnter() {
@@ -178,67 +271,6 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
   }
 
-  async getCurrentPosition() {
-    this.isLoadingLocation = true;
-    try {
-      console.log('Starting location fetch...');
-
-      if (!navigator.onLine) {
-        await this.presentToast('No internet connection.');
-        this.isLoadingLocation = false;
-        return;
-      }
-
-      const permissionResult = await this.permissionService.requestLocationPermission();
-      
-      if (!permissionResult.granted) {
-        this.isLoadingLocation = false;
-        if (!permissionResult.canAskAgain) {
-          await this.presentToast('Location permission denied. Tap to open settings.');
-          await this.permissionService.showOpenSettingsAlert();
-        } else {
-          await this.presentToast('Location permission is required.');
-        }
-        return;
-      }
-
-      // Get location
-      const coordinates = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      });
-
-      const { latitude, longitude, accuracy } = coordinates.coords;
-      
-      // Update state
-      this.currentLocation = { lat: latitude, lng: longitude };
-      this.userService.setCurrentLocation({ lat: latitude, lng: longitude });
-      
-      // Geocode
-      try {
-        const address = await this.geocodingService.getAddressFromLatLng(latitude, longitude);
-        this.zone.run(() => {
-          this.pickupAddress = address;
-          this.userService.setPickup(address);
-          this.isLocationFetched = true;
-          this.isLoadingLocation = false;
-          // Initialize map after location is fetched
-          this.initializeMap();
-        });
-      } catch (geocodeError) {
-        console.error('Error geocoding address:', geocodeError);
-        this.isLoadingLocation = false;
-        // Still try to initialize map even if geocoding fails
-        this.initializeMap();
-      }
-
-    } catch (error: any) {
-      console.error('Error getting location:', error);
-      this.isLoadingLocation = false;
-      await this.presentToast('Could not fetch location.');
-    }
-  }
 
   async onInputFocus(type: 'pickup' | 'destination') {
     const modal = await this.modalController.create({
@@ -259,18 +291,78 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     if (data) {
       const result: SearchModalResult = data;
-      if (type === 'pickup') {
+      let lat = result.location.lat;
+      let lng = result.location.lng;
+      
+      // Fallback to current location if search result is invalid
+      if (!lat || !lng) {
+        const currentLocation = this.userService.getCurrentLocation();
+        if (currentLocation && currentLocation.lat) {
+          lat = currentLocation.lat;
+          lng = currentLocation.lng;
+        } else {
+          await this.presentToast('Invalid location. Please try again.');
+          return;
+        }
+      }
+      
+      // Enter confirm mode with map
+      this.zone.run(() => {
+        this.confirmMode = type;
+        this.confirmLat = lat;
+        this.confirmLng = lng;
+        this.confirmAddress = result.address || 'Current location';
+      });
+      
+      // Wait for view to update
+      this.changeDetectorRef.detectChanges();
+      
+      // Wait for mapRef to be available
+      const mapRefReady = await this.waitForMapRef();
+      if (!mapRefReady) {
         this.zone.run(() => {
-          this.pickupAddress = result.address;
-          this.userService.setPickup(result.address);
+          this.mapError = 'Map container not ready. Please try again.';
+          this.isMapReady = false;
         });
+        return;
+      }
+      
+      // If map already exists, just update camera position
+      if (this.map && this.isMapReady) {
+        try {
+          await this.map.setCamera({
+            coordinate: {
+              lat: lat,
+              lng: lng,
+            },
+            zoom: 19,
+            animate: true,
+          });
+          // Update reverse geocode
+          this.reverseGeocode();
+        } catch (error) {
+          console.error('Error updating map camera:', error);
+          // Fallback to reinitialize
+          await this.initializeMap();
+        }
       } else {
-        this.zone.run(() => {
-          this.destinationAddress = result.address;
-          this.userService.setDestination(result.address);
-        });
+        // Initialize map if not already loaded
+        await this.initializeMap();
       }
     }
+  }
+
+  /**
+   * Wait for mapRef to be available in the DOM
+   */
+  private async waitForMapRef(maxAttempts = 10, interval = 100): Promise<boolean> {
+    for (let i = 0; i < maxAttempts; i++) {
+      if (this.mapRef?.nativeElement) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
+    return false;
   }
 
   onVehicleSelect(event: any) {
@@ -280,243 +372,378 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   /**
-   * Initialize Google Maps
+   * Initialize map for location confirmation
    */
-  private async initializeMap() {
-    // Prevent multiple simultaneous initializations
-    if (this.isMapInitializing || this.isMapReady) {
+  async initializeMap() {
+    if (!this.mapRef?.nativeElement) {
+      console.error('Map ref not available');
+      this.zone.run(() => {
+        this.isMapReady = false;
+        this.mapError = 'Map container not ready';
+      });
       return;
     }
 
-    // Check if we have location
-    if (!this.currentLocation.lat || !this.currentLocation.lng) {
-      console.warn('Cannot initialize map: location not available');
-      return;
-    }
-
-    // Check if map element exists
-    if (!this.mapRef || !this.mapRef.nativeElement) {
-      console.warn('Map element not found, retrying...');
-      setTimeout(() => this.initializeMap(), 500);
+    if (!this.confirmLat || !this.confirmLng) {
+      console.error('Invalid coordinates');
+      this.zone.run(() => {
+        this.isMapReady = false;
+        this.mapError = 'Invalid location coordinates';
+      });
       return;
     }
 
     try {
-      this.isMapInitializing = true;
-
-      // Use ViewChild reference or fallback to getElementById
-      const mapElement = this.mapRef?.nativeElement || document.getElementById('tab1-map');
-      if (!mapElement) {
-        console.error('Map element not found');
-        this.isMapInitializing = false;
-        return;
-      }
+      // Cleanup existing map
+      await this.cleanupMap();
+      
+      // Reset error state
+      this.zone.run(() => {
+        this.mapError = null;
+      });
 
       // Create map
       this.map = await GoogleMap.create({
         id: 'tab1-map',
-        element: mapElement,
+        element: this.mapRef.nativeElement,
         apiKey: environment.apiKey,
         config: {
           center: {
-            lat: this.currentLocation.lat,
-            lng: this.currentLocation.lng,
+            lat: this.confirmLat,
+            lng: this.confirmLng,
           },
-          zoom: 18,
+          zoom: 19,
           mapId: environment.mapId,
           disableDefaultUI: true,
           zoomControl: false,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
+          gestureHandling: 'greedy',
         },
       });
 
-      // Set map ready immediately
-      this.zone.run(() => {
-        this.isMapReady = true;
-        this.isMapInitializing = false;
-      });
-
-      // Defer other map operations
+      // Set ready state AFTER map operations complete
       setTimeout(async () => {
         try {
           if (this.map) {
             await this.map.setMapType(MapType.Normal);
-            await this.map.enableCurrentLocation(false);
             await this.map.setCamera({
               coordinate: {
-                lat: this.currentLocation.lat,
-                lng: this.currentLocation.lng,
+                lat: this.confirmLat,
+                lng: this.confirmLng,
               },
-              zoom: 18,
+              zoom: 19,
               animate: false,
+            });
+            this.setupMapMovementListener();
+            
+            this.zone.run(() => {
+              this.isMapReady = true;
             });
           }
         } catch (error) {
-          console.warn('Map operations failed (non-critical):', error);
+          console.error('Map setup error:', error);
+          this.zone.run(() => {
+            this.isMapReady = false;
+            this.mapError = 'Failed to setup map';
+          });
         }
       }, 500);
-
+      
     } catch (error) {
       console.error('Error initializing map:', error);
       this.zone.run(() => {
-        this.isMapInitializing = false;
-        // Still set map ready to hide loading overlay
-        this.isMapReady = true;
+        this.isMapReady = false;
+        this.mapError = error instanceof Error ? error.message : 'Failed to load map';
       });
     }
   }
 
   /**
-   * Trigger route animation when both pickup and destination are selected
+   * Setup map movement listeners to detect center position changes
    */
-  private async triggerRouteAnimation() {
-    // Clear existing timeout
-    if (this.routeAnimationTimeout) {
-      clearTimeout(this.routeAnimationTimeout);
-    }
-
-    // Check prerequisites
-    if (!this.pickupAddress || !this.destinationAddress || !this.map || !this.isMapReady) {
-      return;
-    }
-
-    // Check if Google Maps JavaScript API is loaded
-    if (typeof google === 'undefined' || !google.maps) {
-      console.warn('Google Maps JavaScript API not loaded, skipping route animation');
-      return;
-    }
-
-    // Debounce route animation (wait 300ms after addresses are set)
-    this.routeAnimationTimeout = setTimeout(async () => {
+  private setupMapMovementListener() {
+    if (!this.map) return;
+    
+    let lastKnownLat = this.confirmLat;
+    let lastKnownLng = this.confirmLng;
+    
+    const updateCenterFromBounds = async (data: any) => {
+      if (!this.map) return;
+      
       try {
-        // Get coordinates for both locations
-        const currentLocation = this.userService.getCurrentLocation();
+        let newLat: number | null = null;
+        let newLng: number | null = null;
         
-        let pickupCoords: { lat: number; lng: number } | null = null;
-        let destCoords: { lat: number; lng: number } | null = null;
-
-        // Use current location as pickup if available
-        if (currentLocation && currentLocation.lat) {
-          pickupCoords = { lat: currentLocation.lat, lng: currentLocation.lng };
-        } else {
-          // Try to geocode pickup address
+        // Priority 1: Extract direct camera target/center from event data
+        if (data?.center) {
+          const center = data.center;
+          if (typeof center.lat === 'number' && typeof center.lng === 'number') {
+            newLat = center.lat;
+            newLng = center.lng;
+          } else if (typeof center.latitude === 'number' && typeof center.longitude === 'number') {
+            newLat = center.latitude;
+            newLng = center.longitude;
+          }
+        } else if (data?.target) {
+          const target = data.target;
+          if (typeof target.lat === 'number' && typeof target.lng === 'number') {
+            newLat = target.lat;
+            newLng = target.lng;
+          } else if (typeof target.latitude === 'number' && typeof target.longitude === 'number') {
+            newLat = target.latitude;
+            newLng = target.longitude;
+          }
+        } else if (data?.coordinate) {
+          const coordinate = data.coordinate;
+          if (typeof coordinate.lat === 'number' && typeof coordinate.lng === 'number') {
+            newLat = coordinate.lat;
+            newLng = coordinate.lng;
+          } else if (typeof coordinate.latitude === 'number' && typeof coordinate.longitude === 'number') {
+            newLat = coordinate.latitude;
+            newLng = coordinate.longitude;
+          }
+        }
+        
+        // Priority 2: For web platform, use Google Maps JS API getCenter()
+        if ((!newLat || !newLng) && typeof google !== 'undefined' && google.maps && this.mapRef?.nativeElement) {
           try {
-            const geocodedPickup = await this.geocodingService.getLatLngFromAddress(this.pickupAddress);
-            if (geocodedPickup) {
-              pickupCoords = { lat: geocodedPickup.lat, lng: geocodedPickup.lng };
+            const mapElement = this.mapRef.nativeElement;
+            const mapInstance = (mapElement as any)._map;
+            
+            if (mapInstance && mapInstance.getCenter) {
+              const center = mapInstance.getCenter();
+              if (center && typeof center.lat === 'function' && typeof center.lng === 'function') {
+                newLat = center.lat();
+                newLng = center.lng();
+              }
             }
           } catch (error) {
-            console.error('Error geocoding pickup for route animation:', error);
+            console.debug('Web map center access failed (non-critical):', error);
           }
         }
-
-        // Geocode destination address
-        try {
-          const geocodedDest = await this.geocodingService.getLatLngFromAddress(this.destinationAddress);
-          if (geocodedDest) {
-            destCoords = { lat: geocodedDest.lat, lng: geocodedDest.lng };
-          }
-        } catch (error) {
-          console.error('Error geocoding destination for route animation:', error);
-        }
-
-        if (pickupCoords && destCoords && this.map) {
-          // Cleanup previous route and markers
-          await this.cleanupRouteAnimation();
-
-          // Set animation in progress
-          this.zone.run(() => {
-            this.routeAnimationInProgress = true;
-          });
-
-          // Fetch and animate route with markers
-          const result = await this.mapService.fetchAndAnimateRoute(
-            this.map,
-            pickupCoords,
-            destCoords,
-            {
-              addMarkers: true,
-              pickupAddress: this.pickupAddress,
-              destinationAddress: this.destinationAddress,
+        
+        // Priority 3: Use getMapBounds() and calculate center
+        if ((!newLat || !newLng) && this.map) {
+          try {
+            const bounds = await this.map.getMapBounds();
+            if (bounds && bounds.northeast && bounds.southwest) {
+              newLat = (bounds.northeast.lat + bounds.southwest.lat) / 2;
+              newLng = (bounds.northeast.lng + bounds.southwest.lng) / 2;
             }
-          );
-
-          // Store polyline and marker IDs
-          this.basePolylineId = result.basePolylineId;
-          this.animatedPolylineId = result.animatedPolylineId;
-          this.pickupMarkerId = result.pickupMarkerId || null;
-          this.destinationMarkerId = result.destinationMarkerId || null;
-
-          // Animation complete
-          this.zone.run(() => {
-            this.routeAnimationInProgress = false;
-          });
+          } catch (error) {
+            console.debug('getMapBounds failed (non-critical):', error);
+          }
+        }
+        
+        // Priority 4: Fallback - Calculate center from bounds in event data
+        if ((!newLat || !newLng) && data?.bounds) {
+          const bounds = data.bounds;
+          if (bounds.northeast && bounds.southwest) {
+            newLat = (bounds.northeast.lat + bounds.southwest.lat) / 2;
+            newLng = (bounds.northeast.lng + bounds.southwest.lng) / 2;
+          }
+        }
+        
+        // Update coordinates if we got valid values and they're significantly different
+        if (newLat && newLng && !isNaN(newLat) && !isNaN(newLng)) {
+          const threshold = 0.0001;
+          const latDiff = Math.abs(newLat - lastKnownLat);
+          const lngDiff = Math.abs(newLng - lastKnownLng);
+          
+          if (latDiff > threshold || lngDiff > threshold) {
+            lastKnownLat = newLat;
+            lastKnownLng = newLng;
+            
+            this.zone.run(() => {
+              this.confirmLat = newLat!;
+              this.confirmLng = newLng!;
+            });
+            
+            // Trigger reverse geocoding
+            this.reverseGeocode();
+          }
         }
       } catch (error) {
-        console.error('Error animating route:', error);
-        this.zone.run(() => {
-          this.routeAnimationInProgress = false;
-        });
-        // Don't show error toast - route animation is a nice-to-have feature
+        console.error('Center update error:', error);
       }
-    }, 300);
+    };
+    
+    // Set up native event listeners
+    try {
+      this.map.setOnCameraIdleListener((data) => {
+        updateCenterFromBounds(data);
+      });
+      
+      this.map.setOnBoundsChangedListener((data) => {
+        updateCenterFromBounds(data);
+      });
+    } catch (error) {
+      console.warn('Failed to set up map event listeners, falling back to polling:', error);
+      
+      // Fallback to polling
+      const checkCenter = async () => {
+        if (!this.map || !this.mapRef?.nativeElement) return;
+        
+        try {
+          let newLat: number | null = null;
+          let newLng: number | null = null;
+          
+          if (typeof google !== 'undefined' && google.maps && this.mapRef?.nativeElement) {
+            try {
+              const mapElement = this.mapRef.nativeElement;
+              const mapInstance = (mapElement as any)._map;
+              
+              if (mapInstance && mapInstance.getCenter) {
+                const center = mapInstance.getCenter();
+                if (center && typeof center.lat === 'function' && typeof center.lng === 'function') {
+                  newLat = center.lat();
+                  newLng = center.lng();
+                }
+              }
+            } catch (error) {
+              console.debug('Web map center access failed (non-critical):', error);
+            }
+          }
+          
+          if ((!newLat || !newLng) && this.map && typeof this.map.getMapBounds === 'function') {
+            try {
+              const bounds = await this.map.getMapBounds();
+              if (bounds && bounds.northeast && bounds.southwest) {
+                newLat = (bounds.northeast.lat + bounds.southwest.lat) / 2;
+                newLng = (bounds.northeast.lng + bounds.southwest.lng) / 2;
+              }
+            } catch (error) {
+              console.debug('getMapBounds failed (non-critical):', error);
+            }
+          }
+          
+          if (newLat && newLng && !isNaN(newLat) && !isNaN(newLng)) {
+            const threshold = 0.0001;
+            const latDiff = Math.abs(newLat - lastKnownLat);
+            const lngDiff = Math.abs(newLng - lastKnownLng);
+            
+            if (latDiff > threshold || lngDiff > threshold) {
+              lastKnownLat = newLat;
+              lastKnownLng = newLng;
+              
+              this.zone.run(() => {
+                this.confirmLat = newLat;
+                this.confirmLng = newLng;
+              });
+              
+              this.reverseGeocode();
+            }
+          }
+        } catch (error) {
+          console.debug('Polling center check error (non-critical):', error);
+        }
+      };
+      
+      this.cameraCheckInterval = setInterval(() => {
+        if (this.isMapReady && this.map && this.confirmMode) {
+          checkCenter();
+        } else {
+          if (this.cameraCheckInterval) {
+            clearInterval(this.cameraCheckInterval);
+            this.cameraCheckInterval = null;
+          }
+        }
+      }, 500);
+    }
   }
 
   /**
-   * Cleanup route animation and remove polylines and markers
+   * Reverse geocode current map center to get address
    */
-  private async cleanupRouteAnimation() {
-    try {
-      // Cancel any ongoing animations
-      if (this.map) {
-        await this.mapService.cancelAnimation(this.map);
-      }
+  private async reverseGeocode() {
+    if (!this.confirmLat || !this.confirmLng) return;
 
-      // Remove polylines
-      const polylineIds: string[] = [];
-      if (this.basePolylineId) {
-        polylineIds.push(this.basePolylineId);
-      }
-      if (this.animatedPolylineId) {
-        polylineIds.push(this.animatedPolylineId);
-      }
-
-      if (polylineIds.length > 0 && this.map) {
-        await this.mapService.removeRoute(this.map, polylineIds);
-      }
-
-      // Remove markers
-      const markerIds: string[] = [];
-      if (this.pickupMarkerId) {
-        markerIds.push(this.pickupMarkerId);
-      }
-      if (this.destinationMarkerId) {
-        markerIds.push(this.destinationMarkerId);
-      }
-
-      if (markerIds.length > 0 && this.map) {
-        await this.mapService.removeMarkers(this.map, markerIds);
-      }
-
-      // Reset state
-      this.basePolylineId = null;
-      this.animatedPolylineId = null;
-      this.pickupMarkerId = null;
-      this.destinationMarkerId = null;
-      this.routeAnimationInProgress = false;
-    } catch (error) {
-      console.error('Error cleaning up route animation:', error);
+    // Clear existing timeout
+    if (this.geocodeTimeout) {
+      clearTimeout(this.geocodeTimeout);
     }
+
+    // Debounce geocoding
+    this.geocodeTimeout = setTimeout(async () => {
+      this.zone.run(() => {
+        this.isLoadingAddress = true;
+      });
+
+      try {
+        const address = await this.geocodingService.getAddressFromLatLng(
+          this.confirmLat,
+          this.confirmLng
+        );
+
+        this.zone.run(() => {
+          this.confirmAddress = address;
+          this.isLoadingAddress = false;
+        });
+      } catch (error) {
+        console.error('Error reverse geocoding:', error);
+        this.zone.run(() => {
+          this.isLoadingAddress = false;
+        });
+      }
+    }, 500);
+  }
+
+  /**
+   * Confirm the selected location
+   */
+  async confirmLocation() {
+    if (!this.confirmLat || !this.confirmLng || !this.confirmAddress || !this.confirmMode) {
+      return;
+    }
+
+    const address = this.confirmAddress;
+    const coords = { lat: this.confirmLat, lng: this.confirmLng };
+
+    if (this.confirmMode === 'pickup') {
+      this.zone.run(() => {
+        this.pickupAddress = address;
+        this.pickupCoords = coords;
+        this.userService.setPickup(address);
+      });
+    } else if (this.confirmMode === 'destination') {
+      this.zone.run(() => {
+        this.destinationAddress = address;
+        this.destinationCoords = coords;
+        this.userService.setDestination(address);
+      });
+    }
+
+    // Exit confirm mode but keep map visible
+    this.zone.run(() => {
+      this.confirmMode = null;
+      this.confirmAddress = '';
+      // Keep confirmLat/Lng for map to remain visible
+      // Don't set isMapReady to false - keep map visible
+    });
+  }
+
+  /**
+   * Cancel location confirmation and return to inputs
+   */
+  async cancelConfirm() {
+    this.zone.run(() => {
+      this.confirmMode = null;
+      this.confirmAddress = '';
+      // Keep map visible with current location
+      // Don't clear confirmLat/Lng or isMapReady
+    });
   }
 
   /**
    * Cleanup map instance
    */
   private async cleanupMap() {
-    // Cleanup route animation first
-    await this.cleanupRouteAnimation();
+    if (this.cameraCheckInterval) {
+      clearInterval(this.cameraCheckInterval);
+      this.cameraCheckInterval = null;
+    }
 
     if (this.map) {
       try {
@@ -580,16 +807,12 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.calculatedFares = {};
       this.vehicleETAs = {};
       this.fareCalculationError = null;
-      // Clear route animation
-      this.cleanupRouteAnimation();
       return;
     }
 
     // Debounce fare calculation (wait 500ms after user stops typing)
     this.fareCalculationTimeout = setTimeout(() => {
       this.performFareCalculation();
-      // Trigger route animation after fare calculation
-      this.triggerRouteAnimation();
     }, 500);
   }
 
@@ -607,14 +830,20 @@ export class Tab1Page implements OnInit, OnDestroy {
       let pickupLocation: { latitude: number; longitude: number } | null = null;
       let dropoffLocation: { latitude: number; longitude: number } | null = null;
 
-      // Use current location as pickup if available
-      if (currentLocation && currentLocation.lat) {
+      // Use stored pickup coordinates if available (from map confirmation)
+      if (this.pickupCoords) {
+        pickupLocation = {
+          latitude: this.pickupCoords.lat,
+          longitude: this.pickupCoords.lng
+        };
+      } else if (currentLocation && currentLocation.lat) {
+        // Use current location as pickup if available
         pickupLocation = {
           latitude: currentLocation.lat,
           longitude: currentLocation.lng
         };
       } else {
-        // Try to geocode pickup address
+        // Fallback: Try to geocode pickup address
         try {
           const geocodedPickup = await this.geocodingService.getLatLngFromAddress(this.pickupAddress);
           if (geocodedPickup) {
@@ -628,17 +857,25 @@ export class Tab1Page implements OnInit, OnDestroy {
         }
       }
 
-      // Geocode dropoff address
-      try {
-        const geocodedDropoff = await this.geocodingService.getLatLngFromAddress(this.destinationAddress);
-        if (geocodedDropoff) {
-          dropoffLocation = {
-            latitude: geocodedDropoff.lat,
-            longitude: geocodedDropoff.lng
-          };
+      // Use stored destination coordinates if available (from map confirmation)
+      if (this.destinationCoords) {
+        dropoffLocation = {
+          latitude: this.destinationCoords.lat,
+          longitude: this.destinationCoords.lng
+        };
+      } else {
+        // Fallback: Geocode dropoff address
+        try {
+          const geocodedDropoff = await this.geocodingService.getLatLngFromAddress(this.destinationAddress);
+          if (geocodedDropoff) {
+            dropoffLocation = {
+              latitude: geocodedDropoff.lat,
+              longitude: geocodedDropoff.lng
+            };
+          }
+        } catch (error) {
+          console.error('Error geocoding dropoff:', error);
         }
-      } catch (error) {
-        console.error('Error geocoding dropoff:', error);
       }
 
       if (!pickupLocation || !dropoffLocation) {
@@ -705,14 +942,23 @@ export class Tab1Page implements OnInit, OnDestroy {
     await loading.present();
 
     try {
-      // Get dropoff coordinates
-      const dropoffLocation = await this.geocodingService.getLatLngFromAddress(
-        this.destinationAddress
-      );
+      // Use stored coordinates if available (from map confirmation), otherwise geocode
+      let dropoffLocation;
+      if (this.destinationCoords) {
+        dropoffLocation = { lat: this.destinationCoords.lat, lng: this.destinationCoords.lng };
+      } else {
+        dropoffLocation = await this.geocodingService.getLatLngFromAddress(
+          this.destinationAddress
+        );
+      }
 
-      // Use current location as pickup if available, otherwise try to geocode pickup address
-      let pickupLocation = currentLocation;
-      if (!pickupLocation || !pickupLocation.lat) {
+      // Use stored pickup coordinates if available, otherwise use current location or geocode
+      let pickupLocation;
+      if (this.pickupCoords) {
+        pickupLocation = { lat: this.pickupCoords.lat, lng: this.pickupCoords.lng };
+      } else if (currentLocation && currentLocation.lat) {
+        pickupLocation = currentLocation;
+      } else {
         const geocodedPickup = await this.geocodingService.getLatLngFromAddress(this.pickupAddress);
         if (geocodedPickup) {
           pickupLocation = { lat: geocodedPickup.lat, lng: geocodedPickup.lng };

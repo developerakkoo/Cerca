@@ -3,6 +3,25 @@ ion-content {
   --background: var(--ion-color-light) !important;
 }
 
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  min-height: 50vh;
+
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 14px;
+    margin: 0;
+  }
+}
+
 :root.ion-palette-dark {
   ion-content {
     --background: var(--ion-background-color) !important;

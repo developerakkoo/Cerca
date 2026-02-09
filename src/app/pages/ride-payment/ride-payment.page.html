@@ -1,0 +1,89 @@
+<ion-header [translucent]="false" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tabs/tab1" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Pay for Your Ride</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ride-payment-content">
+  <div class="payment-container" *ngIf="!paymentSuccess">
+    <!-- Ride Summary Card -->
+    <div class="ride-summary-card">
+      <div class="route-info">
+        <div class="location-item pickup">
+          <div class="location-icon">
+            <ion-icon name="radio-button-on" color="success"></ion-icon>
+          </div>
+          <div class="location-details">
+            <p class="location-label">Pickup</p>
+            <p class="location-address">{{ pickupAddress || 'Pickup location' }}</p>
+          </div>
+        </div>
+
+        <div class="route-line"></div>
+
+        <div class="location-item dropoff">
+          <div class="location-icon">
+            <ion-icon name="location" color="danger"></ion-icon>
+          </div>
+          <div class="location-details">
+            <p class="location-label">Destination</p>
+            <p class="location-address">{{ dropoffAddress || 'Destination' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ride-details" *ngIf="duration > 0">
+        <ion-item lines="none">
+          <ion-icon name="time-outline" slot="start" color="medium"></ion-icon>
+          <ion-label>
+            <p>Duration</p>
+            <h3>{{ duration }} min</h3>
+          </ion-label>
+        </ion-item>
+      </div>
+    </div>
+
+    <!-- Fare Display -->
+    <div class="fare-display">
+      <p class="fare-label">Total Amount</p>
+      <h1 class="fare-amount">₹{{ fare.toFixed(2) }}</h1>
+    </div>
+
+    <!-- Payment Button -->
+    <div class="payment-action">
+      <ion-button 
+        expand="block" 
+        class="pay-button" 
+        (click)="payNow()"
+        [disabled]="isProcessing || fare <= 0">
+        <ion-icon name="card-outline" slot="start" *ngIf="!isProcessing"></ion-icon>
+        <ion-spinner *ngIf="isProcessing" name="crescent" slot="start"></ion-spinner>
+        <span *ngIf="!isProcessing">Pay ₹{{ fare.toFixed(2) }}</span>
+        <span *ngIf="isProcessing">Processing...</span>
+      </ion-button>
+    </div>
+
+    <!-- Payment Methods Info -->
+    <div class="payment-info">
+      <ion-item lines="none">
+        <ion-icon name="information-circle-outline" slot="start" color="primary"></ion-icon>
+        <ion-label>
+          <p>Secure payment via Razorpay</p>
+          <p class="info-subtext">Pay with card, UPI, or netbanking</p>
+        </ion-label>
+      </ion-item>
+    </div>
+  </div>
+
+  <!-- Success State -->
+  <div class="success-container" *ngIf="paymentSuccess">
+    <div class="success-animation">
+      <ion-icon name="checkmark-circle" color="success" class="success-icon"></ion-icon>
+      <h2>Payment Successful!</h2>
+      <p>Your payment of ₹{{ fare.toFixed(2) }} has been processed.</p>
+    </div>
+  </div>
+</ion-content>

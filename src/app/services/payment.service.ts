@@ -259,6 +259,105 @@ export class PaymentService {
   }
 
   /**
+   * Process ride payment (post-ride Razorpay payment)
+   * Creates order via ride payment API and opens Razorpay checkout
+   */
+  async processRidePayment(
+    rideId: string,
+    userId: string,
+    amount: number,
+    onSuccess: (response: RazorpayPaymentResponse) => void,
+    onFailure?: (error: RazorpayError) => void
+  ): Promise<void> {
+    try {
+      // Step 1: Create Razorpay order for ride payment
+      const orderResponse = await this.http.post<{
+        success: boolean;
+        message: string;
+        data: {
+          orderId: string;
+          amount: number;
+          key: string;
+        };
+      }>(`${this.apiUrl}/api/rides/${rideId}/pay-online`, {
+        userId: userId
+      }).toPromise();
+
+      if (!orderResponse || !orderResponse.success || !orderResponse.data?.orderId) {
+        throw new Error(orderResponse?.message || 'Failed to create payment order');
+      }
+
+      console.log('Ride payment order created:', orderResponse.data);
+
+      // Step 2: Open Razorpay checkout with rideId and userId in notes
+      const paymentResponse = await this.openRazorpayCheckout(
+        orderResponse.data.orderId,
+        orderResponse.data.amount,
+        {
+          name: 'Cerca',
+          description: `Ride payment of ₹${orderResponse.data.amount}`,
+          notes: {
+            rideId: rideId,
+            userId: userId,
+            type: 'ride_payment'
+          },
+          onSuccess: async (response) => {
+            // Step 3: Verify payment on backend
+            try {
+              const verifyResponse = await this.http.post<{
+                success: boolean;
+                message: string;
+                data: any;
+              }>(`${this.apiUrl}/api/rides/${rideId}/verify-payment`, {
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                userId: userId
+              }).toPromise();
+
+              if (verifyResponse && verifyResponse.success) {
+                console.log('Payment verified successfully:', verifyResponse);
+                await this.showToast('Payment successful!', 'success');
+                onSuccess(response);
+              } else {
+                throw new Error(verifyResponse?.message || 'Payment verification failed');
+              }
+            } catch (verifyError: any) {
+              console.error('Payment verification error:', verifyError);
+              // Payment might still be processed via webhook, but show error to user
+              const errorMessage = verifyError?.message || 'Payment may have been processed. Please check your ride status.';
+              await this.showToast(errorMessage, 'warning');
+              // Still call onSuccess since payment was captured by Razorpay
+              // Webhook will handle the backend update
+              onSuccess(response);
+            }
+          },
+          onFailure: (error) => {
+            this.handlePaymentFailure(error, onFailure);
+          }
+        }
+      );
+
+      // Payment success is handled in the handler callback
+    } catch (error: any) {
+      console.error('Ride payment processing error:', error);
+      const errorMessage = error.message || 'Failed to process payment. Please try again.';
+      await this.showToast(errorMessage, 'danger');
+      
+      if (onFailure) {
+        onFailure({
+          error: {
+            code: 'PROCESSING_ERROR',
+            description: errorMessage,
+            source: 'app',
+            step: 'order_creation',
+            reason: 'api_error'
+          }
+        });
+      }
+    }
+  }
+
+  /**
    * Show toast notification
    */
   private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success'): Promise<void> {

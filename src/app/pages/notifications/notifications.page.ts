@@ -214,6 +214,6 @@ export class NotificationsPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.router.navigate(['/tabs/tab1']);
+    this.router.navigate(['/tabs/tabs/tab1']);
   }
 }

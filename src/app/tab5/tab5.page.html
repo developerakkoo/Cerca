@@ -13,8 +13,14 @@
     </ion-toolbar>
   </ion-header>
 
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading profile...</p>
+  </div>
+
   <!-- Profile Section -->
-  <ion-card class="profile-card">
+  <ion-card class="profile-card" *ngIf="!isLoading">
     <ion-card-content>
       <div class="profile-header">
         <ion-avatar class="user-avatar">
@@ -78,8 +84,10 @@
     <ion-item class="settings-item" (click)="openSupport()">
       <ion-icon name="help-circle-outline" slot="start"></ion-icon>
       <ion-label>{{'SETTINGS.items.Support' | translate}}</ion-label>
-      <ion-badge *ngIf="activeSupportCount > 0" color="primary" slot="end">{{ activeSupportCount }}</ion-badge>
-      <ion-icon name="chevron-forward" slot="end"></ion-icon>
+      <div slot="end" style="display: flex; align-items: center; gap: 8px;">
+        <ion-badge *ngIf="activeSupportCount > 0" color="primary">{{ activeSupportCount }}</ion-badge>
+        <ion-icon name="chevron-forward"></ion-icon>
+      </div>
     </ion-item>
 
     <!-- FAQ -->

@@ -24,7 +24,6 @@ export class Tab2Page implements OnInit, OnDestroy {
   private readonly INITIAL_DISPLAY_COUNT = 4;
   private readonly LOAD_MORE_COUNT = 5;
   activeDisplayCount = 0;
-  pastDisplayCount = 0;
 
   // Timer properties
   private readonly TIMEOUT_DURATION = 180; // 3 minutes in seconds
@@ -109,9 +108,11 @@ export class Tab2Page implements OnInit, OnDestroy {
         (a, b) => getSortDate(b) - getSortDate(a)
       );
 
+      // Limit past bookings to 4 most recent rides
+      this.pastBookings = this.pastBookings.slice(0, 4);
+
       // Reset display counts and show initial rides
       this.activeDisplayCount = 0;
-      this.pastDisplayCount = 0;
       this.updateDisplayedRides();
 
       // Start timers for requested rides
@@ -139,13 +140,8 @@ export class Tab2Page implements OnInit, OnDestroy {
     this.displayedActiveBookings = this.activeBookings.slice(0, nextActiveCount);
     this.activeDisplayCount = nextActiveCount;
 
-    // Update displayed past bookings
-    const nextPastCount = Math.min(
-      this.pastDisplayCount + (this.pastDisplayCount === 0 ? this.INITIAL_DISPLAY_COUNT : this.LOAD_MORE_COUNT),
-      this.pastBookings.length
-    );
-    this.displayedPastBookings = this.pastBookings.slice(0, nextPastCount);
-    this.pastDisplayCount = nextPastCount;
+    // Past bookings are already limited to 4, so show all of them
+    this.displayedPastBookings = this.pastBookings;
   }
 
   loadMoreActive() {
@@ -157,21 +153,8 @@ export class Tab2Page implements OnInit, OnDestroy {
     this.activeDisplayCount = nextCount;
   }
 
-  loadMorePast() {
-    const nextCount = Math.min(
-      this.pastDisplayCount + this.LOAD_MORE_COUNT,
-      this.pastBookings.length
-    );
-    this.displayedPastBookings = this.pastBookings.slice(0, nextCount);
-    this.pastDisplayCount = nextCount;
-  }
-
   hasMoreActive(): boolean {
     return this.activeDisplayCount < this.activeBookings.length;
-  }
-
-  hasMorePast(): boolean {
-    return this.pastDisplayCount < this.pastBookings.length;
   }
 
   segmentChanged(event: any) {
@@ -265,15 +248,6 @@ export class Tab2Page implements OnInit, OnDestroy {
     }
   }
 
-  getDriverName(ride: Ride): string {
-    return ride.driver?.name || 'Not assigned';
-  }
-
-  getVehicleInfo(ride: Ride): string {
-    if (!ride.driver?.vehicleInfo) return 'N/A';
-    const { color, make, model } = ride.driver.vehicleInfo;
-    return `${color} ${make} ${model}`;
-  }
 
   callDriver(phone?: string) {
     if (phone) {

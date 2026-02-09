@@ -3,6 +3,14 @@
 
 :host {
   background: transparent !important;
+  
+  // Ensure ion-content doesn't intercept map touches
+  ion-content {
+    touch-action: none; // Disable Ionic's touch handling
+    overscroll-behavior: none; // Prevent overscroll on iOS
+    --background: transparent !important;
+    background: transparent !important;
+  }
 }
 
 .tab1-content {
@@ -11,9 +19,41 @@
   position: relative;
   height: 100vh;
   overflow: hidden;
+  touch-action: none; // Disable touch actions for map mode
+  -webkit-overflow-scrolling: auto; // Disable iOS momentum scrolling
 }
 
-// Loading Overlay
+// Map Container - Full screen for confirm mode
+.map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  touch-action: none !important; // Let native map handle all gestures - CRITICAL for Android
+  -webkit-overflow-scrolling: auto; // Disable iOS momentum scrolling
+  pointer-events: auto !important; // Ensure container allows pointer events - CRITICAL for Android
+  background: transparent !important; // Critical for Android - map renders behind webview
+  -webkit-tap-highlight-color: transparent; // Remove tap highlight on Android
+
+  capacitor-google-map {
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none !important; // Let native map handle all gestures - CRITICAL for Android
+    pointer-events: auto !important; // Explicitly enable pointer events - CRITICAL for Android
+    -webkit-user-select: none; // Prevent text selection on drag
+    user-select: none;
+    background: transparent !important; // Critical for Android
+    -webkit-touch-callout: none; // Prevent iOS callout menu
+    -webkit-tap-highlight-color: transparent; // Remove tap highlight on Android
+  }
+}
+
+// Loading Overlay for Map
 .loading-overlay {
   position: absolute;
   top: 0;
@@ -25,62 +65,183 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(8px);
 
   .loading-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-md);
-
-    p {
-      font-size: 16px;
-      font-weight: 500;
-      color: var(--ion-color-medium);
-      margin: 0;
-    }
+    gap: 16px;
   }
 }
 
-// Map Container
-.map-container {
+// Error Overlay for Map
+.error-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
+  background: rgba(255, 255, 255, 0.98);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
 
-  capacitor-google-map {
-    width: 100%;
-    height: 100%;
-    display: block;
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    max-width: 320px;
+    text-align: center;
+
+    .error-message {
+      color: rgba(0, 0, 0, 0.87);
+      font-size: 16px;
+      font-weight: 500;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .error-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+
+      ion-button {
+        --border-radius: 12px;
+        height: 48px;
+        font-weight: 600;
+        margin: 0;
+      }
+    }
   }
 }
 
-// Floating Input Section - Material Design
+// Center Pin Overlay
+.center-pin-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  z-index: 150;
+  pointer-events: none;
+  
+  .center-pin {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    .pin-icon {
+      font-size: 48px;
+      color: var(--ion-color-primary);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+      z-index: 2;
+    }
+    
+    .pin-shadow {
+      position: absolute;
+      width: 20px;
+      height: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 50%;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+    }
+  }
+}
+
+// Address Card in Confirm Mode
+.address-card {
+  position: absolute;
+  bottom: calc(65px + 16px + env(safe-area-inset-bottom)); // 65px = tabs bar height
+  left: 16px;
+  right: 16px;
+  z-index: 200;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  pointer-events: auto; // Enable pointer events for button clicks
+
+  .address-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    pointer-events: none; // Address text is not clickable
+
+    .address-text {
+      flex: 1;
+
+      .address-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(0, 0, 0, 0.6);
+      }
+
+      .address-value {
+        color: rgba(0, 0, 0, 0.87);
+        font-size: 15px;
+        line-height: 1.4;
+      }
+    }
+  }
+
+  .address-card-actions {
+    pointer-events: auto; // Enable button clicks
+    
+    .confirm-button {
+      --background: var(--ion-color-primary);
+      --color: white;
+      --border-radius: 12px;
+      height: 48px;
+      font-weight: 600;
+      margin: 0;
+      width: 100%;
+    }
+  }
+}
+
+// Confirm Button Wrapper
+.confirm-button-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(255, 255, 255, 1) 0%, transparent 100%);
+  pointer-events: none;
+
+  .confirm-button {
+    pointer-events: auto;
+    --background: var(--ion-color-primary);
+    --color: white;
+    --border-radius: 12px;
+    height: 52px;
+    font-weight: 600;
+  }
+}
+
+// Floating Input Section - Always at Top
 .floating-inputs {
   position: absolute;
-  bottom: calc(65px + env(safe-area-inset-bottom) + 16px);
+  top: calc(env(safe-area-inset-top) + 16px);
   left: var(--spacing-md);
   right: var(--spacing-md);
-  top: auto;
   z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform, bottom;
-
-  // Slid-up state when both addresses are set
-  &.inputs-slid-up {
-    bottom: auto;
-    top: calc(env(safe-area-inset-top) + 16px);
-    transform: translateY(0);
-  }
 
   .input-card {
     background: white;
@@ -345,6 +506,10 @@
           width: 24px;
           height: 24px;
           margin: 0;
+          // Ensure touch target is at least 44x44px
+          padding: 10px;
+          min-width: 44px;
+          min-height: 44px;
         }
       }
     }
@@ -442,7 +607,7 @@
     .ride-cards-container {
       .ride-card {
         width: 100%;
-        height: 10px;
+        min-height: 80px;
 
         .ride-card-content {
           .vehicle-image-wrapper {
@@ -470,14 +635,7 @@
     max-width: 600px;
     left: 50%;
     right: auto;
-    
-    &.inputs-slid-up {
-      transform: translateX(-50%);
-    }
-    
-    &:not(.inputs-slid-up) {
-      transform: translateX(-50%);
-    }
+    transform: translateX(-50%);
   }
 
   .ride-cards-section {

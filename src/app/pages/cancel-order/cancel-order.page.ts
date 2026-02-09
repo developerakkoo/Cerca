@@ -34,7 +34,7 @@ export class CancelOrderPage implements OnInit {
     if (!ride) {
       // No active ride, navigate back
       console.warn('No active ride to cancel');
-      this.router.navigate(['/tabs/tab1'], {
+      this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true,
       });
     }

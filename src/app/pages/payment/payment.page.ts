@@ -72,6 +72,9 @@ export class PaymentPage implements OnInit {
   // Rider contact info (for useRiderContact toggle)
   private riderPhone: string = '';
 
+  // Error state
+  paymentError: string | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -97,7 +100,7 @@ export class PaymentPage implements OnInit {
     if (!this.pendingRideDetails) {
       console.warn('No pending ride details found');
       // Navigate back to home
-      this.router.navigate(['/tabs/tab1']);
+      this.router.navigate(['/tabs/tabs/tab1']);
       return;
     }
 
@@ -285,7 +288,7 @@ export class PaymentPage implements OnInit {
   async proceedToPayment() {
     if (!this.pendingRideDetails) {
       await this.showToast('Ride details not found', 'danger');
-      this.router.navigate(['/tabs/tab1']);
+      this.router.navigate(['/tabs/tabs/tab1']);
       return;
     }
 
@@ -326,6 +329,43 @@ export class PaymentPage implements OnInit {
     } else if (this.selectedPaymentMethod === 'cash') {
       // Cash payment - start ride directly
       await this.handleCashPayment();
+    } else if (this.selectedPaymentMethod === 'razorpay') {
+      // Pay Online - no upfront payment, pay after ride
+      await this.handlePayOnlinePayment();
+    }
+  }
+
+  /**
+   * Handle Pay Online payment (Razorpay post-ride)
+   */
+  private async handlePayOnlinePayment() {
+    const loading = await this.loadingCtrl.create({
+      message: 'Requesting ride...',
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    try {
+      // Request ride with RAZORPAY payment method but no paymentId (pay after ride)
+      await this.requestRideAfterPayment('RAZORPAY');
+      await loading.dismiss();
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ Pay Online ride request failed:', error);
+      
+      let errorMessage = 'Failed to request ride. Please try again.';
+      if (error?.message) {
+        if (error.message.toLowerCase().includes('network') || error.message.toLowerCase().includes('connection')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (error.message.toLowerCase().includes('already have an active ride')) {
+          errorMessage = 'You already have an active ride. Please cancel it first.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      await this.showToast(errorMessage, 'danger');
+      this.paymentError = errorMessage;
     }
   }
 
@@ -374,6 +414,7 @@ export class PaymentPage implements OnInit {
       }
       
       await this.showToast(errorMessage, 'danger');
+      this.paymentError = errorMessage;
     }
   }
 
@@ -856,5 +897,14 @@ export class PaymentPage implements OnInit {
       // Re-validate passenger phone if toggle is off
       this.validatePassengerPhone();
     }
+  }
+
+  retryPayment() {
+    this.paymentError = null;
+    this.proceedToPayment();
+  }
+
+  goBack() {
+    this.router.navigate(['/tabs/tabs/tab1']);
   }
 }

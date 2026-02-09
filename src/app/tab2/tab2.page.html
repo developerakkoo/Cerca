@@ -48,11 +48,9 @@
         <ion-card-header class="card-header">
           <div class="header-content">
             <div class="ride-info">
-              <ion-card-title class="ride-id">Ride #{{ booking._id.slice(-6) }}</ion-card-title>
-              <ion-card-subtitle class="ride-date">
-                <ion-icon name="time-outline"></ion-icon>
+              <ion-card-title class="ride-date-time">
                 {{ formatDate(booking.createdAt) }} at {{ formatTime(booking.createdAt) }}
-              </ion-card-subtitle>
+              </ion-card-title>
             </div>
             <div class="status-badge" [class]="'badge-' + getStatusColor(booking.status)">
               {{ getStatusText(booking.status) }}
@@ -61,48 +59,6 @@
         </ion-card-header>
       
         <ion-card-content class="card-content">
-          <!-- Driver & Vehicle Info -->
-          <div class="info-row">
-            <div class="info-item">
-              <ion-icon name="person-outline" class="info-icon"></ion-icon>
-              <div class="info-content">
-                <span class="info-label">{{ 'BOOKINGS.driver' | translate }}</span>
-                <span class="info-value">{{ getDriverName(booking) }}</span>
-              </div>
-            </div>
-            <div class="info-item">
-              <ion-icon name="car-outline" class="info-icon"></ion-icon>
-              <div class="info-content">
-                <span class="info-label">{{ 'BOOKINGS.vehicle' | translate }}</span>
-                <span class="info-value">{{ getVehicleInfo(booking) }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Pickup Location -->
-          <div class="location-row">
-            <ion-icon name="location" class="location-icon pickup-icon"></ion-icon>
-            <div class="location-content">
-              <span class="location-label">{{ 'BOOKINGS.pickup' | translate }}</span>
-              <span class="location-value">{{ booking.pickupAddress || 'N/A' }}</span>
-            </div>
-          </div>
-
-          <!-- Destination Location -->
-          <div class="location-row">
-            <ion-icon name="location" class="location-icon destination-icon"></ion-icon>
-            <div class="location-content">
-              <span class="location-label">{{ 'BOOKINGS.destination' | translate }}</span>
-              <span class="location-value">{{ booking.dropoffAddress || 'N/A' }}</span>
-            </div>
-          </div>
-
-          <!-- Fare Display -->
-          <div class="fare-section">
-            <div class="fare-label">{{ 'BOOKINGS.fare' | translate }}</div>
-            <div class="fare-amount">₹{{ booking.fare || 'N/A' }}</div>
-          </div>
-
           <!-- Action Buttons -->
           <div class="action-buttons">
             <ion-button 
@@ -184,11 +140,9 @@
         <ion-card-header class="card-header">
           <div class="header-content">
             <div class="ride-info">
-              <ion-card-title class="ride-id">Ride #{{ booking._id.slice(-6) }}</ion-card-title>
-              <ion-card-subtitle class="ride-date">
-                <ion-icon name="time-outline"></ion-icon>
+              <ion-card-title class="ride-date-time">
                 {{ formatDate(booking.createdAt) }} at {{ formatTime(booking.createdAt) }}
-              </ion-card-subtitle>
+              </ion-card-title>
             </div>
             <div class="status-badge" [class]="'badge-' + getStatusColor(booking.status)">
               {{ getStatusText(booking.status) }}
@@ -197,69 +151,21 @@
         </ion-card-header>
         
         <ion-card-content class="card-content">
-          <!-- Driver & Vehicle Info -->
-          <div class="info-row">
-            <div class="info-item">
-              <ion-icon name="person-outline" class="info-icon"></ion-icon>
-              <div class="info-content">
-                <span class="info-label">{{ 'BOOKINGS.driver' | translate }}</span>
-                <span class="info-value">{{ getDriverName(booking) }}</span>
-              </div>
-            </div>
-            <div class="info-item">
-              <ion-icon name="car-outline" class="info-icon"></ion-icon>
-              <div class="info-content">
-                <span class="info-label">{{ 'BOOKINGS.vehicle' | translate }}</span>
-                <span class="info-value">{{ getVehicleInfo(booking) }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Pickup Location -->
-          <div class="location-row">
-            <ion-icon name="location" class="location-icon pickup-icon"></ion-icon>
-            <div class="location-content">
-              <span class="location-label">{{ 'BOOKINGS.pickup' | translate }}</span>
-              <span class="location-value">{{ booking.pickupAddress || 'N/A' }}</span>
-            </div>
-          </div>
-
-          <!-- Destination Location -->
-          <div class="location-row">
-            <ion-icon name="location" class="location-icon destination-icon"></ion-icon>
-            <div class="location-content">
-              <span class="location-label">{{ 'BOOKINGS.destination' | translate }}</span>
-              <span class="location-value">{{ booking.dropoffAddress || 'N/A' }}</span>
-            </div>
-          </div>
-
-          <!-- Fare Display -->
-          <div class="fare-section">
-            <div class="fare-label">{{ 'BOOKINGS.fare' | translate }}</div>
-            <div class="fare-amount">₹{{ booking.fare || 'N/A' }}</div>
-          </div>
-
-          <!-- Completed Time (if available) -->
-          <div *ngIf="booking.actualEndTime" class="completed-section">
-            <ion-icon name="checkmark-circle-outline" class="completed-icon"></ion-icon>
-            <span class="completed-text">
-              Completed: {{ formatDate(booking.actualEndTime) }} at {{ formatTime(booking.actualEndTime) }}
-            </span>
+          <!-- Action Button -->
+          <div class="action-buttons">
+            <ion-button 
+              expand="block" 
+              mode="ios" 
+              (click)="navigateToActiveRide(booking._id, booking)" 
+              class="view-details-btn"
+              fill="outline">
+              <ion-icon name="information-circle-outline" slot="start"></ion-icon>
+              {{ 'BOOKINGS.viewDetails' | translate }}
+            </ion-button>
           </div>
         </ion-card-content>
       </ion-card>
     </ion-list>
 
-    <!-- Load More Button for Past Rides -->
-    <div *ngIf="!isLoading && hasMorePast()" class="ion-text-center ion-padding">
-      <ion-button 
-        expand="block" 
-        fill="outline" 
-        (click)="loadMorePast()"
-        class="load-more-btn">
-        <ion-icon name="chevron-down-outline" slot="end"></ion-icon>
-        Load More ({{ pastBookings.length - pastDisplayCount }} remaining)
-      </ion-button>
-    </div>
   </div>
 </ion-content>

@@ -2,7 +2,7 @@
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-back-button 
-        defaultHref="/tabs/tab1" 
+        defaultHref="/tabs/tabs/tab1" 
         text=""
         (click)="handleBackButton()">
       </ion-back-button>
@@ -33,6 +33,11 @@
     [showBackdrop]="false"
   >
     <ng-template>
+      <!-- Grab Handle -->
+      <div class="modal-handle">
+        <div class="handle-bar"></div>
+      </div>
+
       <ion-header>
         <ion-toolbar>
           <ion-title>{{statusText}}</ion-title>
@@ -143,17 +148,24 @@
   <div class="rating-modal" *ngIf="showRating" [class.show]="showRating">
     <div class="rating-content">
       <h2>How was your ride?</h2>
-      <div class="emoji-grid">
-        <div
-          class="emoji-item"
-          *ngFor="let emoji of emojis"
-          [class.selected]="selectedEmoji === emoji.value"
-          (click)="selectEmoji(emoji.value)"
-        >
-          <span class="emoji">{{emoji.emoji}}</span>
-          <span class="emoji-label">{{emoji.label}}</span>
+      <ion-radio-group [(ngModel)]="selectedEmoji" (ionChange)="onEmojiChange($event)">
+        <div class="emoji-grid">
+          <div
+            class="emoji-item"
+            *ngFor="let emoji of emojis"
+            [class.selected]="selectedEmoji === emoji.value"
+            (click)="selectEmoji(emoji.value)"
+            [attr.aria-label]="emoji.label"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="selectEmoji(emoji.value)"
+            (keydown.space)="selectEmoji(emoji.value)"
+          >
+            <span class="emoji">{{emoji.emoji}}</span>
+            <span class="emoji-label">{{emoji.label}}</span>
+          </div>
         </div>
-      </div>
+      </ion-radio-group>
       <ion-button expand="block" class="submit-rating" (click)="submitRating()" [disabled]="selectedEmoji === null">
         Submit
       </ion-button>

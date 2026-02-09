@@ -23,6 +23,7 @@ export class Tab5Page implements OnInit, OnDestroy {
   selectedLanguage: string = 'en';
   user: any;
   activeSupportCount: number = 0;
+  isLoading: boolean = true;
   private subscriptions: Subscription[] = [];
   languages: Language[] = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -76,8 +77,10 @@ export class Tab5Page implements OnInit, OnDestroy {
   }
 
   getUser() {
+    this.isLoading = true;
     this.userService.getUser().subscribe((user: User) => {
       this.user = user;
+      this.isLoading = false;
     });
   }
 

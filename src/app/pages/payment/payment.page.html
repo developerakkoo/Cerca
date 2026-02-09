@@ -1,14 +1,28 @@
 <ion-header [translucent]="false" class="ion-no-border payment-header">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/" text=""></ion-back-button>
+      <ion-back-button defaultHref="/tabs/tabs/tab1" text=""></ion-back-button>
     </ion-buttons>
     <ion-title>{{ 'PAYMENT.title' | translate }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="payment-content" [scrollY]="true">
-  <div class="payment-container">
+  <!-- Error State -->
+  <div *ngIf="paymentError" class="error-container">
+    <ion-icon name="alert-circle-outline" color="danger" style="font-size: 64px;"></ion-icon>
+    <h2>Payment Error</h2>
+    <p>{{ paymentError }}</p>
+    <ion-button expand="block" fill="outline" (click)="retryPayment()" class="retry-button">
+      <ion-icon name="refresh-outline" slot="start"></ion-icon>
+      Try Again
+    </ion-button>
+    <ion-button expand="block" fill="clear" (click)="goBack()" class="back-button">
+      Go Back
+    </ion-button>
+  </div>
+
+  <div class="payment-container" *ngIf="!paymentError">
     <!-- Payment Summary -->
     <div class="payment-summary">
       <h2>{{ 'PAYMENT.paymentSummary' | translate }}</h2>
@@ -152,6 +166,17 @@
             </ion-label>
             <ion-radio slot="end" value="cash"></ion-radio>
           </ion-item>
+
+          <ion-item lines="none" class="payment-method-item">
+            <ion-avatar slot="start">
+              <ion-icon name="card-outline"></ion-icon>
+            </ion-avatar>
+            <ion-label>
+              <h3>Pay Online</h3>
+              <p>Pay after ride with card, UPI, or netbanking</p>
+            </ion-label>
+            <ion-radio slot="end" value="razorpay"></ion-radio>
+          </ion-item>
         </ion-radio-group>
       </ion-list>
     </div>
@@ -196,6 +221,9 @@
         </ng-container>
         <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'cash'">
           Pay ₹{{totalAmount}}
+        </ng-container>
+        <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'razorpay'">
+          Request Ride (Pay ₹{{totalAmount}} after ride)
         </ng-container>
       </ion-button>
     </div>

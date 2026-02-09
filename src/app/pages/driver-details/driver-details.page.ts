@@ -98,7 +98,7 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
           });
         } else if (status === 'cancelled') {
           // Navigate back to home
-          this.router.navigate(['/tabs/tab1'], {
+          this.router.navigate(['/tabs/tabs/tab1'], {
             replaceUrl: true,
           });
         }
@@ -207,7 +207,7 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
     if (this.currentRide) {
       this.router.navigate(['/active-ordere']);
     } else {
-      this.router.navigate(['/tabs/tab1'], {
+      this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true,
       });
     }

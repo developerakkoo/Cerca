@@ -1,3 +1,73 @@
-<p>
-  cancel-ride-modal works!
-</p>
+<ion-modal
+  [isOpen]="isOpen"
+  [initialBreakpoint]="0.5"
+  [breakpoints]="[0.3, 0.5, 0.9]"
+  [backdropDismiss]="true"
+  [showBackdrop]="true"
+  [canDismiss]="true"
+  (didDismiss)="onDismiss()"
+  cssClass="cancel-ride-modal">
+  
+  <ng-template>
+    <!-- Grab Handle -->
+    <div class="modal-handle">
+      <div class="handle-bar"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h2 class="header-title">Cancel Ride</h2>
+      <p class="header-subtitle">Please tell us why you're canceling</p>
+    </div>
+
+    <!-- Content -->
+    <ion-content class="modal-content">
+      <ion-radio-group [(ngModel)]="selectedReason" (ionChange)="onReasonChange($event)">
+        <ion-item 
+          *ngFor="let reason of cancelReasons" 
+          lines="full"
+          class="reason-item"
+          [class.selected]="selectedReason === reason.value"
+          (click)="selectedReason = reason.value">
+          <ion-label>
+            <h3>{{ reason.label }}</h3>
+            <p *ngIf="reason.description">{{ reason.description }}</p>
+          </ion-label>
+          <ion-radio slot="end" [value]="reason.value"></ion-radio>
+        </ion-item>
+      </ion-radio-group>
+
+      <!-- Additional Notes -->
+      <div class="notes-section" *ngIf="selectedReason">
+        <ion-item lines="full">
+          <ion-label position="stacked">Additional notes (optional)</ion-label>
+          <ion-textarea 
+            [(ngModel)]="additionalNotes"
+            placeholder="Tell us more..."
+            rows="3"
+            maxlength="200">
+          </ion-textarea>
+        </ion-item>
+        <div class="char-count">{{ additionalNotes.length }}/200</div>
+      </div>
+    </ion-content>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <ion-button 
+        expand="block" 
+        fill="outline"
+        class="cancel-button"
+        (click)="onCancel()">
+        Keep Ride
+      </ion-button>
+      <ion-button 
+        expand="block" 
+        class="confirm-button"
+        [disabled]="!selectedReason"
+        (click)="onConfirm()">
+        Cancel Ride
+      </ion-button>
+    </div>
+  </ng-template>
+</ion-modal>

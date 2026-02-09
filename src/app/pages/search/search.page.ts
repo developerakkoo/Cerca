@@ -226,8 +226,20 @@ export class SearchPage implements OnInit, OnDestroy {
         // Hide suggestions
         this.clearSuggestions();
 
-        // Navigate to pin-location page instead of auto-confirming
-        await this.navigateToPinLocation();
+        // For tab1 modal flow: dismiss with result instead of navigating to pin-location
+        // Only navigate to pin-location for tab4, date-wise, or address management flows
+        if (this.isModalMode && !this.addressMode && !this.returnTo) {
+          // Tab1 flow: dismiss modal with result
+          const result: SearchModalResult = {
+            address: this.selectedAddress,
+            location: this.selectedLocation,
+            isPickup: this.isPickup,
+          };
+          await this.modalController.dismiss(result);
+        } else {
+          // Other flows: navigate to pin-location page
+          await this.navigateToPinLocation();
+        }
       }
     } catch (error) {
       console.error('Error getting place details:', error);
@@ -240,6 +252,7 @@ export class SearchPage implements OnInit, OnDestroy {
 
   /**
    * Navigate to pin-location page with selected location data
+   * Note: This is only called for non-tab1 flows (tab4, date-wise, address management)
    */
   private async navigateToPinLocation() {
     if (!this.selectedLocation?.lat || !this.selectedLocation?.lng) {

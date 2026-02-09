@@ -31,6 +31,10 @@ const routes: Routes = [
     loadChildren: () => import('./pages/payment/payment.module').then( m => m.PaymentPageModule)
   },
   {
+    path: 'ride-payment/:rideId',
+    loadChildren: () => import('./pages/ride-payment/ride-payment.module').then( m => m.RidePaymentPageModule)
+  },
+  {
     path: 'active-ordere',
     loadChildren: () => import('./pages/active-ordere/active-ordere.module').then( m => m.ActiveOrderePageModule)
   },

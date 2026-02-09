@@ -17,6 +17,7 @@ import { IonicModule } from '@ionic/angular';
       left: 0;
       right: 0;
       padding: 8px 16px;
+      padding-top: calc(8px + env(safe-area-inset-top));
       background: var(--ion-color-danger);
       color: var(--ion-color-danger-contrast);
       display: flex;

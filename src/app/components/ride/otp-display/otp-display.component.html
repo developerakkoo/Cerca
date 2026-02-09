@@ -1,1 +1,19 @@
-<p>otp-display works!</p>
+<div class="otp-display-container">
+  <div class="otp-header">
+    <h3 class="otp-title">Share OTP with Driver</h3>
+    <p class="otp-instruction" *ngIf="instruction">{{ instruction }}</p>
+  </div>
+  
+  <div class="otp-code-wrapper">
+    <div class="otp-code" [class.copied]="copied">
+      {{ otp || '----' }}
+    </div>
+    <button 
+      class="copy-button"
+      (click)="copyToClipboard()"
+      [attr.aria-label]="'Copy OTP to clipboard'">
+      <ion-icon [name]="copied ? 'checkmark-circle' : 'copy-outline'"></ion-icon>
+      <span>{{ copied ? 'Copied!' : 'Copy' }}</span>
+    </button>
+  </div>
+</div>

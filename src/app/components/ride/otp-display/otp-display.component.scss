@@ -1,0 +1,102 @@
+.otp-display-container {
+  padding: 20px;
+  background: rgba(var(--ion-color-primary-rgb), 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.2);
+  text-align: center;
+}
+
+.otp-header {
+  margin-bottom: 16px;
+
+  .otp-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin: 0 0 8px 0;
+  }
+
+  .otp-instruction {
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    margin: 0;
+    font-style: italic;
+  }
+}
+
+.otp-code-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.otp-code {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--ion-color-primary);
+  letter-spacing: 8px;
+  font-family: 'Courier New', monospace;
+  padding: 16px 24px;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid rgba(var(--ion-color-primary-rgb), 0.3);
+  min-width: 200px;
+  transition: all 0.3s ease;
+
+  &.copied {
+    border-color: var(--ion-color-success);
+    background: rgba(var(--ion-color-success-rgb), 0.1);
+    color: var(--ion-color-success);
+  }
+}
+
+.copy-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--ion-color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px; // WCAG touch target size
+
+  &:active {
+    transform: scale(0.98);
+    background: var(--ion-color-primary-shade);
+  }
+
+  ion-icon {
+    font-size: 18px;
+  }
+}
+
+// Dark theme
+:root.ion-palette-dark {
+  .otp-display-container {
+    background: rgba(var(--ion-color-primary-rgb), 0.15);
+    border-color: rgba(var(--ion-color-primary-rgb), 0.3);
+  }
+
+  .otp-header {
+    .otp-title {
+      color: var(--ion-color-light);
+    }
+  }
+
+  .otp-code {
+    background: var(--ion-color-dark);
+    border-color: rgba(var(--ion-color-primary-rgb), 0.4);
+    color: var(--ion-color-primary);
+
+    &.copied {
+      background: rgba(var(--ion-color-success-rgb), 0.2);
+      color: var(--ion-color-success);
+    }
+  }
+}

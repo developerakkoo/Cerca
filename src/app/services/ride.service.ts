@@ -66,6 +66,7 @@ export interface Ride {
   service: 'sedan' | 'suv' | 'auto';
   rideType: 'normal' | 'whole_day' | 'custom';
   paymentMethod: 'CASH' | 'RAZORPAY' | 'WALLET';
+  paymentStatus?: 'pending' | 'completed' | 'failed' | 'refunded';
   startOtp: string;
   stopOtp: string;
   actualStartTime?: Date;
@@ -317,12 +318,21 @@ export class RideService {
 
     // Ride completed
     const rideCompletedSub = this.socketService.on<Ride>('rideCompleted').subscribe((ride) => {
-      console.log('✅ Ride completed:', ride);
+      console.log('✅ Ride completed event received:', ride);
+      console.log('   Ride ID:', ride._id);
+      console.log('   Payment Method:', ride.paymentMethod);
+      console.log('   Payment Status:', ride.paymentStatus);
+      console.log('   Fare:', ride.fare);
+      
+      // Update ride state with all fields including paymentStatus
       this.currentRide$.next(ride);
       this.rideStatus$.next('completed');
       this.storeRide(ride);
       this.showToast('✅ Ride completed!');
-      // Active order page will show rating UI automatically
+      
+      // Log for debugging
+      console.log('✅ Ride state updated - paymentMethod:', ride.paymentMethod, 'paymentStatus:', ride.paymentStatus);
+      // Active order page will show rating UI automatically (or payment screen if needed)
     });
     this.socketSubscriptions.push(rideCompletedSub);
 
@@ -343,7 +353,7 @@ export class RideService {
         
         // Only navigate if not already on cab-searching page (let that page handle navigation)
         if (!this.router.url.includes('cab-searching')) {
-          this.router.navigate(['/tabs/tab1'], {
+          this.router.navigate(['/tabs/tabs/tab1'], {
             replaceUrl: true, // Clear navigation stack
           });
         }
@@ -422,7 +432,7 @@ export class RideService {
           this.currentRide$.next(null);
           this.rideStatus$.next('cancelled');
           this.clearRide();
-          this.router.navigate(['/tabs/tab1'], {
+          this.router.navigate(['/tabs/tabs/tab1'], {
             replaceUrl: true,
           });
         }
@@ -439,7 +449,7 @@ export class RideService {
         this.currentRide$.next(null);
         this.rideStatus$.next('cancelled');
         this.clearRide();
-        this.router.navigate(['/tabs/tab1'], {
+        this.router.navigate(['/tabs/tabs/tab1'], {
           replaceUrl: true,
         });
       });
@@ -459,7 +469,7 @@ export class RideService {
       console.log('⭐ Rating submitted:', data);
       this.showToast('Thank you for your feedback!');
       this.clearRide();
-      this.router.navigate(['/tabs/tab1'], {
+      this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true, // Clear navigation stack
       });
     });
@@ -1439,10 +1449,26 @@ export class RideService {
   /**
    * Get all rides for a specific user
    * @param userId - The user ID to fetch rides for
+   * @param limit - Optional limit for number of rides to return
+   * @param status - Optional status filter (completed, cancelled, etc.)
    * @returns Observable of Ride array
    */
-  getUserRides(userId: string): Observable<Ride[]> {
-    return this.http.get<Ride[]>(`${environment.apiUrl}/rides/user/${userId}`);
+  getUserRides(userId: string, limit?: number, status?: string): Observable<Ride[]> {
+    let url = `${environment.apiUrl}/rides/user/${userId}`;
+    const params = new URLSearchParams();
+    
+    if (limit && limit > 0) {
+      params.append('limit', limit.toString());
+    }
+    if (status) {
+      params.append('status', status);
+    }
+    
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+    
+    return this.http.get<Ride[]>(url);
   }
 
   /**

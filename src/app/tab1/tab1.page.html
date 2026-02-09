@@ -1,51 +1,92 @@
 <ion-content 
   [fullscreen]="true"
-  class="tab1-content">
+  class="tab1-content"
+  [scrollY]="false">
   
-  <!-- Loading Overlay -->
-  <div class="loading-overlay" *ngIf="!isMapReady">
-    <div class="loading-container">
-      <ion-spinner></ion-spinner>
-      <p>Loading map...</p>
-    </div>
-  </div>
-
-  <!-- Map Container -->
-  <div class="map-container">
+  <!-- Map Container - Shown on load and in confirm mode -->
+  <div class="map-container" *ngIf="confirmMode || (showMapOnLoad && confirmLat && confirmLng)">
     <capacitor-google-map #map id="tab1-map"></capacitor-google-map>
-  </div>
-  
-  <!-- Floating Input Section -->
-  <div class="floating-inputs" [class.inputs-slid-up]="pickupAddress && destinationAddress">
-    <!-- Pickup Input Card -->
-    <div class="input-card pickup-card" (click)="onInputFocus('pickup')">
-      <div class="input-icon-wrapper pickup-icon">
-        <ion-icon 
-          name="location-outline" 
-          [class.location-ready]="isLocationFetched"
-          [class.location-loading]="isLoadingLocation">
-        </ion-icon>
-      </div>
-      <div class="input-content">
-        <span *ngIf="!pickupAddress" class="input-placeholder">Pickup location</span>
-        <span *ngIf="pickupAddress" class="input-value">{{ pickupAddress }}</span>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" *ngIf="!isMapReady && !mapError">
+      <div class="loading-container">
+        <ion-spinner></ion-spinner>
+        <p>Loading map...</p>
       </div>
     </div>
 
-    <!-- Destination Input Card -->
-    <div class="input-card destination-card" (click)="onInputFocus('destination')">
-      <div class="input-icon-wrapper destination-icon">
-        <ion-icon name="navigate-outline"></ion-icon>
+    <!-- Error State -->
+    <div class="error-overlay" *ngIf="mapError && !isMapReady">
+      <div class="error-container">
+        <ion-icon name="alert-circle-outline" color="danger" size="large"></ion-icon>
+        <p class="error-message">{{ mapError }}</p>
+        <div class="error-actions">
+          <ion-button (click)="initializeMap()" fill="solid">Retry</ion-button>
+          <ion-button (click)="cancelConfirm()" fill="outline">Cancel</ion-button>
+        </div>
       </div>
-      <div class="input-content">
-        <span *ngIf="!destinationAddress" class="input-placeholder">Where to?</span>
-        <span *ngIf="destinationAddress" class="input-value">{{ destinationAddress }}</span>
+    </div>
+
+    <!-- Fixed Center Pin Overlay -->
+    <div class="center-pin-overlay" *ngIf="isMapReady">
+      <div class="center-pin">
+        <ion-icon name="location" class="pin-icon"></ion-icon>
+        <div class="pin-shadow"></div>
+      </div>
+    </div>
+
+    <!-- Address Card - Only shown in confirm mode -->
+    <div class="address-card" *ngIf="isMapReady && confirmMode">
+      <div class="address-content">
+        <ion-icon name="location-outline"></ion-icon>
+        <div class="address-text">
+          <div *ngIf="isLoadingAddress" class="address-loading">
+            <ion-spinner name="crescent"></ion-spinner>
+            <span>Updating address...</span>
+          </div>
+          <div *ngIf="!isLoadingAddress" class="address-value">
+            {{ confirmAddress || 'Loading address...' }}
+          </div>
+        </div>
+      </div>
+      <!-- Confirm Button inside address card -->
+      <div class="address-card-actions">
+        <ion-button class="confirm-button" (click)="confirmLocation()" expand="block">
+          Confirm Address
+        </ion-button>
       </div>
     </div>
   </div>
 
-  <!-- Ride Cards Section - Only shown when both addresses are set -->
-  <div class="ride-cards-section" *ngIf="pickupAddress && destinationAddress">
+  <!-- Inputs Mode - Only shown when not in confirm mode -->
+  <div *ngIf="!confirmMode">
+    <!-- Floating Input Section - Always at top -->
+    <div class="floating-inputs">
+      <!-- Pickup Input Card -->
+      <div class="input-card pickup-card" (click)="onInputFocus('pickup')">
+        <div class="input-icon-wrapper pickup-icon">
+          <ion-icon name="location-outline"></ion-icon>
+        </div>
+        <div class="input-content">
+          <span *ngIf="!pickupAddress" class="input-placeholder">Pickup location</span>
+          <span *ngIf="pickupAddress" class="input-value">{{ pickupAddress }}</span>
+        </div>
+      </div>
+
+      <!-- Destination Input Card -->
+      <div class="input-card destination-card" (click)="onInputFocus('destination')">
+        <div class="input-icon-wrapper destination-icon">
+          <ion-icon name="navigate-outline"></ion-icon>
+        </div>
+        <div class="input-content">
+          <span *ngIf="!destinationAddress" class="input-placeholder">Where to?</span>
+          <span *ngIf="destinationAddress" class="input-value">{{ destinationAddress }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ride Cards Section - Only shown when both addresses are set -->
+    <div class="ride-cards-section" *ngIf="pickupAddress && destinationAddress">
     <h3 class="section-title">Choose a trip</h3>
     
     <!-- Loading State -->
@@ -137,6 +178,8 @@
         </button>
       </div>
     </div>
+    </div>
   </div>
+  <!-- End Inputs Mode -->
 
 </ion-content>

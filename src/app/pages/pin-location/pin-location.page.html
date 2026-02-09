@@ -1,4 +1,4 @@
-<ion-header>
+<ion-header class="ion-no-border">
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-button (click)="goBack()">
@@ -9,7 +9,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="pin-location-content">
+<ion-content [fullscreen]="true" [scrollY]="false">
   <!-- Loading Overlay -->
   <div class="loading-overlay" *ngIf="!isMapReady">
     <div class="loading-container">
@@ -18,28 +18,29 @@
     </div>
   </div>
 
-  <!-- Map Container -->
+  <!-- Map -->
   <div class="map-container">
     <capacitor-google-map #map id="pin-location-map"></capacitor-google-map>
   </div>
 
-  <!-- Fixed Pin Overlay -->
-  <div class="pin-overlay" *ngIf="isMapReady">
-    <ion-icon name="location" class="pin-icon"></ion-icon>
+  <!-- Fixed Center Pin Overlay -->
+  <div class="center-pin-overlay" *ngIf="isMapReady">
+    <div class="center-pin">
+      <ion-icon name="location" class="pin-icon"></ion-icon>
+      <div class="pin-shadow"></div>
+    </div>
   </div>
 
   <!-- Address Card -->
   <div class="address-card" *ngIf="isMapReady">
     <div class="address-content">
-      <div class="address-icon">
-        <ion-icon name="location-outline"></ion-icon>
-      </div>
+      <ion-icon name="location-outline"></ion-icon>
       <div class="address-text">
-        <div class="address-loading" *ngIf="isLoadingAddress">
-          <ion-spinner name="crescent" class="small-spinner"></ion-spinner>
+        <div *ngIf="isLoadingAddress" class="address-loading">
+          <ion-spinner name="crescent"></ion-spinner>
           <span>Updating address...</span>
         </div>
-        <div class="address-value" *ngIf="!isLoadingAddress">
+        <div *ngIf="!isLoadingAddress" class="address-value">
           {{ currentAddress || 'Loading address...' }}
         </div>
       </div>
@@ -53,4 +54,3 @@
     </ion-button>
   </div>
 </ion-content>
-

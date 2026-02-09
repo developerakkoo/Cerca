@@ -121,7 +121,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       
       if (!currentRide) {
         console.log('⚠️ [ActiveOrderPage] No active ride found after sync, redirecting to home');
-        this.router.navigate(['/tabs/tab1'], { replaceUrl: true });
+        this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
         return;
       }
       
@@ -135,7 +135,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       
       if (!currentRide) {
         console.log('⚠️ [ActiveOrderPage] No active ride found, redirecting to home');
-        this.router.navigate(['/tabs/tab1'], { replaceUrl: true });
+        this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
         return;
       }
     }
@@ -163,6 +163,21 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       if (this.userLocation.latitude && this.userLocation.longitude) {
         await this.initializeMapIfNeeded();
       }
+    }
+
+    // Check if we should show rating modal (e.g., after payment completion)
+    const showRatingParam = this.route.snapshot.queryParamMap.get('showRating');
+    if (showRatingParam === 'true' && !this.hasShownRating) {
+      // Wait a bit for ride state to load, then show rating
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          if (this.currentRide && this.currentRideStatus === 'completed') {
+            this.showRating = true;
+            this.hasShownRating = true;
+            console.log('⭐ Showing rating dialog from query param');
+          }
+        });
+      }, 1000);
     }
 
     // Subscribe to current ride
@@ -242,14 +257,23 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           // Initialize map if not already done
           await this.initializeMapIfNeeded();
 
-          // Join ride room for real-time messaging (when ride has driver)
-          if (ride._id && ride.driver) {
+          // Join ride room immediately for event reception (regardless of driver status)
+          if (ride._id) {
             console.log('🚪 [ActiveOrderePage] Joining ride room...');
             try {
               await this.rideService.joinRideRoom(ride._id, undefined, 'User');
               console.log('✅ [ActiveOrderePage] Joined ride room successfully');
             } catch (error) {
               console.error('❌ [ActiveOrderePage] Error joining room:', error);
+              // Retry after a short delay
+              setTimeout(async () => {
+                try {
+                  await this.rideService.joinRideRoom(ride._id, undefined, 'User');
+                  console.log('✅ [ActiveOrderePage] Retry: Joined ride room successfully');
+                } catch (retryError) {
+                  console.error('❌ [ActiveOrderePage] Retry: Error joining room:', retryError);
+                }
+              }, 2000);
             }
           }
 
@@ -559,15 +583,38 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           if (this.ratingTimeout) {
             clearTimeout(this.ratingTimeout);
           }
-          // Show rating modal after 2 seconds (giving time for modal to close)
+          
+          // Wait a bit for ride state to fully update, then check payment
           this.ratingTimeout = setTimeout(() => {
-            this.ngZone.run(() => {
-              this.showRating = true;
-              this.hasShownRating = true;
-              console.log('⭐ Showing rating dialog');
+            this.ngZone.run(async () => {
+              // Re-check current ride state to ensure we have latest data
+              const latestRide = this.currentRide;
+              console.log('💳 Checking payment requirement - paymentMethod:', latestRide?.paymentMethod, 'paymentStatus:', latestRide?.paymentStatus);
+              
+              // Check if payment is needed (RAZORPAY with pending status)
+              if (latestRide && 
+                  latestRide.paymentMethod === 'RAZORPAY' && 
+                  latestRide.paymentStatus === 'pending') {
+                // Navigate to payment screen
+                console.log('💳 Payment required - navigating to payment screen');
+                this.router.navigate(['/ride-payment', latestRide._id], {
+                  state: {
+                    fare: latestRide.fare,
+                    pickupAddress: latestRide.pickupAddress,
+                    dropoffAddress: latestRide.dropoffAddress,
+                    duration: latestRide.actualDuration || 0
+                  },
+                  replaceUrl: false
+                });
+              } else {
+                // Show rating modal
+                this.showRating = true;
+                this.hasShownRating = true;
+                console.log('⭐ Showing rating dialog');
+              }
+              this.ratingTimeout = undefined;
             });
-            this.ratingTimeout = undefined;
-          }, 2000);
+          }, 1500); // Wait 1.5 seconds for state to update
         }
         break;
       case 'cancelled':
@@ -1007,6 +1054,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.selectedEmoji = value;
   }
 
+  onEmojiChange(event: any) {
+    this.selectedEmoji = event.detail.value;
+  }
+
   async submitRating() {
     if (this.selectedEmoji === null) return;
 
@@ -1159,7 +1210,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.isDriverModalOpen = false;
     } else {
       // Navigate back
-      this.router.navigate(['/tabs/tab1'], {
+      this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true,
       });
     }

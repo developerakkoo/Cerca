@@ -37,9 +37,9 @@
 .pulse-circle {
   position: absolute;
   border-radius: 50%;
-  background: rgba(76, 175, 80, 0.1);
-  border: 2px solid #4CAF50;
-  box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+  background: rgba(var(--ion-color-success-rgb), 0.1);
+  border: 2px solid var(--ion-color-success);
+  box-shadow: 0 0 0 0 rgba(var(--ion-color-success-rgb), 0.4);
   transform-origin: center;
   opacity: 0;
 }
@@ -62,7 +62,7 @@
 .rotating-circle {
   position: absolute;
   border-radius: 50%;
-  border: 2px dashed #4CAF50;
+  border: 2px dashed var(--ion-color-success);
 }
 
 .circle-4 {
@@ -213,11 +213,11 @@
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  background: linear-gradient(135deg, var(--ion-color-danger) 0%, var(--ion-color-danger-shade) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(255, 107, 107, 0.3);
+  box-shadow: 0 8px 24px rgba(var(--ion-color-danger-rgb), 0.3);
   position: relative;
 
   &::before {
@@ -226,7 +226,7 @@
     width: 140px;
     height: 140px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 107, 107, 0.2);
+    border: 2px solid rgba(var(--ion-color-danger-rgb), 0.2);
     animation: pulse 2s ease-in-out infinite;
   }
 }

@@ -129,14 +129,16 @@ ion-tab-bar {
     }
   }
   
-  // Add hover effects
-  ion-tab-button:hover {
-    ion-icon {
-      transform: scale(1.1);
-    }
-    
-    ion-label {
-      transform: translateY(-2px);
+  // Hover effects - only for desktop/pointer devices
+  @media (hover: hover) and (pointer: fine) {
+    ion-tab-button:hover {
+      ion-icon {
+        transform: scale(1.1);
+      }
+      
+      ion-label {
+        transform: translateY(-2px);
+      }
     }
   }
   
