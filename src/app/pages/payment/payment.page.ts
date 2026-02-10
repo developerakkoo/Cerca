@@ -5,6 +5,7 @@ import {
   IonicModule,
   LoadingController,
   ToastController,
+  AlertController,
 } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { UserService } from '../../services/user.service';
@@ -87,7 +88,8 @@ export class PaymentPage implements OnInit {
     private fareService: FareService,
     private storage: Storage,
     private loadingCtrl: LoadingController,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private alertCtrl: AlertController
   ) {}
 
   async ngOnInit() {
@@ -373,6 +375,34 @@ export class PaymentPage implements OnInit {
    * Handle wallet payment when balance is sufficient
    */
   private async handleWalletPayment() {
+    // Show confirmation modal first
+    const confirmAlert = await this.alertCtrl.create({
+      header: 'Confirm Wallet Payment',
+      message: `₹${this.totalAmount.toFixed(2)} will be deducted from your wallet when the ride completes. Do you want to proceed?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          handler: () => {
+            console.log('Wallet payment cancelled');
+          }
+        },
+        {
+          text: 'Proceed',
+          handler: async () => {
+            await this.processWalletPayment();
+          }
+        }
+      ]
+    });
+    
+    await confirmAlert.present();
+  }
+
+  /**
+   * Process wallet payment after confirmation
+   */
+  private async processWalletPayment() {
     const loading = await this.loadingCtrl.create({
       message: 'Processing payment...',
       spinner: 'crescent',
@@ -397,6 +427,15 @@ export class PaymentPage implements OnInit {
       // Just create the ride
       await this.requestRideAfterPayment('WALLET');
       await loading.dismiss();
+      
+      // Show success toast
+      const toast = await this.toastCtrl.create({
+        message: `Ride booked. ₹${this.totalAmount.toFixed(2)} will be deducted from wallet at ride completion.`,
+        duration: 3000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
     } catch (error: any) {
       await loading.dismiss();
       console.error('❌ Wallet payment failed:', error);

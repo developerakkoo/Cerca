@@ -79,6 +79,13 @@ export interface Ride {
     days?: number;
     dates?: Date[] | string[];
   };
+  rideFor?: 'SELF' | 'OTHER';
+  passenger?: {
+    name?: string;
+    phone?: string;
+    relation?: string;
+    notes?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

@@ -6,9 +6,10 @@ import {
   OnDestroy,
   NgZone,
 } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 import { GoogleMap, LatLngBounds, MapType } from '@capacitor/google-maps';
 import { interval, Subscription, firstValueFrom, take } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import {
   RideService,
@@ -46,6 +47,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private driverETASubscription?: Subscription;
   private backButtonSubscription?: Subscription;
   private unreadCountSubscription?: Subscription;
+  private routerSubscription?: Subscription;
 
   // Timeout references for cleanup
   private ratingTimeout?: any;
@@ -92,6 +94,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     { emoji: '😞', label: 'Bad', value: 1 },
   ];
 
+  // Navigation tracking
+  fromBookings = false; // Track if navigated from Bookings tab
+  isViewOnlyMode = false; // Track if viewing past ride (read-only)
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -106,6 +112,61 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    // Check navigation state to determine source
+    const navigation = this.router.getCurrentNavigation();
+    const state = navigation?.extras?.state as any || {};
+    this.fromBookings = state['fromBookings'] === true;
+
+    // Get ride ID from route params FIRST (if viewing past ride)
+    const rideId = this.route.snapshot.paramMap.get('rideId');
+
+    // If rideId is provided, fetch it first (supports viewing past/completed rides)
+    if (rideId) {
+      console.log('🔍 [ActiveOrderPage] RideId in route params, fetching ride details...');
+      try {
+        await this.fetchRideDetailsFromAPI(rideId);
+        
+        // Check if this is a completed/cancelled ride (view-only mode)
+        if (this.currentRide && 
+            (this.currentRide.status === 'completed' || this.currentRide.status === 'cancelled')) {
+          this.isViewOnlyMode = true;
+          console.log('📖 [ActiveOrderPage] Viewing past ride in read-only mode:', this.currentRide.status);
+          // Don't join socket rooms for past rides - just display data
+        } else {
+          // Active ride - proceed with normal flow
+          this.isViewOnlyMode = false;
+        }
+        
+        // Initialize map after API fetch completes
+        if (this.userLocation.latitude && this.userLocation.longitude) {
+          await this.initializeMapIfNeeded();
+        }
+        
+        // Set up back button handler
+        this.setupBackButtonHandler();
+        
+        // Setup modal pointer-events fix
+        this.setupModalPointerEventsFix();
+        
+        // Only open modal for active rides
+        if (!this.isViewOnlyMode) {
+          this.isDriverModalOpen = true;
+        }
+        
+        return; // Skip active ride sync check since we have rideId
+      } catch (error) {
+        console.error('❌ [ActiveOrderPage] Error fetching ride details:', error);
+        // If fetch fails, redirect to home or bookings based on source
+        if (this.fromBookings) {
+          this.router.navigate(['/tabs/tabs/tab2'], { replaceUrl: true });
+        } else {
+          this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+        }
+        return;
+      }
+    }
+
+    // No rideId in route - check for active ride (normal flow)
     // Sync ride state from backend first to ensure we have the latest state
     // This is critical for restoring rides after page navigation or browser refresh
     try {
@@ -152,18 +213,21 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     
     // Setup modal pointer-events fix for header clickability
     this.setupModalPointerEventsFix();
-    
-    // Get ride ID from route params (if navigated with params)
-    const rideId = this.route.snapshot.paramMap.get('rideId');
 
-    if (rideId) {
-      // Fetch ride details via API
-      await this.fetchRideDetailsFromAPI(rideId);
-      // Initialize map after API fetch completes
-      if (this.userLocation.latitude && this.userLocation.longitude) {
-        await this.initializeMapIfNeeded();
-      }
-    }
+    // Listen for navigation events to close modal
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationStart))
+      .subscribe((event: NavigationStart) => {
+        const currentUrl = this.router.url;
+        const targetUrl = event.url;
+        
+        // If navigating away from active-order page, close modal
+        if (currentUrl.includes('/active-ordere') && !targetUrl.includes('/active-ordere')) {
+          this.isDriverModalOpen = false;
+          // Also dismiss any open modals (chat modal)
+          this.modalController.dismiss();
+        }
+      });
 
     // Check if we should show rating modal (e.g., after payment completion)
     const showRatingParam = this.route.snapshot.queryParamMap.get('showRating');
@@ -257,8 +321,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           // Initialize map if not already done
           await this.initializeMapIfNeeded();
 
-          // Join ride room immediately for event reception (regardless of driver status)
-          if (ride._id) {
+          // Join ride room immediately for event reception (only for active rides, not view-only mode)
+          if (ride._id && !this.isViewOnlyMode) {
             console.log('🚪 [ActiveOrderePage] Joining ride room...');
             try {
               await this.rideService.joinRideRoom(ride._id, undefined, 'User');
@@ -275,6 +339,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
                 }
               }, 2000);
             }
+          } else if (this.isViewOnlyMode) {
+            console.log('📖 [ActiveOrderePage] View-only mode - skipping socket room join');
           }
 
           // Fetch unread message count for this ride
@@ -388,7 +454,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
   }
 
-  async   ionViewDidEnter() {
+  async ionViewDidEnter() {
+    console.log('🔄 [ActiveOrderPage] ionViewDidEnter - Re-establishing connections');
+    
     // Ensure map is initialized when view enters
     if (!this.isMapInitialized && this.userLocation.latitude && this.userLocation.longitude) {
       await this.initializeMapIfNeeded();
@@ -399,11 +467,56 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     if (currentUrl.includes('/active-ordere') && this.currentRide && !this.isDriverModalOpen) {
       this.isDriverModalOpen = true;
     }
+    
+    // Re-establish socket connections if we have an active ride
+    if (this.currentRide && !this.isViewOnlyMode) {
+      const rideId = this.currentRide._id;
+      
+      // Re-join ride room to receive events
+      try {
+        console.log('🚪 [ActiveOrderPage] Re-joining ride room:', rideId);
+        await this.rideService.joinRideRoom(rideId, undefined, 'User');
+        console.log('✅ [ActiveOrderPage] Re-joined ride room successfully');
+      } catch (error) {
+        console.error('❌ [ActiveOrderPage] Error re-joining room:', error);
+      }
+      
+      // Refresh ride state from backend to get latest data
+      try {
+        console.log('🔄 [ActiveOrderPage] Refreshing ride state from backend');
+        await this.fetchRideDetailsFromAPI(rideId);
+        console.log('✅ [ActiveOrderPage] Ride state refreshed');
+      } catch (error) {
+        console.error('❌ [ActiveOrderPage] Error refreshing ride state:', error);
+      }
+      
+      // Fetch unread message count
+      try {
+        await this.rideService.getUnreadCountForRide(rideId);
+      } catch (error) {
+        console.error('❌ [ActiveOrderPage] Error fetching unread count:', error);
+      }
+    }
   }
 
   ionViewWillLeave() {
-    // Always close modal when leaving the page
+    // Close modal immediately
     this.isDriverModalOpen = false;
+    
+    // Dismiss any open modals (chat modal, etc.)
+    this.modalController.dismiss();
+    
+    // Leave ride room when navigating away (optional - helps with cleanup)
+    if (this.currentRide && !this.isViewOnlyMode) {
+      try {
+        this.rideService.leaveRideRoom(this.currentRide._id).catch((error) => {
+          console.warn('⚠️ Error leaving ride room:', error);
+        });
+      } catch (error) {
+        console.warn('⚠️ Error leaving ride room:', error);
+      }
+    }
+    
     // Reset rating flag when leaving (for new rides)
     if (this.currentRideStatus !== 'completed') {
       this.hasShownRating = false;
@@ -427,6 +540,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.driverETASubscription?.unsubscribe();
     this.backButtonSubscription?.unsubscribe();
     this.unreadCountSubscription?.unsubscribe();
+    this.routerSubscription?.unsubscribe();
 
     // Clear all timeouts
     if (this.ratingTimeout) {
@@ -470,7 +584,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       console.log('🔍 Fetching ride details via API for ride:', rideId);
 
       const response = await this.http
-        .get(`${environment.apiUrl}/rides/${rideId}`)
+        .get(`${environment.apiUrl}/api/rides/${rideId}`)
         .toPromise();
 
       console.log('📦 ========================================');
@@ -482,6 +596,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       // Update current ride with API data
       if (response) {
         this.currentRide = response as Ride;
+        
+        // Update ride service to sync with backend
+        this.rideService['currentRide$'].next(response as Ride);
         
         // Set status immediately so template renders correctly
         const status = this.currentRide.status as RideStatus;
@@ -587,9 +704,21 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           // Wait a bit for ride state to fully update, then check payment
           this.ratingTimeout = setTimeout(() => {
             this.ngZone.run(async () => {
+              // Refetch ride from API to get latest fare (recalculated with actual duration)
+              if (this.currentRide?._id) {
+                try {
+                  console.log('🔄 Refetching ride from API to get latest fare after completion');
+                  await this.fetchRideDetailsFromAPI(this.currentRide._id);
+                  console.log('✅ Ride refetched - Latest fare from DB:', this.currentRide?.fare);
+                } catch (error) {
+                  console.error('❌ Error refetching ride:', error);
+                  // Continue with cached ride if refetch fails
+                }
+              }
+              
               // Re-check current ride state to ensure we have latest data
               const latestRide = this.currentRide;
-              console.log('💳 Checking payment requirement - paymentMethod:', latestRide?.paymentMethod, 'paymentStatus:', latestRide?.paymentStatus);
+              console.log('💳 Checking payment requirement - paymentMethod:', latestRide?.paymentMethod, 'paymentStatus:', latestRide?.paymentStatus, 'fare:', latestRide?.fare);
               
               // Check if payment is needed (RAZORPAY with pending status)
               if (latestRide && 
@@ -604,13 +733,39 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
                     dropoffAddress: latestRide.dropoffAddress,
                     duration: latestRide.actualDuration || 0
                   },
-                  replaceUrl: false
+                  replaceUrl: true // Prevent back navigation to this page
                 });
+              } else if (latestRide && 
+                         latestRide.paymentMethod === 'WALLET' && 
+                         latestRide.paymentStatus === 'completed') {
+                // WALLET payment completed - show confirmation
+                console.log('💳 Wallet payment completed - showing confirmation');
+                const fareAmount = latestRide.fare || 0;
+                const toast = await this.toastController.create({
+                  message: `₹${fareAmount.toFixed(2)} deducted from wallet. Thank you!`,
+                  duration: 3000,
+                  color: 'success',
+                  position: 'top',
+                  icon: 'checkmark-circle'
+                });
+                await toast.present();
+                
+                // Show rating modal after a short delay
+                setTimeout(() => {
+                  this.showRating = true;
+                  this.hasShownRating = true;
+                  console.log('⭐ Showing rating dialog after wallet payment');
+                }, 1000);
               } else {
-                // Show rating modal
-                this.showRating = true;
-                this.hasShownRating = true;
-                console.log('⭐ Showing rating dialog');
+                // Show rating modal (CASH or other payment methods)
+                // Double-check ride is completed before showing rating
+                if (latestRide && latestRide.status === 'completed') {
+                  this.showRating = true;
+                  this.hasShownRating = true;
+                  console.log('⭐ Showing rating dialog');
+                } else {
+                  console.warn('⚠️ Ride not completed yet, skipping rating dialog');
+                }
               }
               this.ratingTimeout = undefined;
             });
@@ -1163,6 +1318,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       return;
     }
 
+    // Don't allow chat if ride is for other person
+    if (this.currentRide.rideFor === 'OTHER') {
+      return;
+    }
+
     // Mark messages as read before opening chat
     await this.rideService.markMessagesAsRead(this.currentRide._id);
     
@@ -1205,15 +1365,26 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
    * Handle back button click (from header or system)
    */
   handleBackButton() {
-    if (this.isDriverModalOpen) {
-      // Close modal if open
-      this.isDriverModalOpen = false;
-    } else {
-      // Navigate back
-      this.router.navigate(['/tabs/tabs/tab1'], {
-        replaceUrl: true,
-      });
-    }
+    // Close modal first
+    this.isDriverModalOpen = false;
+    
+    // Dismiss any open modals
+    this.modalController.dismiss();
+    
+    // Small delay to ensure modal closes before navigation
+    setTimeout(() => {
+      if (this.fromBookings) {
+        // Return to Bookings tab if came from there
+        this.router.navigate(['/tabs/tabs/tab2'], {
+          replaceUrl: true,
+        });
+      } else {
+        // Default to home
+        this.router.navigate(['/tabs/tabs/tab1'], {
+          replaceUrl: true,
+        });
+      }
+    }, 100);
   }
 
   async triggerEmergency() {

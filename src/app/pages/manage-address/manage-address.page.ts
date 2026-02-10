@@ -90,9 +90,24 @@ export class ManageAddressPage implements OnInit, OnDestroy {
         this.addresses = [];
         this.isEmpty = true;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading addresses:', error);
-      this.presentToast('Failed to load addresses', 'danger');
+      
+      // Handle specific error cases
+      if (error?.status === 401 || error?.status === 403) {
+        this.presentToast('Please log in again', 'warning');
+        // Optionally redirect to login
+        // this.router.navigate(['/mobile-login'], { replaceUrl: true });
+      } else if (error?.status === 404) {
+        // No addresses found - this is fine, just show empty state
+        this.addresses = [];
+        this.isEmpty = true;
+      } else if (error?.status === 0 || error?.message?.includes('Network')) {
+        this.presentToast('Network error. Please check your connection', 'danger');
+      } else {
+        this.presentToast(error?.error?.message || 'Failed to load addresses', 'danger');
+      }
+      
       this.addresses = [];
       this.isEmpty = true;
     } finally {
@@ -195,9 +210,21 @@ export class ManageAddressPage implements OnInit, OnDestroy {
       } else {
         this.presentToast('Failed to delete address', 'danger');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting address:', error);
-      this.presentToast('Failed to delete address', 'danger');
+      
+      // Handle specific error cases
+      if (error?.status === 401 || error?.status === 403) {
+        this.presentToast('Please log in again', 'warning');
+      } else if (error?.status === 404) {
+        this.presentToast('Address not found', 'warning');
+        // Reload addresses to refresh list
+        await this.loadAddresses();
+      } else if (error?.status === 0 || error?.message?.includes('Network')) {
+        this.presentToast('Network error. Please try again', 'danger');
+      } else {
+        this.presentToast(error?.error?.message || 'Failed to delete address', 'danger');
+      }
     } finally {
       await loading.dismiss();
     }

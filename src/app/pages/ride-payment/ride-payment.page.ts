@@ -1,11 +1,14 @@
-import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
-import { LoadingController, ToastController } from '@ionic/angular';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router, NavigationStart, NavigationEnd } from '@angular/router';
+import { Platform, LoadingController, ToastController } from '@ionic/angular';
 import { PaymentService } from '../../services/payment.service';
 import { RideService, Ride } from '../../services/ride.service';
 import { Storage } from '@ionic/storage-angular';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
+import { Location } from '@angular/common';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-ride-payment',
@@ -13,7 +16,7 @@ import { environment } from 'src/environments/environment';
   styleUrls: ['./ride-payment.page.scss'],
   standalone: false,
 })
-export class RidePaymentPage implements OnInit {
+export class RidePaymentPage implements OnInit, OnDestroy {
   rideId: string = '';
   userId: string | null = null;
   fare: number = 0;
@@ -23,9 +26,14 @@ export class RidePaymentPage implements OnInit {
   isProcessing: boolean = false;
   paymentSuccess: boolean = false;
 
+  private backButtonSubscription?: Subscription;
+  private routerSubscription?: Subscription;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private platform: Platform,
+    private location: Location,
     private paymentService: PaymentService,
     private rideService: RideService,
     private storage: Storage,
@@ -35,6 +43,9 @@ export class RidePaymentPage implements OnInit {
   ) {}
 
   async ngOnInit() {
+    // Replace history state to prevent browser back navigation
+    this.location.replaceState(this.router.url);
+
     // Get rideId from route params
     this.rideId = this.route.snapshot.paramMap.get('rideId') || '';
     
@@ -51,6 +62,27 @@ export class RidePaymentPage implements OnInit {
       await this.showToast('User not authenticated', 'danger');
       this.router.navigate(['/tabs/tabs/tab1']);
       return;
+    }
+
+    // Check if payment is already completed
+    try {
+      const ride = await this.http.get<Ride>(
+        `${environment.apiUrl}/api/rides/${this.rideId}`
+      ).toPromise();
+      
+      if (ride && ride.paymentStatus === 'completed') {
+        // Payment already completed, redirect to active order page
+        this.paymentSuccess = true;
+        setTimeout(() => {
+          this.router.navigate(['/active-ordere'], {
+            queryParams: { showRating: 'true' },
+            replaceUrl: true
+          });
+        }, 1000);
+        return;
+      }
+    } catch (error) {
+      console.warn('Failed to check ride payment status:', error);
     }
 
     // Get ride details from route state or query params
@@ -72,6 +104,74 @@ export class RidePaymentPage implements OnInit {
           this.duration = ride.actualDuration || 0;
         }
       });
+    }
+
+    // Setup back button prevention
+    this.setupBackButtonPrevention();
+
+    // Setup router navigation prevention
+    this.setupRouterPrevention();
+  }
+
+  ionViewWillEnter() {
+    // Replace history state again when view enters
+    this.location.replaceState(this.router.url);
+  }
+
+  /**
+   * Setup hardware back button prevention
+   */
+  private setupBackButtonPrevention() {
+    if (this.platform.is('android')) {
+      // Use highest priority to override all other handlers
+      this.backButtonSubscription = this.platform.backButton.subscribeWithPriority(9999, () => {
+        if (!this.paymentSuccess) {
+          // Prevent back navigation - show message
+          this.showToast('Please complete payment to continue', 'warning');
+        } else {
+          // Allow navigation after payment success
+          this.location.back();
+        }
+      });
+    }
+  }
+
+  /**
+   * Setup router navigation prevention
+   */
+  private setupRouterPrevention() {
+    // Prevent navigation away from payment page until payment is completed
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationStart))
+      .subscribe((event: any) => {
+        const currentUrl = this.router.url;
+        const targetUrl = event.url;
+        
+        // Allow navigation if payment is successful
+        if (this.paymentSuccess) {
+          return;
+        }
+
+        // Allow navigation if it's the same route (refresh)
+        if (targetUrl === currentUrl) {
+          return;
+        }
+
+        // Prevent navigation away from payment page
+        if (currentUrl.includes('/ride-payment') && !targetUrl.includes('/ride-payment')) {
+          event.preventDefault();
+          this.showToast('Please complete payment to continue', 'warning');
+        }
+      });
+  }
+
+  ngOnDestroy() {
+    // Clean up subscriptions
+    if (this.backButtonSubscription) {
+      this.backButtonSubscription.unsubscribe();
+    }
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
     }
   }
 
@@ -122,11 +222,19 @@ export class RidePaymentPage implements OnInit {
             // Continue anyway - webhook will update it
           }
           
+          // Unsubscribe from back button handler to allow navigation
+          if (this.backButtonSubscription) {
+            this.backButtonSubscription.unsubscribe();
+          }
+          if (this.routerSubscription) {
+            this.routerSubscription.unsubscribe();
+          }
+
           // Navigate back to active-order page to show rating modal
           setTimeout(() => {
             this.router.navigate(['/active-ordere'], {
               queryParams: { showRating: 'true' },
-              replaceUrl: false
+              replaceUrl: true
             });
           }, 2000);
         },
@@ -138,10 +246,17 @@ export class RidePaymentPage implements OnInit {
         }
       );
     } catch (error: any) {
-      await loading.dismiss();
-      this.isProcessing = false;
       console.error('Payment error:', error);
-      await this.showToast(error.message || 'Payment failed. Please try again.', 'danger');
+      await this.showToast(error?.message || error?.error?.description || 'Payment cancelled or failed.', 'danger');
+    } finally {
+      // Always close loading when payment flow ends (success, cancel, or error)
+      // Handles Razorpay modal cancel/close where onFailure or catch may not run in some environments
+      try {
+        await loading.dismiss();
+      } catch (_) {
+        // Ignore if already dismissed
+      }
+      this.isProcessing = false;
     }
   }
 

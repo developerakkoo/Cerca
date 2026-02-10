@@ -288,7 +288,16 @@ export class ProfileDetailsPage implements OnInit {
           next: async (res: any) => {
             console.log('✅ Profile updated:', res);
             await loading.dismiss();
-            this.getUser(); // Refresh form data
+            
+            // Show success toast
+            const toast = await this.loadingController.create({
+              message: 'Profile updated successfully',
+              duration: 2000,
+            });
+            await toast.present();
+            
+            // Navigate back to profile page (tab5)
+            this.router.navigate(['/tabs/tabs/tab5'], { replaceUrl: true });
           },
           error: async (err: any) => {
             console.error('❌ Error updating profile:', err);

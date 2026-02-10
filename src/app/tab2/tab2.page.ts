@@ -191,7 +191,9 @@ export class Tab2Page implements OnInit, OnDestroy {
       return; // Don't navigate if disabled
     }
     console.log(rideId);
-    this.router.navigate(['/active-ordere', rideId]);
+    this.router.navigate(['/active-ordere', rideId], {
+      state: { fromBookings: true } // Mark that we came from Bookings tab
+    });
   }
 
   formatDate(date: Date | string): string {
@@ -246,6 +248,32 @@ export class Tab2Page implements OnInit, OnDestroy {
       default:
         return status;
     }
+  }
+
+  /**
+   * Check if payment is pending for a completed ride
+   */
+  isPaymentPending(booking: Ride): boolean {
+    return (
+      booking.status === 'completed' &&
+      booking.paymentMethod === 'RAZORPAY' &&
+      booking.paymentStatus === 'pending'
+    );
+  }
+
+  /**
+   * Navigate to payment page for a specific ride
+   */
+  navigateToPayment(rideId: string, fare: number, booking: Ride) {
+    this.router.navigate(['/ride-payment', rideId], {
+      state: {
+        fare: fare,
+        pickupAddress: booking.pickupAddress || '',
+        dropoffAddress: booking.dropoffAddress || '',
+        duration: booking.actualDuration || 0
+      },
+      replaceUrl: true // Prevent back navigation to this page
+    });
   }
 
 

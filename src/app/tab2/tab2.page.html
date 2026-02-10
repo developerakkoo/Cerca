@@ -144,23 +144,56 @@
                 {{ formatDate(booking.createdAt) }} at {{ formatTime(booking.createdAt) }}
               </ion-card-title>
             </div>
-            <div class="status-badge" [class]="'badge-' + getStatusColor(booking.status)">
-              {{ getStatusText(booking.status) }}
+            <div class="badge-container">
+              <div class="status-badge" [class]="'badge-' + getStatusColor(booking.status)">
+                {{ getStatusText(booking.status) }}
+              </div>
+              <!-- Payment Pending Badge -->
+              <div *ngIf="isPaymentPending(booking)" class="payment-pending-badge">
+                Payment Pending
+              </div>
             </div>
           </div>
         </ion-card-header>
         
         <ion-card-content class="card-content">
-          <!-- Action Button -->
-          <div class="action-buttons">
+          <!-- Ride Information -->
+          <div class="ride-details">
+            <div class="detail-row">
+              <ion-icon name="key-outline" class="detail-icon"></ion-icon>
+              <div class="detail-content">
+                <span class="detail-label">Ride ID:</span>
+                <span class="detail-value">{{ booking._id }}</span>
+              </div>
+            </div>
+            
+            <div class="detail-row">
+              <ion-icon name="location-outline" class="detail-icon"></ion-icon>
+              <div class="detail-content">
+                <span class="detail-label">Pickup:</span>
+                <span class="detail-value">{{ booking.pickupAddress || 'N/A' }}</span>
+              </div>
+            </div>
+            
+            <div class="detail-row">
+              <ion-icon name="navigate-outline" class="detail-icon"></ion-icon>
+              <div class="detail-content">
+                <span class="detail-label">Dropoff:</span>
+                <span class="detail-value">{{ booking.dropoffAddress || 'N/A' }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Payment Action Button (shown when payment is pending) -->
+          <div *ngIf="isPaymentPending(booking)" class="payment-action">
             <ion-button 
               expand="block" 
               mode="ios" 
-              (click)="navigateToActiveRide(booking._id, booking)" 
-              class="view-details-btn"
-              fill="outline">
-              <ion-icon name="information-circle-outline" slot="start"></ion-icon>
-              {{ 'BOOKINGS.viewDetails' | translate }}
+              color="primary"
+              (click)="navigateToPayment(booking._id, booking.fare, booking)"
+              class="pay-now-btn">
+              <ion-icon name="card-outline" slot="start"></ion-icon>
+              Pay ₹{{ booking.fare.toFixed(2) }}
             </ion-button>
           </div>
         </ion-card-content>

@@ -471,6 +471,7 @@ export class SearchPage implements OnInit, OnDestroy {
         const returnRoute = this.returnTo || '/manage-address';
         this.router.navigate([returnRoute], {
           queryParams: { saved: 'true' },
+          replaceUrl: true, // Avoid back-stack issues
         });
       } else {
         await this.presentToast('Failed to save address');

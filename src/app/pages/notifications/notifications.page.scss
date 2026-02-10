@@ -181,34 +181,6 @@
   }
 }
 
-// Dark theme support
-@media (prefers-color-scheme: dark) {
-  .notifications-content {
-    --background: var(--ion-color-dark);
-  }
-
-  .notification-item {
-    background: var(--ion-color-dark-shade);
-  }
-
-  .notification-content {
-    background: var(--ion-color-dark-shade);
-  }
-
-  .notification-details {
-    h3 {
-      color: var(--ion-color-light);
-    }
-
-    p {
-      color: var(--ion-color-light-shade);
-    }
-  }
-
-  .notification-time {
-    color: var(--ion-color-light-shade);
-  }
-}
 
 // Add animation for the mark all as read button
 ion-button {

@@ -109,6 +109,13 @@ ion-content {
       line-height: 1.4;
     }
 
+    .badge-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
     .status-badge {
       padding: 6px 12px;
       border-radius: 20px;
@@ -137,11 +144,87 @@ ion-content {
         color: var(--ion-color-primary);
       }
     }
+
+    .payment-pending-badge {
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(var(--ion-color-warning-rgb), 0.2);
+      color: var(--ion-color-warning-shade);
+      white-space: nowrap;
+      border: 1px solid rgba(var(--ion-color-warning-rgb), 0.3);
+    }
   }
 
   // Card Content
   .card-content {
     padding: 0 16px 16px 16px;
+
+    // Ride Details (for past bookings)
+    .ride-details {
+      margin-bottom: 12px;
+      
+      .detail-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+        
+        .detail-icon {
+          font-size: 18px;
+          color: var(--ion-color-primary);
+          margin-top: 2px;
+          flex-shrink: 0;
+        }
+        
+        .detail-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          
+          .detail-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--ion-color-medium);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .detail-value {
+            font-size: 14px;
+            color: var(--ion-color-dark);
+            line-height: 1.4;
+            word-break: break-word;
+          }
+        }
+      }
+    }
+
+    // Payment Action (shown when payment is pending)
+    .payment-action {
+      margin-top: 12px;
+      margin-bottom: 0;
+      
+      .pay-now-btn {
+        --background: var(--ion-color-primary);
+        --color: white;
+        font-weight: 600;
+        height: 48px;
+        --border-radius: 8px;
+        margin: 0;
+        
+        ion-icon {
+          font-size: 18px;
+          margin-right: 8px;
+        }
+      }
+    }
 
     // Action Buttons
     .action-buttons {
