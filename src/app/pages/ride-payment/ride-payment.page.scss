@@ -123,6 +123,18 @@
 
 .payment-action {
   margin-bottom: 24px;
+
+  ion-button + ion-button {
+    margin-top: 12px;
+  }
+}
+
+.pay-cash-button {
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 12px;
 }
 
 .pay-button {

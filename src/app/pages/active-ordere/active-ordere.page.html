@@ -110,6 +110,17 @@
                 <span *ngIf="currentRideStatus === 'in_progress'">Share this OTP to end your ride</span>
               </p>
             </ion-text>
+            <div *ngIf="currentRideStatus === 'arrived' && pickupWaitFreeRemainingSec !== null" style="margin-top: 12px; text-align: center; font-size: 14px;">
+              <ion-text *ngIf="pickupWaitFreeRemainingSec > 0" color="success">
+                <p>Free wait: {{ pickupWaitFreeMinPart }} min {{ pickupWaitFreeSecPart }} sec left</p>
+              </ion-text>
+              <ion-text *ngIf="pickupWaitFreeRemainingSec === 0 && pickupWaitChargePreview === 0" color="warning">
+                <p>Free wait ended. Charges may apply if the ride has not started.</p>
+              </ion-text>
+              <ion-text *ngIf="pickupWaitChargePreview > 0" color="warning">
+                <p>Estimated pickup wait so far: ₹{{ pickupWaitChargePreview | number:'1.2-2' }} (final amount when you start the ride)</p>
+              </ion-text>
+            </div>
           </ion-card-content>
         </ion-card>
 
@@ -134,11 +145,12 @@
           expand="block"
           fill="clear"
           color="danger"
+          [disabled]="emergencyTriggered"
           *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled' && currentRideStatus !== 'idle'"
           (click)="triggerEmergency()"
         >
           <ion-icon name="warning-outline" slot="start"></ion-icon>
-          Emergency
+          {{ emergencyTriggered ? 'Emergency sent' : 'Emergency' }}
         </ion-button>
       </ion-content>
     </ng-template>

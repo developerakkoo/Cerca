@@ -5,6 +5,8 @@ import { map, catchError, tap } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import { StorageService } from './storage.service';
 
+export type AddressType = 'home' | 'office' | 'other';
+
 export interface Address {
   _id?: string;
   addressLine: string;
@@ -15,6 +17,7 @@ export interface Address {
   };
   placeId?: string;
   formattedAddress?: string;
+  addressType?: AddressType;
   user: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -30,6 +33,7 @@ export interface CreateAddressRequest {
   };
   placeId?: string;
   formattedAddress?: string;
+  addressType?: AddressType;
 }
 
 export interface AddressResponse {

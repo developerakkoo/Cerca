@@ -169,12 +169,6 @@ export class Tab3Page implements OnInit, OnDestroy {
       return;
     }
 
-    const loading = await this.loadingController.create({
-      message: 'Processing payment...',
-      spinner: 'crescent',
-    });
-    await loading.present();
-
     try {
       // Process payment through Razorpay
       await this.paymentService.processPayment(
@@ -264,8 +258,6 @@ export class Tab3Page implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error processing payment:', error);
       await this.showToast('Failed to process payment. Please try again.', 'danger');
-    } finally {
-      await loading.dismiss();
     }
   }
 

@@ -7,7 +7,7 @@ import { Storage } from '@ionic/storage-angular';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { Location } from '@angular/common';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { filter } from 'rxjs/operators';
 
 @Component({
@@ -23,8 +23,11 @@ export class RidePaymentPage implements OnInit, OnDestroy {
   pickupAddress: string = '';
   dropoffAddress: string = '';
   duration: number = 0;
-  isProcessing: boolean = false;
+  /** From completed ride fare breakdown (pickup wait at start OTP). */
+  pickupWaitCharge: number = 0;
   paymentSuccess: boolean = false;
+  switchedToCash: boolean = false;
+  switchingToCash: boolean = false;
 
   private backButtonSubscription?: Subscription;
   private routerSubscription?: Subscription;
@@ -70,6 +73,13 @@ export class RidePaymentPage implements OnInit, OnDestroy {
         `${environment.apiUrl}/api/rides/${this.rideId}`
       ).toPromise();
       
+      if (ride) {
+        this.pickupWaitCharge =
+          ride.fareBreakdown?.pickupWaitCharge ??
+          ride.pickupWait?.totalPickupWaitCharge ??
+          0;
+      }
+
       if (ride && ride.paymentStatus === 'completed') {
         // Payment already completed, redirect to active order page
         this.paymentSuccess = true;
@@ -125,7 +135,7 @@ export class RidePaymentPage implements OnInit, OnDestroy {
     if (this.platform.is('android')) {
       // Use highest priority to override all other handlers
       this.backButtonSubscription = this.platform.backButton.subscribeWithPriority(9999, () => {
-        if (!this.paymentSuccess) {
+        if (!this.paymentSuccess && !this.switchedToCash) {
           // Prevent back navigation - show message
           this.showToast('Please complete payment to continue', 'warning');
         } else {
@@ -147,8 +157,8 @@ export class RidePaymentPage implements OnInit, OnDestroy {
         const currentUrl = this.router.url;
         const targetUrl = event.url;
         
-        // Allow navigation if payment is successful
-        if (this.paymentSuccess) {
+        // Allow navigation if payment is successful or user switched to cash
+        if (this.paymentSuccess || this.switchedToCash) {
           return;
         }
 
@@ -176,7 +186,7 @@ export class RidePaymentPage implements OnInit, OnDestroy {
   }
 
   async payNow() {
-    if (this.isProcessing || this.paymentSuccess) {
+    if (this.paymentSuccess) {
       return;
     }
 
@@ -185,22 +195,12 @@ export class RidePaymentPage implements OnInit, OnDestroy {
       return;
     }
 
-    this.isProcessing = true;
-
-    const loading = await this.loadingCtrl.create({
-      message: 'Processing payment...',
-      spinner: 'crescent',
-    });
-    await loading.present();
-
     try {
       await this.paymentService.processRidePayment(
         this.rideId,
         this.userId,
         this.fare,
         async (response) => {
-          await loading.dismiss();
-          this.isProcessing = false;
           this.paymentSuccess = true;
           
           // Show success animation
@@ -239,8 +239,6 @@ export class RidePaymentPage implements OnInit, OnDestroy {
           }, 2000);
         },
         async (error) => {
-          await loading.dismiss();
-          this.isProcessing = false;
           console.error('Payment failed:', error);
           // Error toast is shown by payment service
         }
@@ -248,15 +246,44 @@ export class RidePaymentPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Payment error:', error);
       await this.showToast(error?.message || error?.error?.description || 'Payment cancelled or failed.', 'danger');
-    } finally {
-      // Always close loading when payment flow ends (success, cancel, or error)
-      // Handles Razorpay modal cancel/close where onFailure or catch may not run in some environments
-      try {
-        await loading.dismiss();
-      } catch (_) {
-        // Ignore if already dismissed
+    }
+  }
+
+  async payInCash() {
+    if (this.paymentSuccess || this.switchedToCash || !this.rideId) {
+      return;
+    }
+    this.switchingToCash = true;
+    const loading = await this.loadingCtrl.create({
+      message: 'Switching to cash...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+    try {
+      const updatedRide = await firstValueFrom(
+        this.rideService.switchRideToCash(this.rideId)
+      );
+      await loading.dismiss();
+      this.switchedToCash = true;
+      if (updatedRide) {
+        this.rideService['currentRide$'].next(updatedRide);
       }
-      this.isProcessing = false;
+      if (this.backButtonSubscription) {
+        this.backButtonSubscription.unsubscribe();
+      }
+      if (this.routerSubscription) {
+        this.routerSubscription.unsubscribe();
+      }
+      await this.showToast('Pay in cash selected. Please pay the driver.', 'success');
+      this.router.navigate(['/active-ordere'], {
+        queryParams: { showRating: 'true' },
+        replaceUrl: true
+      });
+    } catch (error: any) {
+      await loading.dismiss();
+      this.switchingToCash = false;
+      const msg = error?.error?.message || error?.message || 'Could not switch to cash. Please try again.';
+      await this.showToast(msg, 'danger');
     }
   }
 

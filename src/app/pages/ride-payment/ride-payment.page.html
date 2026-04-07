@@ -6,7 +6,7 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ride-payment-content">
-  <div class="payment-container" *ngIf="!paymentSuccess">
+  <div class="payment-container" *ngIf="!paymentSuccess && !switchedToCash">
     <!-- Ride Summary Card -->
     <div class="ride-summary-card">
       <div class="route-info">
@@ -46,6 +46,9 @@
 
     <!-- Fare Display -->
     <div class="fare-display">
+      <p *ngIf="pickupWaitCharge > 0" class="fare-label" style="margin-bottom: 4px;">
+        Pickup wait charge: ₹{{ pickupWaitCharge.toFixed(2) }}
+      </p>
       <p class="fare-label">Total Amount</p>
       <h1 class="fare-amount">₹{{ fare.toFixed(2) }}</h1>
     </div>
@@ -56,11 +59,18 @@
         expand="block" 
         class="pay-button" 
         (click)="payNow()"
-        [disabled]="isProcessing || fare <= 0">
-        <ion-icon name="card-outline" slot="start" *ngIf="!isProcessing"></ion-icon>
-        <ion-spinner *ngIf="isProcessing" name="crescent" slot="start"></ion-spinner>
-        <span *ngIf="!isProcessing">Pay ₹{{ fare.toFixed(2) }}</span>
-        <span *ngIf="isProcessing">Processing...</span>
+        [disabled]="fare <= 0">
+        <ion-icon name="card-outline" slot="start"></ion-icon>
+        <span>Pay ₹{{ fare.toFixed(2) }}</span>
+      </ion-button>
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        class="pay-cash-button"
+        (click)="payInCash()"
+        [disabled]="fare <= 0 || switchingToCash">
+        <ion-icon name="cash-outline" slot="start"></ion-icon>
+        <span>Pay in cash</span>
       </ion-button>
     </div>
 

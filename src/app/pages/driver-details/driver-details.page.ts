@@ -165,15 +165,22 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
   }
 
   private loadDriverDetails(driver: DriverInfo) {
+    const v = driver.vehicleInfo;
+    const carType = v
+      ? v.color && v.make && v.model
+        ? `${v.color} ${v.make} ${v.model}`
+        : (v.vehicleType || 'Vehicle')
+      : 'N/A';
+    const carNumber = v?.licensePlate || 'N/A';
     this.driverDetails = {
       name: driver.name,
       photo: driver.profilePic || 'assets/user.png',
       rating: driver.rating || 0,
       totalTrips: driver.totalTrips || 0,
-      experience: 0, // Calculate from join date if available
-      membershipDuration: 'N/A', // Calculate from join date if available
-      carType: `${driver.vehicleInfo.color} ${driver.vehicleInfo.make} ${driver.vehicleInfo.model}`,
-      carNumber: driver.vehicleInfo.licensePlate,
+      experience: 0,
+      membershipDuration: 'N/A',
+      carType,
+      carNumber,
     };
   }
 

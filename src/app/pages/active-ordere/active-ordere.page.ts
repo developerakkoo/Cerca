@@ -21,6 +21,10 @@ import {
 import { AlertController, Platform, ModalController, ToastController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { RideShareService } from 'src/app/services/ride-share.service';
+import {
+  computePickupWaitPreview,
+  DEFAULT_PICKUP_WAIT_POLICY_PREVIEW,
+} from 'src/app/utils/pickup-wait-preview.util';
 
 @Component({
   selector: 'app-active-ordere',
@@ -80,6 +84,22 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   isDriverModalOpen = true;
   unreadMessageCount: number = 0;
   isSharing: boolean = false;
+  emergencyTriggered: boolean = false;
+
+  /** Live pickup-wait estimate while status is arrived (server bill is computed at ride start). */
+  pickupWaitChargePreview = 0;
+  pickupWaitFreeRemainingSec: number | null = null;
+  private pickupWaitTickerSub?: Subscription;
+
+  get pickupWaitFreeMinPart(): number {
+    if (this.pickupWaitFreeRemainingSec == null) return 0;
+    return Math.floor(this.pickupWaitFreeRemainingSec / 60);
+  }
+
+  get pickupWaitFreeSecPart(): number {
+    if (this.pickupWaitFreeRemainingSec == null) return 0;
+    return this.pickupWaitFreeRemainingSec % 60;
+  }
 
   // Rating properties
   showRating = false;
@@ -324,15 +344,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           // Join ride room immediately for event reception (only for active rides, not view-only mode)
           if (ride._id && !this.isViewOnlyMode) {
             console.log('🚪 [ActiveOrderePage] Joining ride room...');
+            const rideIdStr = String(ride._id);
             try {
-              await this.rideService.joinRideRoom(ride._id, undefined, 'User');
+              await this.rideService.joinRideRoom(rideIdStr, undefined, 'User');
               console.log('✅ [ActiveOrderePage] Joined ride room successfully');
             } catch (error) {
               console.error('❌ [ActiveOrderePage] Error joining room:', error);
               // Retry after a short delay
               setTimeout(async () => {
                 try {
-                  await this.rideService.joinRideRoom(ride._id, undefined, 'User');
+                  await this.rideService.joinRideRoom(rideIdStr, undefined, 'User');
                   console.log('✅ [ActiveOrderePage] Retry: Joined ride room successfully');
                 } catch (retryError) {
                   console.error('❌ [ActiveOrderePage] Retry: Error joining room:', retryError);
@@ -347,6 +368,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           if (ride._id) {
             await this.rideService.getUnreadCountForRide(ride._id);
           }
+
+          this.syncPickupWaitTicker();
+        } else {
+          this.stopPickupWaitTicker();
         }
       });
 
@@ -475,7 +500,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       // Re-join ride room to receive events
       try {
         console.log('🚪 [ActiveOrderPage] Re-joining ride room:', rideId);
-        await this.rideService.joinRideRoom(rideId, undefined, 'User');
+        await this.rideService.joinRideRoom(rideId != null ? String(rideId) : '', undefined, 'User');
         console.log('✅ [ActiveOrderPage] Re-joined ride room successfully');
       } catch (error) {
         console.error('❌ [ActiveOrderPage] Error re-joining room:', error);
@@ -541,6 +566,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.backButtonSubscription?.unsubscribe();
     this.unreadCountSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
+    this.stopPickupWaitTicker();
 
     // Clear all timeouts
     if (this.ratingTimeout) {
@@ -653,15 +679,58 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
   }
 
+  private stopPickupWaitTicker(): void {
+    this.pickupWaitTickerSub?.unsubscribe();
+    this.pickupWaitTickerSub = undefined;
+    this.pickupWaitChargePreview = 0;
+    this.pickupWaitFreeRemainingSec = null;
+  }
+
+  /**
+   * Updates every second while arrived + driverArrivedAt present.
+   */
+  private syncPickupWaitTicker(): void {
+    this.stopPickupWaitTicker();
+    if (!this.currentRide || this.currentRideStatus !== 'arrived') {
+      return;
+    }
+    const raw = this.currentRide.driverArrivedAt;
+    if (!raw) {
+      return;
+    }
+
+    const tick = () => {
+      const at = new Date(raw as string).getTime();
+      if (Number.isNaN(at)) {
+        return;
+      }
+      const waitSec = Math.floor((Date.now() - at) / 1000);
+      const prev = computePickupWaitPreview(
+        waitSec,
+        DEFAULT_PICKUP_WAIT_POLICY_PREVIEW
+      );
+      this.pickupWaitChargePreview = prev.totalPickupWaitCharge;
+      const freeSec = DEFAULT_PICKUP_WAIT_POLICY_PREVIEW.pickupWaitFreeMinutes * 60;
+      this.pickupWaitFreeRemainingSec = Math.max(0, freeSec - waitSec);
+    };
+
+    tick();
+    this.pickupWaitTickerSub = interval(1000).subscribe(() => {
+      this.ngZone.run(() => tick());
+    });
+  }
+
   private async handleRideStatusChange(status: RideStatus) {
     this.currentRideStatus = status;
 
     switch (status) {
       case 'searching':
+        this.stopPickupWaitTicker();
         this.statusText = 'Searching for Driver...';
         this.isDriverArrived = false;
         break;
       case 'accepted':
+        this.stopPickupWaitTicker();
         this.statusText = 'Driver is Coming';
         this.isDriverArrived = false;
         break;
@@ -676,8 +745,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
             otp: this.currentRide.startOtp || 'N/A',
           };
         }
+        this.syncPickupWaitTicker();
         break;
       case 'in_progress':
+        this.stopPickupWaitTicker();
         this.statusText = 'Ride in Progress';
         this.isDriverArrived = false; // Hide OTP section during ride
         // Show stop OTP during ride
@@ -691,6 +762,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         await this.addDestinationMarker();
         break;
       case 'completed':
+        this.stopPickupWaitTicker();
         this.statusText = 'Ride Completed';
         // Close the driver modal first
         this.isDriverModalOpen = false;
@@ -773,6 +845,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         }
         break;
       case 'cancelled':
+        this.stopPickupWaitTicker();
         this.statusText = 'Ride Cancelled';
         // Navigate back to home with replaceUrl
         this.router.navigate(['/tabs/tabs/tab1'], {
@@ -1341,6 +1414,19 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     });
 
     await modal.present();
+
+    // Re-join ride room when user dismisses chat so ride events (e.g. driver arrived) are received again
+    modal.onDidDismiss().then(async () => {
+      if (this.currentRide && !this.isViewOnlyMode) {
+        const rideId = this.currentRide._id;
+        try {
+          await this.rideService.joinRideRoom(rideId != null ? String(rideId) : '', undefined, 'User');
+          await this.fetchRideDetailsFromAPI(rideId);
+        } catch (error) {
+          console.error('Error re-joining ride room after chat:', error);
+        }
+      }
+    });
   }
 
   /**
@@ -1434,7 +1520,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           text: 'Send Alert',
           role: 'confirm',
           cssClass: 'alert-button-confirm',
-          handler: async (reason) => {
+          handler: async (data: any) => {
+            this.emergencyTriggered = true; // Prevent double-tap
+            const reason = typeof data === 'string' ? data : (data?.reason || 'other');
             try {
               // Get current location
               const location = {

@@ -4,7 +4,7 @@
     <ion-button fill="clear" (click)="dismissModal()" *ngIf="isModalMode">
       <ion-icon name="close"></ion-icon>
     </ion-button>
-    <ion-back-button *ngIf="!isModalMode" defaultHref="/tabs/tabs/tab1"></ion-back-button>
+    <ion-back-button *ngIf="!isModalMode" [defaultHref]="backButtonDefaultHref"></ion-back-button>
     <ion-title>{{ addressMode ? (addressMode === 'add' ? 'Add Address' : 'Edit Address') : 'Select Location' }}</ion-title>
   </div>
 
@@ -12,6 +12,7 @@
     <!-- Search Bar -->
     <div class="search-bar">
       <ion-searchbar
+        #searchBar
         placeholder="Search for a location"
         [(ngModel)]="searchQuery"
         (ionChange)="searchLocation()"

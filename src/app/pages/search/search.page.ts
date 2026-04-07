@@ -5,8 +5,9 @@ import {
   NgZone,
   Input,
   Optional,
+  ViewChild,
 } from '@angular/core';
-import { ModalController, ToastController } from '@ionic/angular';
+import { IonSearchbar, ModalController, ToastController } from '@ionic/angular';
 import { GeocodingService } from 'src/app/services/geocoding.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from 'src/app/services/user.service';
@@ -64,6 +65,10 @@ export class SearchPage implements OnInit, OnDestroy {
 
   // Modal mode flag
   isModalMode = false;
+
+  private destroyed = false;
+
+  @ViewChild('searchBar') searchBar?: IonSearchbar;
 
   constructor(
     private geocodingService: GeocodingService,
@@ -202,7 +207,15 @@ export class SearchPage implements OnInit, OnDestroy {
       });
   }
 
+  ionViewDidEnter() {
+    // Move focus to search bar so the active page has focus (fixes aria-hidden on previous page)
+    setTimeout(() => {
+      this.searchBar?.getInputElement().then((el) => el?.focus()).catch(() => {});
+    }, 100);
+  }
+
   ngOnDestroy() {
+    this.destroyed = true;
     if (this.searchSubscription) {
       this.searchSubscription.unsubscribe();
     }
@@ -212,10 +225,12 @@ export class SearchPage implements OnInit, OnDestroy {
     try {
       this.isLoadingSuggestions = true;
       const placeDetails = await this.placesService.getPlaceDetails(place.place_id).toPromise();
-      
+
+      if (this.destroyed) return;
+
       if (placeDetails) {
         const location = placeDetails.geometry.location;
-        
+
         // Update selected address and location
         this.zone.run(() => {
           this.selectedAddress = placeDetails.formatted_address;
@@ -227,44 +242,82 @@ export class SearchPage implements OnInit, OnDestroy {
         this.clearSuggestions();
 
         // For tab1 modal flow: dismiss with result instead of navigating to pin-location
-        // Only navigate to pin-location for tab4, date-wise, or address management flows
         if (this.isModalMode && !this.addressMode && !this.returnTo) {
-          // Tab1 flow: dismiss modal with result
-          const result: SearchModalResult = {
+          if (this.destroyed) return;
+          await this.modalController.dismiss({
             address: this.selectedAddress,
             location: this.selectedLocation,
             isPickup: this.isPickup,
-          };
-          await this.modalController.dismiss(result);
+          } as SearchModalResult);
+        } else if (this.addressMode) {
+          await this.navigateToAddressDetails();
         } else {
-          // Other flows: navigate to pin-location page
           await this.navigateToPinLocation();
         }
       }
     } catch (error) {
       console.error('Error getting place details:', error);
-      await this.presentToast('Error loading place details');
       this.zone.run(() => {
         this.isLoadingSuggestions = false;
       });
+      if (!this.destroyed) {
+        await this.safePresentToast('Error loading place details');
+      }
     }
   }
 
   /**
+   * Navigate to address-details page with selected place data (address management flow)
+   */
+  private async navigateToAddressDetails() {
+    if (this.destroyed) return;
+    if (!this.selectedLocation?.lat || !this.selectedLocation?.lng || !this.selectedAddress) {
+      return;
+    }
+    if (this.isModalMode) {
+      try {
+        await this.modalController.dismiss();
+      } catch (e) {
+        if (!this.destroyed) console.warn('Modal dismiss:', e);
+      }
+    }
+    if (this.destroyed) return;
+    this.router.navigate(['/address-details'], {
+      queryParams: {
+        mode: this.addressMode || 'add',
+        addressId: this.addressId || '',
+        returnTo: this.returnTo || 'manage-address',
+      },
+      state: {
+        addressLine: this.selectedAddress,
+        formattedAddress: this.selectedAddress,
+        lat: this.selectedLocation.lat,
+        lng: this.selectedLocation.lng,
+        placeId: this.selectedAddressDetails?.place_id || null,
+        addressMode: this.addressMode,
+        addressId: this.addressId,
+        returnTo: this.returnTo || 'manage-address',
+      },
+    });
+  }
+
+  /**
    * Navigate to pin-location page with selected location data
-   * Note: This is only called for non-tab1 flows (tab4, date-wise, address management)
+   * Note: This is only called for non-tab1 flows (tab4, date-wise)
    */
   private async navigateToPinLocation() {
+    if (this.destroyed) return;
     if (!this.selectedLocation?.lat || !this.selectedLocation?.lng) {
       return;
     }
-
-    // If opened as modal, dismiss first then navigate
     if (this.isModalMode) {
-      await this.modalController.dismiss();
+      try {
+        await this.modalController.dismiss();
+      } catch (e) {
+        if (!this.destroyed) console.warn('Modal dismiss:', e);
+      }
     }
-
-    // Navigate to pin-location page with query params
+    if (this.destroyed) return;
     this.router.navigate(['/pin-location'], {
       queryParams: {
         address: this.selectedAddress,
@@ -284,16 +337,15 @@ export class SearchPage implements OnInit, OnDestroy {
    */
   private async executeConfirmation() {
     if (!this.selectedAddress) {
-      await this.presentToast('Please select a location');
+      await this.safePresentToast('Please select a location');
       this.zone.run(() => {
         this.isLoadingSuggestions = false;
       });
       return;
     }
 
-    // Address management mode - use router
+    // Address management mode: save is done on address-details page only
     if (this.addressMode) {
-      await this.saveAddress();
       return;
     }
 
@@ -337,7 +389,7 @@ export class SearchPage implements OnInit, OnDestroy {
         if (location) {
           this.selectedLocation = { lat: location.lat, lng: location.lng };
         } else {
-          await this.presentToast('Error getting location coordinates');
+          await this.safePresentToast('Error getting location coordinates');
           this.zone.run(() => {
             this.isLoadingSuggestions = false;
           });
@@ -345,7 +397,7 @@ export class SearchPage implements OnInit, OnDestroy {
         }
       } catch (error) {
         console.error('Error geocoding address:', error);
-        await this.presentToast('Error getting location coordinates');
+        await this.safePresentToast('Error getting location coordinates');
         this.zone.run(() => {
           this.isLoadingSuggestions = false;
         });
@@ -355,12 +407,16 @@ export class SearchPage implements OnInit, OnDestroy {
 
     // If opened as modal, dismiss with result
     if (this.isModalMode) {
-      const result: SearchModalResult = {
-        address: this.selectedAddress,
-        location: this.selectedLocation,
-        isPickup: this.isPickup,
-      };
-      await this.modalController.dismiss(result);
+      if (this.destroyed) return;
+      try {
+        await this.modalController.dismiss({
+          address: this.selectedAddress,
+          location: this.selectedLocation,
+          isPickup: this.isPickup,
+        } as SearchModalResult);
+      } catch (e) {
+        if (!this.destroyed) console.warn('Modal dismiss:', e);
+      }
       return;
     }
 
@@ -391,8 +447,12 @@ export class SearchPage implements OnInit, OnDestroy {
   }
 
   async dismissModal() {
-    // Dismiss modal without data if user cancels
-    await this.modalController.dismiss();
+    if (this.destroyed || !this.isModalMode) return;
+    try {
+      await this.modalController.dismiss();
+    } catch (e) {
+      console.warn('Modal dismiss:', e);
+    }
   }
 
   /**
@@ -419,7 +479,7 @@ export class SearchPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error loading address for edit:', error);
-      await this.presentToast('Failed to load address');
+      await this.safePresentToast('Failed to load address');
     }
   }
 
@@ -428,14 +488,20 @@ export class SearchPage implements OnInit, OnDestroy {
    */
   private async saveAddress() {
     if (!this.currentUserId || !this.selectedAddress || !this.selectedLocation.lat || !this.selectedLocation.lng) {
-      await this.presentToast('Please select a valid location');
+      await this.safePresentToast('Please select a valid location');
       return;
     }
-
-    const loading = await this.loadingController.create({
-      message: this.addressMode === 'add' ? 'Saving address...' : 'Updating address...',
-    });
-    await loading.present();
+    if (this.destroyed) return;
+    let loading: HTMLIonLoadingElement | null = null;
+    try {
+      loading = await this.loadingController.create({
+        message: this.addressMode === 'add' ? 'Saving address...' : 'Updating address...',
+      });
+      await loading.present();
+    } catch (e) {
+      if (!this.destroyed) console.warn('Loading present:', e);
+      return;
+    }
 
     try {
       const addressData: CreateAddressRequest = {
@@ -460,26 +526,29 @@ export class SearchPage implements OnInit, OnDestroy {
         success = !!address;
       }
 
-      await loading.dismiss();
+      if (loading && !this.destroyed) {
+        try { await loading.dismiss(); } catch (e) {}
+      }
 
       if (success) {
-        await this.presentToast(
+        await this.safePresentToast(
           this.addressMode === 'add' ? 'Address saved successfully' : 'Address updated successfully'
         );
-
-        // Navigate back to manage-address page or specified return route
+        if (this.destroyed) return;
         const returnRoute = this.returnTo || '/manage-address';
         this.router.navigate([returnRoute], {
           queryParams: { saved: 'true' },
-          replaceUrl: true, // Avoid back-stack issues
+          replaceUrl: true,
         });
       } else {
-        await this.presentToast('Failed to save address');
+        await this.safePresentToast('Failed to save address');
       }
     } catch (error) {
       console.error('Error saving address:', error);
-      await loading.dismiss();
-      await this.presentToast('Failed to save address');
+      if (loading && !this.destroyed) {
+        try { await loading.dismiss(); } catch (e) {}
+      }
+      await this.safePresentToast('Failed to save address');
     }
   }
 
@@ -506,13 +575,25 @@ export class SearchPage implements OnInit, OnDestroy {
     }
   }
 
-  async presentToast(message: string) {
-    const toast = await this.toastCtrl.create({
-      message: message,
-      duration: 2000,
-      position: 'top',
-      color: 'dark',
-    });
-    await toast.present();
+  /**
+   * Present toast only if component is still active; catch "overlay does not exist" and similar.
+   */
+  private async safePresentToast(message: string): Promise<void> {
+    if (this.destroyed) return;
+    try {
+      const toast = await this.toastCtrl.create({
+        message,
+        duration: 2000,
+        position: 'top',
+        color: 'dark',
+      });
+      await toast.present();
+    } catch (e) {
+      console.warn('Could not show toast:', e);
+    }
+  }
+
+  get backButtonDefaultHref(): string {
+    return this.returnTo === 'manage-address' ? '/manage-address' : '/tabs/tabs/tab1';
   }
 }

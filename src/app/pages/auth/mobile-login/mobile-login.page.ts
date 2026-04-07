@@ -46,7 +46,10 @@ export class MobileLoginPage implements OnInit, OnDestroy {
       await loading.present();
       // Navigate to OTP page
       console.log(this.mobileForm.value);
-      this.userService.login(this.mobileForm.value).subscribe({
+      this.userService.login({
+        ...this.mobileForm.value,
+        privacyPolicyAccepted: true,
+      }).subscribe({
         next: async (res: any) => {
           await loading.dismiss();
           console.log(res['message']);

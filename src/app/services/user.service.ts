@@ -123,7 +123,12 @@ export class UserService {
 
   // Set complete user data
   setUser(user: any) {
-    return this.http.post(`${environment.apiUrl}/users`, user).pipe(
+    return this.http
+      .post(`${environment.apiUrl}/users`, {
+        ...user,
+        privacyPolicyAccepted: true,
+      })
+      .pipe(
       tap((response: any) => {
         const updatedUser = {
           ...response,
@@ -181,7 +186,10 @@ export class UserService {
     // };
     // this.userSubject.next(updatedUser);
     // this.saveUserToStorage(updatedUser);
-    return this.http.post(`${environment.apiUrl}/users/login`, userData);
+    return this.http.post(`${environment.apiUrl}/users/login`, {
+      ...userData,
+      privacyPolicyAccepted: true,
+    });
   }
 
   // Logout user

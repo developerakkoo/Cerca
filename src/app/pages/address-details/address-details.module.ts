@@ -5,9 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { TranslateModule } from '@ngx-translate/core';
 
-import { ManageAddressPageRoutingModule } from './manage-address-routing.module';
+import { AddressDetailsPageRoutingModule } from './address-details-routing.module';
 
-import { ManageAddressPage } from './manage-address.page';
+import { AddressDetailsPage } from './address-details.page';
 
 @NgModule({
   imports: [
@@ -15,9 +15,8 @@ import { ManageAddressPage } from './manage-address.page';
     FormsModule,
     IonicModule,
     TranslateModule,
-    ManageAddressPageRoutingModule
+    AddressDetailsPageRoutingModule
   ],
-  declarations: [ManageAddressPage]
+  declarations: [AddressDetailsPage]
 })
-export class ManageAddressPageModule {}
-
+export class AddressDetailsPageModule {}

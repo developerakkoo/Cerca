@@ -1,0 +1,56 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="returnTo === 'manage-address' ? '/manage-address' : '/tabs/tabs/tab5'"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ (mode === 'add' ? 'ADDRESS_DETAILS.titleAdd' : 'ADDRESS_DETAILS.titleEdit') | translate }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <div class="address-display" *ngIf="addressLine">
+    <ion-icon name="location-outline" class="address-icon"></ion-icon>
+    <p class="address-text">{{ addressLine }}</p>
+  </div>
+
+  <!-- Address type: Home / Office / Other -->
+  <ion-item lines="none" class="type-section">
+    <ion-label position="stacked">{{ 'ADDRESS_DETAILS.addressType' | translate }}</ion-label>
+    <div class="type-badges">
+      <ion-badge
+        *ngFor="let t of addressTypes"
+        [color]="addressType === t.value ? (t.value === 'home' ? 'primary' : t.value === 'office' ? 'secondary' : 'tertiary') : 'medium'"
+        class="type-badge"
+        (click)="selectType(t.value)">
+        {{ t.labelKey | translate }}
+      </ion-badge>
+    </div>
+  </ion-item>
+
+  <!-- Landmark -->
+  <ion-item lines="full" class="landmark-item">
+    <ion-icon name="pricetag-outline" slot="start"></ion-icon>
+    <ion-label position="stacked">{{ 'ADDRESS_DETAILS.landmark' | translate }}</ion-label>
+    <ion-input
+      [(ngModel)]="landmark"
+      type="text"
+      [placeholder]="'ADDRESS_DETAILS.landmarkPlaceholder' | translate"
+      clearOnEdit="false"></ion-input>
+  </ion-item>
+
+  <!-- Adjust on map / Change location -->
+  <ion-button expand="block" fill="outline" class="adjust-button" (click)="adjustOnMap()" *ngIf="lat != null && lng != null">
+    <ion-icon name="map-outline" slot="start"></ion-icon>
+    {{ 'ADDRESS_DETAILS.adjustOnMap' | translate }}
+  </ion-button>
+  <ion-button expand="block" fill="outline" color="secondary" class="change-location-button" (click)="changeLocation()" *ngIf="mode === 'edit'">
+    <ion-icon name="search-outline" slot="start"></ion-icon>
+    {{ 'ADDRESS_DETAILS.changeLocation' | translate }}
+  </ion-button>
+
+  <!-- Save -->
+  <ion-button expand="block" class="save-button" (click)="save()" [disabled]="isSaving">
+    <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+    {{ 'ADDRESS_DETAILS.saveAddress' | translate }}
+  </ion-button>
+</ion-content>

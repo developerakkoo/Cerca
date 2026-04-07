@@ -2,8 +2,9 @@
 // Modern, premium UI with floating inputs and horizontal scrolling ride cards
 
 :host {
+  --tab1-tab-bar-height: 65px;
   background: transparent !important;
-  
+
   // Ensure ion-content doesn't intercept map touches
   ion-content {
     touch-action: none; // Disable Ionic's touch handling
@@ -332,7 +333,7 @@
 // Ride Cards Section
 .ride-cards-section {
   position: absolute;
-  bottom: 0;
+  bottom: calc(var(--tab1-tab-bar-height, 65px) + env(safe-area-inset-bottom));
   left: 0;
   right: 0;
   background: white;
@@ -342,7 +343,7 @@
   z-index: 200;
   padding: 20px;
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
-  height: 70vh;
+  height: clamp(45vh, 70vh, 82vh);
   display: flex;
   flex-direction: column;
   animation: slideUpModal 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
@@ -385,7 +386,7 @@
     flex: 1;
     min-height: 0;
     width: 100%;
-    padding: 0;
+    padding: 0 0 8px 0;
 
     ion-radio-group {
       display: flex;
@@ -601,35 +602,35 @@
   }
 }
 
-// Responsive Design
-@media (max-width: 360px) {
+// Responsive Design - Small screens
+@media (max-width: 400px) {
   .ride-cards-section {
-    .ride-cards-container {
-      .ride-card {
-        width: 100%;
-        min-height: 80px;
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
 
-        .ride-card-content {
-          .vehicle-image-wrapper {
-            width: 70px;
-            height: 70px;
-          }
+    .ride-cards-container .ride-card {
+      padding: 12px;
+      min-height: 72px;
+      gap: 12px;
 
-          .ride-info {
-            .ride-name {
-              font-size: 15px;
-            }
+      .vehicle-image-wrapper {
+        width: 56px;
+        height: 56px;
+        min-width: 56px;
+      }
 
-            .ride-price {
-              font-size: 18px;
-            }
-          }
-        }
+      .ride-info .ride-name {
+        font-size: 15px;
+      }
+
+      .ride-price-radio .ride-price {
+        font-size: 16px;
       }
     }
   }
 }
 
+// Responsive Design - Medium/large screens
 @media (min-width: 768px) {
   .floating-inputs {
     max-width: 600px;
@@ -639,9 +640,10 @@
   }
 
   .ride-cards-section {
-    max-width: 600px;
+    width: 600px;
+    max-width: 100%;
     left: 50%;
-    transform: translateX(-50%);
+    margin-left: -300px;
     right: auto;
   }
 }

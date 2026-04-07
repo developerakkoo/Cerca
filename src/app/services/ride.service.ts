@@ -1,11 +1,14 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, Subject, firstValueFrom, Subscription } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, firstValueFrom, Subscription, from } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { SocketService } from './socket.service';
 import { Storage } from '@ionic/storage-angular';
 import { Router } from '@angular/router';
-import { ToastController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
+import { PaymentService } from './payment.service';
+import { Geolocation } from '@capacitor/geolocation';
 
 export interface Location {
   latitude: number;
@@ -30,12 +33,13 @@ export interface DriverInfo {
   rating: number;
   totalTrips: number;
   profilePic?: string;
-  vehicleInfo: {
-    make: string;
-    model: string;
-    color: string;
-    licensePlate: string;
+  vehicleInfo?: {
+    make?: string;
+    model?: string;
+    color?: string;
+    licensePlate?: string;
     year?: number;
+    vehicleType?: string;
   };
 }
 
@@ -88,6 +92,45 @@ export interface Ride {
   };
   createdAt: Date;
   updatedAt: Date;
+  cancelledBy?: 'rider' | 'driver' | 'system';
+  cancellationReason?: string;
+  driverArrivedAt?: string | Date;
+  startOtpVerifiedAt?: string | Date;
+  stopOtpVerifiedAt?: string | Date;
+  estimatedArrivalTime?: string | Date;
+  fareBreakdown?: {
+    baseFare?: number;
+    distanceFare?: number;
+    timeFare?: number;
+    subtotal?: number;
+    fareAfterMinimum?: number;
+    discount?: number;
+    pickupWaitCharge?: number;
+    finalFare?: number;
+  };
+  pickupWait?: {
+    waitStartedAt?: string | Date | null;
+    waitEndedAt?: string | Date | null;
+    waitDurationSeconds?: number;
+    freeMinutesApplied?: number;
+    tier1BillableMinutes?: number;
+    tier2BillableMinutes?: number;
+    amountTier1?: number;
+    amountTier2?: number;
+    totalPickupWaitCharge?: number;
+    computedAt?: string | Date | null;
+    policyVersion?: string | null;
+  };
+  driverInProgressCancelSettlement?: {
+    riderPenaltyAmount?: number;
+    driverPartialAmount?: number;
+    riderTotalCharge?: number;
+    prepaidTotal?: number;
+    additionalDue?: number;
+    refundDue?: number;
+    riderPaymentStatus?: string;
+    fineRecipient?: string;
+  };
 }
 
 export type RideStatus =
@@ -109,6 +152,7 @@ export class RideService {
   private driverETA$ = new BehaviorSubject<number>(0);
   private rideErrors$ = new Subject<string>();
   private unreadCounts$ = new BehaviorSubject<Map<string, number>>(new Map());
+  private emergencyLocationIntervalId: ReturnType<typeof setInterval> | null = null;
 
   // Store all socket subscriptions for cleanup
   private socketSubscriptions: Subscription[] = [];
@@ -118,7 +162,9 @@ export class RideService {
     private storage: Storage,
     private router: Router,
     private toastCtrl: ToastController,
-    private http: HttpClient
+    private http: HttpClient,
+    private alertCtrl: AlertController,
+    private paymentService: PaymentService
   ) {
     this.initStorage();
     this.setupSocketListeners();
@@ -129,6 +175,110 @@ export class RideService {
 
   private async initStorage() {
     await this.storage.create();
+    void this.resumePendingDriverCancelSettlementIfAny();
+  }
+
+  /**
+   * After app restart: if we stored a pending driver-cancel settlement, prompt again.
+   */
+  private async resumePendingDriverCancelSettlementIfAny(): Promise<void> {
+    try {
+      const rideId = await this.storage.get('pendingDriverCancelSettlementRideId');
+      const userId = await this.storage.get('userId');
+      if (!rideId || !userId) return;
+
+      const token = await this.storage.get('token');
+      const url = `${environment.apiUrl}/users/${userId}/outstanding-driver-cancel-settlements`;
+      const res = await firstValueFrom(
+        this.http.get<{
+          success?: boolean;
+          data?: {
+            items?: Array<{
+              rideId: string;
+              additionalDue: number;
+              riderPenaltyAmount?: number;
+              driverPartialAmount?: number;
+              riderTotalCharge?: number;
+              prepaidTotal?: number;
+              refundDue?: number;
+            }>;
+          };
+        }>(url, {
+          headers: token
+            ? { Authorization: `Bearer ${token}` }
+            : undefined,
+        })
+      );
+      const items = res?.data?.items || [];
+      const match = items.find((i) => String(i.rideId) === String(rideId));
+      if (!match) {
+        await this.storage.remove('pendingDriverCancelSettlementRideId');
+        return;
+      }
+
+      const ride = {
+        _id: match.rideId,
+        rider: userId,
+        cancelledBy: 'driver' as const,
+        driverInProgressCancelSettlement: {
+          riderPenaltyAmount: match.riderPenaltyAmount,
+          driverPartialAmount: match.driverPartialAmount,
+          riderTotalCharge: match.riderTotalCharge,
+          prepaidTotal: match.prepaidTotal,
+          additionalDue: match.additionalDue,
+          refundDue: match.refundDue,
+          riderPaymentStatus: 'pending',
+        },
+      } as Ride;
+
+      await this.presentDriverCancelSettlementModal(
+        ride,
+        'Driver ended the trip (pending payment)'
+      );
+    } catch (e) {
+      console.warn('resumePendingDriverCancelSettlementIfAny:', e);
+    }
+  }
+
+  private async handleRideCancelled(payload: any): Promise<void> {
+    const ride: Ride = payload?.ride ?? payload;
+    const reason: string =
+      payload?.reason ?? ride?.cancellationReason ?? 'Ride cancelled';
+    console.log('❌ Ride cancelled:', payload);
+    this.currentRide$.next(null);
+    this.rideStatus$.next('cancelled');
+    this.clearRide();
+
+    const isDriverInTripCancel =
+      ride?.cancelledBy === 'driver' && ride?.driverInProgressCancelSettlement;
+
+    if (isDriverInTripCancel) {
+      const st = ride.driverInProgressCancelSettlement;
+      const additional = Number(st?.additionalDue) || 0;
+      if (additional > 0 && ride._id) {
+        await this.storage.set('pendingDriverCancelSettlementRideId', ride._id);
+      } else {
+        await this.storage.remove('pendingDriverCancelSettlementRideId');
+      }
+
+      await this.presentDriverCancelSettlementModal(ride, reason);
+
+      if (!this.router.url.includes('cab-searching')) {
+        this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+      }
+      return;
+    }
+
+    const message = reason?.includes('No drivers found')
+      ? 'No drivers found nearby. Ride cancelled.'
+      : 'Ride cancelled';
+    this.showToast(message);
+
+    if (!this.router.url.includes('cab-searching')) {
+      this.router.navigate(['/tabs/tabs/tab1'], {
+        replaceUrl: true,
+      });
+    }
   }
 
   /**
@@ -325,11 +475,11 @@ export class RideService {
 
     // Ride completed
     const rideCompletedSub = this.socketService.on<Ride>('rideCompleted').subscribe((ride) => {
-      console.log('✅ Ride completed event received:', ride);
-      console.log('   Ride ID:', ride._id);
-      console.log('   Payment Method:', ride.paymentMethod);
-      console.log('   Payment Status:', ride.paymentStatus);
-      console.log('   Fare:', ride.fare);
+      console.log('✅ Ride completed event received (user app)');
+      console.log('   Ride ID:', ride?._id);
+      console.log('   Payment Method:', ride?.paymentMethod);
+      console.log('   Payment Status:', ride?.paymentStatus);
+      console.log('   Fare:', ride?.fare);
       
       // Update ride state with all fields including paymentStatus
       this.currentRide$.next(ride);
@@ -344,28 +494,19 @@ export class RideService {
     this.socketSubscriptions.push(rideCompletedSub);
 
     // Ride cancelled
-    const rideCancelledSub = this.socketService
-      .on<{ ride: Ride; reason: string; cancelledBy?: string }>('rideCancelled')
-      .subscribe((data) => {
-        console.log('❌ Ride cancelled:', data);
-        this.currentRide$.next(null);
-        this.rideStatus$.next('cancelled');
-        this.clearRide();
-        
-        // Show appropriate message based on cancellation reason
-        const message = data.reason?.includes('No drivers found') 
-          ? 'No drivers found nearby. Ride cancelled.' 
-          : 'Ride cancelled';
-        this.showToast(message);
-        
-        // Only navigate if not already on cab-searching page (let that page handle navigation)
-        if (!this.router.url.includes('cab-searching')) {
-          this.router.navigate(['/tabs/tabs/tab1'], {
-            replaceUrl: true, // Clear navigation stack
-          });
+    const rideCancelledSub = this.socketService.on<any>('rideCancelled').subscribe((payload) => {
+      void this.handleRideCancelled(payload);
+    });
+    this.socketSubscriptions.push(rideCancelledSub);
+
+    const riderSettlementDoneSub = this.socketService
+      .on<{ rideId: string; success?: boolean }>('riderSettlementCompleted')
+      .subscribe((ev) => {
+        if (ev?.success) {
+          this.showToast('Payment settlement completed.');
         }
       });
-    this.socketSubscriptions.push(rideCancelledSub);
+    this.socketSubscriptions.push(riderSettlementDoneSub);
 
     // Ride errors
     const rideErrorSub = this.socketService
@@ -434,6 +575,9 @@ export class RideService {
       .subscribe((data) => {
         console.log('🚨 Emergency alert created:', data);
         if (data.success) {
+          if (data.emergency?._id) {
+            this.startEmergencyLocationUpdates(data.emergency._id);
+          }
           this.showToast('🚨 Emergency alert sent successfully', 'warning');
           // Clear ride state since emergency cancels the ride
           this.currentRide$.next(null);
@@ -466,8 +610,15 @@ export class RideService {
     const emergencyErrorSub = this.socketService
       .on<{ message: string }>('emergencyError')
       .subscribe((error) => {
+        const msg = error?.message ?? '';
+        const isResolved = msg.includes('no longer active') || msg.includes('Emergency no longer active');
+        if (isResolved) {
+          this.stopEmergencyLocationUpdates();
+          this.showToast('Emergency has been resolved.', 'primary');
+          return;
+        }
         console.error('❌ Emergency error:', error);
-        this.showToast(`Emergency alert failed: ${error.message}`, 'danger');
+        this.showToast(`Emergency alert failed: ${msg}`, 'danger');
       });
     this.socketSubscriptions.push(emergencyErrorSub);
 
@@ -561,6 +712,7 @@ export class RideService {
    * Cleanup all socket subscriptions
    */
   private cleanupSocketListeners(): void {
+    this.stopEmergencyLocationUpdates();
     this.socketSubscriptions.forEach((subscription) => {
       subscription.unsubscribe();
     });
@@ -876,6 +1028,51 @@ export class RideService {
   }
 
   /**
+   * Stop sending emergency location updates (e.g. when emergency is resolved by admin).
+   */
+  private stopEmergencyLocationUpdates(): void {
+    if (this.emergencyLocationIntervalId) {
+      clearInterval(this.emergencyLocationIntervalId);
+      this.emergencyLocationIntervalId = null;
+    }
+  }
+
+  /**
+   * Start sending periodic location updates to admin for live tracking (stops after 30 min)
+   */
+  private startEmergencyLocationUpdates(emergencyId: string): void {
+    this.stopEmergencyLocationUpdates();
+    const maxDurationMs = 30 * 60 * 1000;
+    const intervalMs = 5000;
+    let elapsed = 0;
+
+    const sendUpdate = async () => {
+      try {
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true }).catch(() => null);
+        if (pos?.coords && this.socketService.isConnected()) {
+          this.socketService.emit('emergencyLocationUpdate', {
+            emergencyId,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (_) {}
+    };
+
+    sendUpdate();
+    this.emergencyLocationIntervalId = setInterval(() => {
+      elapsed += intervalMs;
+      if (elapsed >= maxDurationMs && this.emergencyLocationIntervalId) {
+        clearInterval(this.emergencyLocationIntervalId);
+        this.emergencyLocationIntervalId = null;
+        return;
+      }
+      sendUpdate();
+    }, intervalMs);
+  }
+
+  /**
    * Submit rating for completed ride
    */
   async submitRating(
@@ -1102,6 +1299,27 @@ export class RideService {
       console.error('========================================');
       throw error;
     }
+  }
+
+  /**
+   * Switch a completed RAZORPAY (pending) ride to CASH payment (rider only).
+   * Backend validates ride is completed, RAZORPAY, pending; updates paymentMethod to CASH and emits to driver.
+   */
+  switchRideToCash(rideId: string): Observable<Ride> {
+    const url = `${environment.apiUrl}/api/rides/${rideId}/switch-to-cash`;
+    return from(this.storage.get('token')).pipe(
+      switchMap((token) => {
+        if (!token) {
+          throw new Error('User not authenticated');
+        }
+        return this.http.post<Ride>(url, {}, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      })
+    );
   }
 
   /**
@@ -1594,6 +1812,160 @@ export class RideService {
       }
     } catch (error) {
       console.error('Error restoring ride:', error);
+    }
+  }
+
+  /**
+   * Modal / alert when driver cancels during trip — charges and pay online or cash.
+   */
+  private async presentDriverCancelSettlementModal(
+    ride: Ride,
+    reason: string
+  ): Promise<void> {
+    const st = ride.driverInProgressCancelSettlement;
+    if (!st) return;
+
+    const fmt = (n: number | undefined) =>
+      n == null ? '—' : `₹${Number(n).toFixed(2)}`;
+
+    const additional = Number(st.additionalDue) || 0;
+    const header = 'Driver ended the trip';
+    const reasonText = (reason || '').trim() || 'Not specified';
+    const subHeader =
+      reasonText.length > 160
+        ? `Reason: ${reasonText.slice(0, 157)}…`
+        : `Reason: ${reasonText}`;
+    // Plain text + newlines (Ionic alert does not render <br/> unless innerHTML is enabled).
+    const message = [
+      `Cancellation penalty: ${fmt(st.riderPenaltyAmount)}`,
+      `Trip charge (partial distance): ${fmt(st.driverPartialAmount)}`,
+      `Total due for this event: ${fmt(st.riderTotalCharge)}`,
+      `Already paid (prepaid): ${fmt(st.prepaidTotal)}`,
+      '',
+      additional > 0
+        ? `You still need to pay: ${fmt(additional)}`
+        : 'No extra online charge. Any refund will be processed automatically.',
+    ].join('\n');
+
+    const userId = await this.storage.get('userId');
+    const rideId = ride._id;
+    const base = `${environment.apiUrl}/api/rides`;
+
+    const buttons: {
+      text: string;
+      role?: string;
+      cssClass?: string | string[];
+      handler?: () => void | Promise<void>;
+    }[] = [];
+
+    const run = async (fn: () => Promise<void>) => {
+      try {
+        await fn();
+        await this.showToast('Updated successfully');
+        await this.storage.remove('pendingDriverCancelSettlementRideId');
+      } catch (e: any) {
+        await this.showToast(e?.message || 'Something went wrong', 'danger');
+      }
+    };
+
+    if (additional <= 0) {
+      buttons.push({
+        text: 'Done',
+        cssClass: 'settlement-alert-btn-primary',
+        handler: () => {
+          void run(async () => {
+            await firstValueFrom(
+              this.http.post(`${base}/${rideId}/driver-cancel-settlement/acknowledge`, {
+                userId,
+              })
+            );
+          });
+        },
+      });
+    } else {
+      buttons.push({
+        text: 'Pay with wallet',
+        cssClass: 'settlement-alert-btn-primary',
+        handler: () => {
+          void run(async () => {
+            await firstValueFrom(
+              this.http.post(`${base}/${rideId}/driver-cancel-settlement/pay-wallet`, {
+                userId,
+              })
+            );
+          });
+        },
+      });
+      if (additional >= 10) {
+        buttons.push({
+          text: 'Pay online',
+          cssClass: 'settlement-alert-btn-secondary',
+          handler: () => {
+            void run(async () => {
+              const orderRes: { data?: { orderId?: string; amount?: number } } =
+                await firstValueFrom(
+                  this.http.post<{
+                    data?: { orderId?: string; amount?: number };
+                  }>(`${base}/${rideId}/driver-cancel-settlement/pay-order`, {
+                    userId,
+                  })
+                );
+              const d = orderRes?.data;
+              if (!d?.orderId || d.amount == null) {
+                throw new Error('Could not start payment');
+              }
+              const pay = await this.paymentService.openRazorpayCheckout(
+                d.orderId,
+                d.amount,
+                {
+                  description: 'Driver cancelled trip — settlement',
+                }
+              );
+              await firstValueFrom(
+                this.http.post(`${base}/${rideId}/driver-cancel-settlement/verify-razorpay`, {
+                  userId,
+                  razorpay_payment_id: pay.razorpay_payment_id,
+                })
+              );
+            });
+          },
+        });
+      }
+      buttons.push({
+        text: 'Pay driver in cash',
+        cssClass: 'settlement-alert-btn-outline',
+        handler: () => {
+          void run(async () => {
+            await firstValueFrom(
+              this.http.post(`${base}/${rideId}/driver-cancel-settlement/confirm-cash`, {
+                userId,
+              })
+            );
+          });
+        },
+      });
+    }
+
+    buttons.push({
+      text: 'Close',
+      role: 'cancel',
+      cssClass: 'settlement-alert-btn-close',
+    });
+
+    const alert = await this.alertCtrl.create({
+      header,
+      subHeader,
+      message,
+      cssClass: 'driver-cancel-settlement-alert',
+      buttons,
+    });
+    await alert.present();
+    const { role } = await alert.onDidDismiss();
+    if (role === 'cancel' && additional > 0) {
+      await this.showToast(
+        'This amount is still due. It will be included on your next ride payment.',
+        'warning'
+      );
     }
   }
 

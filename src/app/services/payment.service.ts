@@ -67,10 +67,11 @@ export interface PaymentOptions {
 export class PaymentService {
   private apiUrl = environment.apiUrl;
   private razorpayConfig = environment.razorpay || {
-    key: 'rzp_test_Rp3ejYlVfY449V',
+    key: 'rzp_live_S6q5OGF0WYChTn',
+    // key: 'rzp_test_Rp3ejYlVfY449V',
     name: 'Cerca',
     description: 'Taxi Booking Service',
-    theme: { color: '#FF4C5A' },
+    theme: { color: '#333652' },
   };
 
   constructor(

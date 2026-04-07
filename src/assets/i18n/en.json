@@ -49,6 +49,21 @@
       "tab5": "Profile"
     }
   },
+  "ADDRESS_DETAILS": {
+    "titleAdd": "Add Address",
+    "titleEdit": "Edit Address",
+    "addressType": "Address type",
+    "types": {
+      "home": "Home",
+      "office": "Office",
+      "other": "Other"
+    },
+    "landmark": "Landmark",
+    "landmarkPlaceholder": "e.g. Near the blue gate",
+    "saveAddress": "Save address",
+    "adjustOnMap": "Adjust on map",
+    "changeLocation": "Change location"
+  },
   "HOME": {
     "title": "Home",
     "loadingMap": "Loading Map",

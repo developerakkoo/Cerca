@@ -49,6 +49,21 @@
       "tab5": "प्रोफ़ाइल"
     }
   },
+  "ADDRESS_DETAILS": {
+    "titleAdd": "पता जोड़ें",
+    "titleEdit": "पता संपादित करें",
+    "addressType": "पता प्रकार",
+    "types": {
+      "home": "घर",
+      "office": "ऑफिस",
+      "other": "अन्य"
+    },
+    "landmark": "लैंडमार्क",
+    "landmarkPlaceholder": "जैसे नीले गेट के पास",
+    "saveAddress": "पता सहेजें",
+    "adjustOnMap": "मानचित्र पर समायोजित करें",
+    "changeLocation": "स्थान बदलें"
+  },
   "HOME": {
     "title": "होम",
     "loadingMap": "मानचित्र लोड हो रहा है",

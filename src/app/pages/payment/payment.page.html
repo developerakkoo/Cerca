@@ -29,27 +29,37 @@
       <div class="summary-details">
         <div class="summary-row">
           <span>{{ 'PAYMENT.baseFare' | translate }}</span>
-          <span>₹{{baseFare}}</span>
+          <span>₹{{baseFare | number:'1.2-2'}}</span>
         </div>
         <div class="summary-row" *ngIf="distanceFare > 0">
           <span>Distance Fare</span>
-          <span>₹{{distanceFare}}</span>
+          <span>₹{{distanceFare | number:'1.2-2'}}</span>
         </div>
         <div class="summary-row" *ngIf="distanceFare > 0">
           <span>Subtotal</span>
-          <span>₹{{subtotal}}</span>
+          <span>₹{{subtotal | number:'1.2-2'}}</span>
         </div>
         <div class="summary-row info-row" *ngIf="minimumFareApplied">
           <span><ion-icon name="information-circle-outline"></ion-icon> Minimum Fare Applied</span>
-          <span>₹{{finalFare}}</span>
+          <span>₹{{finalFare | number:'1.2-2'}}</span>
         </div>
         <div class="summary-row" *ngIf="promoApplied">
           <span class="discount-text">{{ 'PAYMENT.discountApplied' | translate }}</span>
-          <span class="discount-amount">-₹{{discountAmount}}</span>
+          <span class="discount-amount">-₹{{discountAmount | number:'1.2-2'}}</span>
         </div>
+        <ng-container *ngIf="cancellationOutstandingTotal > 0">
+          <div class="summary-row info-row" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8e8e8;">
+            <span>Ride fare (this booking)</span>
+            <span>₹{{rideFarePayable | number:'1.2-2'}}</span>
+          </div>
+          <div class="summary-row">
+            <span>Previous trip cancellation charges</span>
+            <span>₹{{cancellationOutstandingTotal | number:'1.2-2'}}</span>
+          </div>
+        </ng-container>
         <div class="summary-row total">
           <span>{{ 'PAYMENT.totalAmount' | translate }}</span>
-          <span>₹{{totalAmount}}</span>
+          <span>₹{{totalAmount | number:'1.2-2'}}</span>
         </div>
         <div class="summary-row info-row" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
           <span style="font-size: 12px; color: #666;">
@@ -154,9 +164,9 @@
             </ion-avatar>
             <ion-label>
               <h3>{{ 'PAYMENT.wallet' | translate }}</h3>
-              <p>{{ 'PAYMENT.availableBalance' | translate }}: ₹{{walletBalance}}</p>
+              <p>{{ 'PAYMENT.availableBalance' | translate }}: ₹{{walletBalance | number:'1.2-2'}}</p>
               <p *ngIf="isWalletSelected && insufficientBalance" class="error-message">
-                {{ 'PAYMENT.insufficientBalance' | translate: {amount: (totalAmount - walletBalance)} }}
+                {{ 'PAYMENT.insufficientBalance' | translate: {amount: (totalAmount - walletBalance) | number:'1.2-2'} }}
               </p>
             </ion-label>
             <ion-radio slot="end" value="wallet"></ion-radio>
@@ -220,16 +230,16 @@
         [disabled]="false">
         <ion-icon name="card-outline" slot="start"></ion-icon>
         <ng-container *ngIf="isWalletSelected && !insufficientBalance">
-          Pay from Wallet ₹{{totalAmount}}
+          Pay from Wallet ₹{{totalAmount | number:'1.2-2'}}
         </ng-container>
         <ng-container *ngIf="isWalletSelected && insufficientBalance">
-          Pay ₹{{getRemainingAmount()}} now + Wallet ₹{{getWalletAmountUsed()}}
+          Pay ₹{{getRemainingAmount() | number:'1.2-2'}} now + Wallet ₹{{getWalletAmountUsed() | number:'1.2-2'}}
         </ng-container>
         <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'cash'">
-          Pay ₹{{totalAmount}}
+          Pay ₹{{totalAmount | number:'1.2-2'}}
         </ng-container>
         <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'razorpay'">
-          Request Ride (Pay ₹{{totalAmount}} after ride)
+          Request Ride (Pay ₹{{totalAmount | number:'1.2-2'}} after ride)
         </ng-container>
       </ion-button>
     </div>

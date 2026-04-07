@@ -87,6 +87,10 @@ const routes: Routes = [
     loadChildren: () => import('./pages/manage-address/manage-address.module').then( m => m.ManageAddressPageModule)
   },
   {
+    path: 'address-details',
+    loadChildren: () => import('./pages/address-details/address-details.module').then( m => m.AddressDetailsPageModule)
+  },
+  {
     path: 'blocked',
     loadChildren: () => import('./pages/blocked/blocked.module').then( m => m.BlockedPageModule)
   },

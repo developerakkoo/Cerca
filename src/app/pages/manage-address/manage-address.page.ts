@@ -146,17 +146,17 @@ export class ManageAddressPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Navigate to search page to edit an existing address
+   * Navigate to address-details page to edit an existing address
    */
   editAddress(address: Address) {
     if (!address._id) {
       return;
     }
 
-    this.router.navigate(['/search'], {
+    this.router.navigate(['/address-details'], {
       queryParams: {
-        mode: 'edit',
         addressId: address._id,
+        mode: 'edit',
         returnTo: 'manage-address',
       },
     });

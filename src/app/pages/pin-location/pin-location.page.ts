@@ -472,14 +472,21 @@ export class PinLocationPage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (this.addressMode) {
-      this.router.navigate(['/search'], {
+      this.router.navigate(['/address-details'], {
         queryParams: {
           mode: this.addressMode,
-          addressId: this.addressId,
-          returnTo: this.returnTo,
+          addressId: this.addressId || '',
+          returnTo: this.returnTo || 'manage-address',
+        },
+        state: {
+          addressLine: this.currentAddress,
+          formattedAddress: this.currentAddress,
           address: this.currentAddress,
           lat: this.currentLat,
           lng: this.currentLng,
+          addressMode: this.addressMode,
+          addressId: this.addressId,
+          returnTo: this.returnTo || 'manage-address',
         },
       });
       return;

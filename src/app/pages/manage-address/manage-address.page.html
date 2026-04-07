@@ -42,7 +42,15 @@
         ></ion-icon>
 
         <ion-label class="address-label">
-          <h2 class="address-line">{{ address.addressLine }}</h2>
+          <div class="address-line-row">
+            <h2 class="address-line">{{ address.addressLine }}</h2>
+            <ion-badge
+              *ngIf="address.addressType"
+              [color]="address.addressType === 'home' ? 'primary' : address.addressType === 'office' ? 'secondary' : 'tertiary'"
+              class="address-type-badge">
+              {{ ('ADDRESS_DETAILS.types.' + address.addressType) | translate }}
+            </ion-badge>
+          </div>
           <p *ngIf="address.formattedAddress" class="formatted-address">
             {{ address.formattedAddress }}
           </p>

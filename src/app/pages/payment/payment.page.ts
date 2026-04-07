@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import {
   IonicModule,
@@ -16,6 +18,7 @@ import { CouponService } from '../../services/coupon.service';
 import { SettingsService, PricingConfigurations, VehicleServices } from '../../services/settings.service';
 import { FareService } from '../../services/fare.service';
 import { Storage } from '@ionic/storage-angular';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-payment',
@@ -31,7 +34,16 @@ export class PaymentPage implements OnInit {
   subtotal: number = 0; // Base fare + distance fare + time fare
   finalFare: number = 0; // After minimum fare check
   discountAmount: number = 0;
-  totalAmount: number = 0; // Final amount after discount
+  totalAmount: number = 0; // Ride fare + pending cancellation dues (checkout total)
+  /** Fare for the new ride only (excludes pending driver-cancel settlements). */
+  rideFarePayable: number = 0;
+  /** Pending driver in-progress cancel — additionalDue sum from backend. */
+  cancellationOutstandingTotal: number = 0;
+  outstandingItems: Array<{
+    rideId: string;
+    additionalDue: number;
+    summary?: string;
+  }> = [];
   estimatedDuration: number = 0; // Estimated duration in minutes
   
   // Payment details
@@ -89,7 +101,8 @@ export class PaymentPage implements OnInit {
     private storage: Storage,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
-    private alertCtrl: AlertController
+    private alertCtrl: AlertController,
+    private http: HttpClient
   ) {}
 
   async ngOnInit() {
@@ -144,6 +157,115 @@ export class PaymentPage implements OnInit {
 
     // Load settings (vehicle services and pricing configurations)
     this.loadSettings();
+
+    await this.loadOutstandingDriverCancelSettlements();
+  }
+
+  private async authHeaders(): Promise<{ headers: HttpHeaders } | Record<string, never>> {
+    const token = await this.storage.get('token');
+    if (!token) {
+      return {};
+    }
+    return {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+    };
+  }
+
+  /**
+   * Pending charges from driver cancelling during an in-progress trip.
+   */
+  private async loadOutstandingDriverCancelSettlements(): Promise<void> {
+    if (!this.userId) {
+      return;
+    }
+    try {
+      const opts = await this.authHeaders();
+      const res = await firstValueFrom(
+        this.http.get<{
+          success?: boolean;
+          data?: {
+            items?: Array<{
+              rideId: string;
+              additionalDue: number;
+              summary?: string;
+            }>;
+            totalAdditionalDue?: number;
+          };
+        }>(
+          `${environment.apiUrl}/users/${this.userId}/outstanding-driver-cancel-settlements`,
+          opts
+        )
+      );
+      const data = res?.data;
+      this.outstandingItems = data?.items || [];
+      this.cancellationOutstandingTotal = Number(data?.totalAdditionalDue) || 0;
+      this.calculateTotal();
+    } catch (e) {
+      console.warn('loadOutstandingDriverCancelSettlements:', e);
+      this.outstandingItems = [];
+      this.cancellationOutstandingTotal = 0;
+      this.calculateTotal();
+    }
+  }
+
+  /**
+   * Pay all pending driver-cancel settlements from wallet before booking.
+   */
+  private async settleOutstandingWalletFirst(): Promise<boolean> {
+    if (this.cancellationOutstandingTotal <= 0 || this.outstandingItems.length === 0) {
+      return true;
+    }
+    if (!this.userId) {
+      return false;
+    }
+
+    const balanceRes = await this.walletService
+      .getWalletBalance(this.userId)
+      .toPromise();
+    const bal =
+      balanceRes?.success && balanceRes.data
+        ? balanceRes.data.walletBalance
+        : 0;
+    if (bal < this.cancellationOutstandingTotal) {
+      await this.showToast(
+        `Add ₹${(this.cancellationOutstandingTotal - bal).toFixed(2)} to your wallet to cover previous trip cancellation charges (₹${this.cancellationOutstandingTotal.toFixed(2)}).`,
+        'warning'
+      );
+      return false;
+    }
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Paying previous cancellation charges...',
+      spinner: 'crescent',
+    });
+    await loading.present();
+
+    const opts = await this.authHeaders();
+    try {
+      const toPay = this.outstandingItems.filter((i) => (i.additionalDue || 0) > 0);
+      for (const item of toPay) {
+        await firstValueFrom(
+          this.http.post(
+            `${environment.apiUrl}/api/rides/${item.rideId}/driver-cancel-settlement/pay-wallet`,
+            { userId: this.userId },
+            opts
+          )
+        );
+      }
+      await loading.dismiss();
+      await this.loadOutstandingDriverCancelSettlements();
+      await this.refreshWalletBalance();
+      await this.showToast('Previous cancellation charges paid.', 'success');
+      return true;
+    } catch (err: any) {
+      await loading.dismiss();
+      const msg =
+        err?.error?.message ||
+        err?.message ||
+        'Could not pay previous cancellation charges.';
+      await this.showToast(msg, 'danger');
+      return false;
+    }
   }
 
   private async loadUserId() {
@@ -273,10 +395,14 @@ export class PaymentPage implements OnInit {
   }
 
   calculateTotal() {
-    // Total = final fare - discount
-    this.totalAmount = Math.max(0, this.finalFare - this.discountAmount);
-    this.totalAmount = Math.round(this.totalAmount * 100) / 100; // Round to 2 decimal places
-    this.checkWalletBalance(); // Recheck wallet balance after total calculation
+    // Ride portion only (what we send as fare for the new booking)
+    this.rideFarePayable = Math.max(0, this.finalFare - this.discountAmount);
+    this.rideFarePayable = Math.round(this.rideFarePayable * 100) / 100;
+    // Checkout total includes pending driver-cancel settlements
+    this.totalAmount =
+      Math.round((this.rideFarePayable + this.cancellationOutstandingTotal) * 100) /
+      100;
+    this.checkWalletBalance();
   }
 
   getWalletAmountUsed(): number {
@@ -317,6 +443,13 @@ export class PaymentPage implements OnInit {
     } catch (error) {
       console.warn('⚠️ Failed to refresh wallet balance before payment:', error);
       // Continue with payment using cached balance
+    }
+
+    if (this.cancellationOutstandingTotal > 0) {
+      const settled = await this.settleOutstandingWalletFirst();
+      if (!settled) {
+        return;
+      }
     }
 
     // Process payment based on method
@@ -465,15 +598,8 @@ export class PaymentPage implements OnInit {
     const razorpayAmountPaid = Math.round((this.totalAmount - walletAmountUsed) * 100) / 100;
     const minimumGatewayAmount = 10;
 
-    const loading = await this.loadingCtrl.create({
-      message: 'Preparing payment...',
-      spinner: 'crescent',
-    });
-    await loading.present();
-
     try {
       if (razorpayAmountPaid > 0 && razorpayAmountPaid < minimumGatewayAmount) {
-        await loading.dismiss();
         await this.showToast(
           `Remaining amount is ₹${razorpayAmountPaid}. Minimum online payment is ₹${minimumGatewayAmount}. Please add to wallet or pay cash.`,
           'warning'
@@ -493,9 +619,7 @@ export class PaymentPage implements OnInit {
               razorpayAmountPaid,
               razorpayPaymentId: paymentResponse.razorpay_payment_id,
             });
-            await loading.dismiss();
           } catch (rideError: any) {
-            await loading.dismiss();
             console.error('❌ Ride request failed after hybrid payment:', rideError);
             await this.showToast(
               'Payment successful but ride request failed. Please try booking again.',
@@ -505,7 +629,6 @@ export class PaymentPage implements OnInit {
           }
         },
         async (error: any) => {
-          await loading.dismiss();
           console.error('❌ Razorpay payment failed:', error);
 
           let errorMessage = 'Payment cancelled or failed. Please try again.';
@@ -536,7 +659,6 @@ export class PaymentPage implements OnInit {
         }
       );
     } catch (error: any) {
-      await loading.dismiss();
       console.error('❌ Error initiating wallet top-up:', error);
       const errorMessage = error?.message || 'Failed to initiate payment. Please try again.';
       await this.showToast(errorMessage, 'danger');
@@ -613,7 +735,8 @@ export class PaymentPage implements OnInit {
   ) {
     try {
       console.log('✅ Payment processed:', {
-        amount: this.totalAmount,
+        rideFare: this.rideFarePayable,
+        checkoutTotal: this.totalAmount,
         method: paymentMethod,
         promoApplied: this.promoApplied,
         discountAmount: this.discountAmount,
@@ -632,7 +755,7 @@ export class PaymentPage implements OnInit {
 
       // Log fare information before sending
       console.log('[Fare Tracking] Sending ride request:', {
-        fare: this.totalAmount,
+        fare: this.rideFarePayable,
         baseFare: this.baseFare,
         distanceFare: this.distanceFare,
         timeFare: this.timeFare,
@@ -657,13 +780,13 @@ export class PaymentPage implements OnInit {
         };
       }
 
-      // Request ride via Socket.IO
+      // Request ride via Socket.IO (fare = new ride only; outstanding was settled separately)
       await this.rideService.requestRide({
         pickupLocation: this.pendingRideDetails.pickupLocation,
         dropoffLocation: this.pendingRideDetails.dropoffLocation,
         pickupAddress: this.pendingRideDetails.pickupAddress,
         dropoffAddress: this.pendingRideDetails.dropoffAddress,
-        fare: this.totalAmount,
+        fare: this.rideFarePayable,
         distanceInKm: estimatedDistance,
         estimatedDuration: this.estimatedDuration, // Send estimated duration to backend
         service: service,

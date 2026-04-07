@@ -184,3 +184,105 @@ capacitor-google-map * {
   --background: var(--ion-color-light-shade);
   --color: var(--ion-color-medium);
 }
+
+/* Driver ended trip — in-progress cancel settlement (matches Cerca / share-ride alert) */
+.driver-cancel-settlement-alert {
+  --backdrop-opacity: 0.55;
+  --max-width: 92%;
+  --width: min(400px, 92vw);
+  --background: var(--ion-color-light);
+}
+
+.driver-cancel-settlement-alert .alert-wrapper {
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(var(--ion-color-dark-rgb), 0.18);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.12);
+  overflow: hidden;
+}
+
+.driver-cancel-settlement-alert .alert-head {
+  padding: 20px 20px 10px;
+  text-align: center;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--ion-color-primary-rgb), 0.1) 0%,
+    transparent 100%
+  );
+}
+
+.driver-cancel-settlement-alert .alert-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ion-color-primary);
+  letter-spacing: -0.02em;
+}
+
+.driver-cancel-settlement-alert .alert-sub-title {
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ion-color-medium);
+  text-align: center;
+  max-height: 5.5em;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.driver-cancel-settlement-alert .alert-message {
+  margin: 0;
+  padding: 14px 20px 18px;
+  text-align: left;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--ion-color-dark);
+  white-space: pre-line;
+  word-break: break-word;
+  background: var(--ion-item-background, #ffffff);
+  border-top: 1px solid rgba(var(--ion-color-medium-rgb), 0.15);
+}
+
+.driver-cancel-settlement-alert .alert-button-group {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 16px 18px;
+  gap: 10px;
+  background: var(--ion-color-light);
+  border-top: 1px solid rgba(var(--ion-color-medium-rgb), 0.12);
+}
+
+.driver-cancel-settlement-alert .alert-button {
+  border-radius: 12px;
+  margin: 0 !important;
+  min-height: 48px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.driver-cancel-settlement-alert .settlement-alert-btn-primary {
+  --background: var(--ion-color-primary);
+  --background-activated: var(--ion-color-primary-shade);
+  --color: var(--ion-color-primary-contrast);
+}
+
+.driver-cancel-settlement-alert .settlement-alert-btn-secondary {
+  --background: var(--ion-color-secondary);
+  --background-activated: var(--ion-color-secondary-shade);
+  --color: var(--ion-color-secondary-contrast);
+}
+
+.driver-cancel-settlement-alert .settlement-alert-btn-outline {
+  --background: transparent;
+  --background-activated: rgba(var(--ion-color-primary-rgb), 0.08);
+  --color: var(--ion-color-primary);
+  border: 2px solid rgba(var(--ion-color-primary-rgb), 0.35);
+}
+
+.driver-cancel-settlement-alert .settlement-alert-btn-close {
+  --background: var(--ion-color-light-shade);
+  --background-activated: var(--ion-color-medium-tint);
+  --color: var(--ion-color-medium);
+}

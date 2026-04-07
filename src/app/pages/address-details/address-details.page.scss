@@ -1,0 +1,73 @@
+.address-display {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--ion-color-light);
+  border-radius: 8px;
+  margin-bottom: 24px;
+
+  .address-icon {
+    font-size: 24px;
+    color: var(--ion-color-primary);
+    flex-shrink: 0;
+  }
+
+  .address-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--ion-text-color);
+  }
+}
+
+.type-section {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin-bottom: 8px;
+
+  ion-label[position="stacked"] {
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+}
+
+.type-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+
+  .type-badge {
+    cursor: pointer;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 20px;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+}
+
+.landmark-item {
+  --padding-start: 0;
+  margin-bottom: 16px;
+}
+
+.adjust-button,
+.change-location-button {
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.change-location-button {
+  margin-bottom: 24px;
+}
+
+.save-button {
+  margin-top: 8px;
+}
