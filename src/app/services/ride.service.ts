@@ -131,6 +131,8 @@ export interface Ride {
     riderPaymentStatus?: string;
     fineRecipient?: string;
   };
+  /** Increments on each successful PATCH /destination (optimistic concurrency). */
+  destinationRevision?: number;
 }
 
 export type RideStatus =
@@ -509,6 +511,23 @@ export class RideService {
     this.socketSubscriptions.push(riderSettlementDoneSub);
 
     // Ride errors
+    const rideDestinationUpdatedSub = this.socketService
+      .on<{ ride: Ride; pricing?: Record<string, unknown> }>('rideDestinationUpdated')
+      .subscribe((payload) => {
+        const r = payload?.ride;
+        if (!r?._id) return;
+        const current = this.currentRide$.value;
+        if (current && String(current._id) === String(r._id)) {
+          this.currentRide$.next(r);
+          void this.storeRide(r);
+          const nf = payload?.pricing && typeof (payload.pricing as { newFare?: number }).newFare === 'number'
+            ? (payload.pricing as { newFare: number }).newFare
+            : r.fare;
+          this.showToast(`Destination updated. New fare: ₹${Number(nf).toFixed(0)}`);
+        }
+      });
+    this.socketSubscriptions.push(rideDestinationUpdatedSub);
+
     const rideErrorSub = this.socketService
       .on<{ message: string; code?: string; details?: string; rideId?: string }>('rideError')
       .subscribe((error) => {
@@ -1315,6 +1334,83 @@ export class RideService {
         return this.http.post<Ride>(url, {}, {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      })
+    );
+  }
+
+  /**
+   * Preview fare for a new drop-off (GET, does not persist).
+   */
+  getDestinationQuote(
+    rideId: string,
+    latitude: number,
+    longitude: number,
+    estimatedDuration?: number
+  ): Observable<{
+    success: boolean;
+    destinationRevision?: number;
+    pricing?: Record<string, unknown>;
+    quotePreview?: Record<string, unknown>;
+  }> {
+    let url = `${environment.apiUrl}/api/rides/${rideId}/destination-quote?latitude=${encodeURIComponent(
+      String(latitude)
+    )}&longitude=${encodeURIComponent(String(longitude))}`;
+    if (estimatedDuration != null && estimatedDuration > 0) {
+      url += `&estimatedDuration=${encodeURIComponent(String(estimatedDuration))}`;
+    }
+    return from(this.storage.get('token')).pipe(
+      switchMap((token) => {
+        if (!token) {
+          throw new Error('User not authenticated');
+        }
+        return this.http.get<{
+          success: boolean;
+          destinationRevision?: number;
+          pricing?: Record<string, unknown>;
+          quotePreview?: Record<string, unknown>;
+        }>(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      })
+    );
+  }
+
+  /**
+   * Apply new destination (PATCH). Sends expectedRevision when provided for concurrency control.
+   */
+  updateRideDestination(
+    rideId: string,
+    body: {
+      dropoffLocation: { type: 'Point'; coordinates: [number, number] };
+      dropoffAddress?: string;
+      estimatedDuration?: number;
+      expectedRevision?: number;
+    }
+  ): Observable<{
+    success: boolean;
+    ride: Ride;
+    destinationRevision?: number;
+    pricing?: Record<string, unknown>;
+  }> {
+    const url = `${environment.apiUrl}/api/rides/${rideId}/destination`;
+    return from(this.storage.get('token')).pipe(
+      switchMap((token) => {
+        if (!token) {
+          throw new Error('User not authenticated');
+        }
+        return this.http.patch<{
+          success: boolean;
+          ride: Ride;
+          destinationRevision?: number;
+          pricing?: Record<string, unknown>;
+        }>(url, body, {
+          headers: {
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });

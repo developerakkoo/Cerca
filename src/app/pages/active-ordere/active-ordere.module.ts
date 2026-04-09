@@ -9,6 +9,7 @@ import { ActiveOrderePageRoutingModule } from './active-ordere-routing.module';
 
 import { ActiveOrderePage } from './active-ordere.page';
 import { DriverChatPageModule } from '../driver-chat/driver-chat.module';
+import { SearchPageModule } from '../search/search.module';
 
 @NgModule({
   imports: [
@@ -17,7 +18,8 @@ import { DriverChatPageModule } from '../driver-chat/driver-chat.module';
     IonicModule,
     TranslateModule,
     ActiveOrderePageRoutingModule,
-    DriverChatPageModule // Import chat module for modal usage
+    DriverChatPageModule, // Import chat module for modal usage
+    SearchPageModule // Modal: change destination (place search)
   ],
   declarations: [ActiveOrderePage],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]

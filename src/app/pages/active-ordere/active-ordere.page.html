@@ -75,6 +75,14 @@
         </ion-list>
 
         <ion-grid *ngIf="currentRideStatus !== 'completed' && currentRideStatus !== 'cancelled'">
+          <ion-row *ngIf="canChangeDestination">
+            <ion-col size="12">
+              <ion-button expand="block" fill="outline" color="primary" (click)="openChangeDestination()">
+                <ion-icon name="navigate-outline" slot="start"></ion-icon>
+                Change destination
+              </ion-button>
+            </ion-col>
+          </ion-row>
           <ion-row>
             <ion-col size="6" *ngIf="currentRide?.rideFor !== 'OTHER'">
               <ion-button expand="block" fill="clear" (click)="chatWithDriver()" class="chat-button">

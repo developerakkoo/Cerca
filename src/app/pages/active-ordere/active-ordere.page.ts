@@ -25,6 +25,7 @@ import {
   computePickupWaitPreview,
   DEFAULT_PICKUP_WAIT_POLICY_PREVIEW,
 } from 'src/app/utils/pickup-wait-preview.util';
+import { SearchPage, SearchModalResult } from '../search/search.page';
 
 @Component({
   selector: 'app-active-ordere',
@@ -99,6 +100,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   get pickupWaitFreeSecPart(): number {
     if (this.pickupWaitFreeRemainingSec == null) return 0;
     return this.pickupWaitFreeRemainingSec % 60;
+  }
+
+  /** INSTANT rides only; active until completed/cancelled. */
+  get canChangeDestination(): boolean {
+    if (!this.currentRide || this.isViewOnlyMode) return false;
+    const bt = this.currentRide.bookingType || 'INSTANT';
+    if (bt !== 'INSTANT') return false;
+    const s = this.currentRide.status;
+    return ['requested', 'accepted', 'arrived', 'in_progress'].includes(s);
   }
 
   // Rating properties
@@ -269,6 +279,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       .getCurrentRide()
       .subscribe(async (ride) => {
         if (ride) {
+          const priorRide = this.currentRide;
           console.log('📦 Current ride:', ride);
           console.log('📦 ========================================');
           console.log('📦 RIDE OBJECT DETAILS');
@@ -337,6 +348,23 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
             latitude: ride.pickupLocation.coordinates[1],
             longitude: ride.pickupLocation.coordinates[0],
           };
+
+          // Drop-off moved (socket / API): refresh marker + route
+          if (
+            priorRide &&
+            priorRide._id === ride._id &&
+            priorRide.dropoffLocation?.coordinates &&
+            ride.dropoffLocation?.coordinates
+          ) {
+            const pc = priorRide.dropoffLocation.coordinates;
+            const nc = ride.dropoffLocation.coordinates;
+            if (pc[0] !== nc[0] || pc[1] !== nc[1]) {
+              if (rideStatus === 'in_progress' || this.destinationMarkerId) {
+                await this.addDestinationMarker();
+                await this.updateDriverMarker();
+              }
+            }
+          }
 
           // Initialize map if not already done
           await this.initializeMapIfNeeded();
@@ -1560,6 +1588,88 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     });
 
     await alert.present();
+  }
+
+  async openChangeDestination() {
+    if (!this.currentRide || !this.canChangeDestination) return;
+
+    const modal = await this.modalController.create({
+      component: SearchPage,
+      componentProps: {
+        isPickup: 'false',
+        destination: this.destinationLocation || '',
+      },
+    });
+    await modal.present();
+    const { data } = await modal.onWillDismiss<SearchModalResult>();
+    if (!data?.location?.lat || data.location.lng == null || !data.address) {
+      return;
+    }
+
+    const lat = data.location.lat;
+    const lng = data.location.lng;
+
+    try {
+      const quoteRes = await firstValueFrom(
+        this.rideService.getDestinationQuote(this.currentRide._id, lat, lng)
+      );
+      if (!quoteRes?.success) {
+        const t = await this.toastController.create({
+          message: 'Could not preview fare for this location',
+          duration: 2500,
+          color: 'warning',
+          position: 'bottom',
+        });
+        await t.present();
+        return;
+      }
+
+      const pricing = quoteRes.pricing as { newFare?: number; previousFare?: number } | undefined;
+      const newFare = Number(pricing?.newFare ?? 0);
+      const prevFare = Number(pricing?.previousFare ?? 0);
+
+      const alert = await this.alertCtrl.create({
+        header: 'Confirm new destination',
+        message: `Estimated fare: ₹${newFare.toFixed(0)} (was ₹${prevFare.toFixed(0)}). Update destination?`,
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          { text: 'Confirm', role: 'confirm' },
+        ],
+      });
+      await alert.present();
+      const { role } = await alert.onDidDismiss();
+      if (role !== 'confirm') return;
+
+      const rev = quoteRes.destinationRevision ?? this.currentRide.destinationRevision ?? 0;
+      await firstValueFrom(
+        this.rideService.updateRideDestination(this.currentRide._id, {
+          dropoffLocation: { type: 'Point', coordinates: [lng, lat] },
+          dropoffAddress: data.address,
+          expectedRevision: rev,
+        })
+      );
+
+      const ok = await this.toastController.create({
+        message: 'Destination updated',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom',
+      });
+      await ok.present();
+    } catch (e: any) {
+      const msg =
+        e?.error?.message ||
+        e?.error?.error ||
+        e?.message ||
+        'Could not update destination';
+      const errToast = await this.toastController.create({
+        message: String(msg),
+        duration: 3500,
+        color: 'danger',
+        position: 'bottom',
+      });
+      await errToast.present();
+    }
   }
 
   async shareRide(event?: Event) {
