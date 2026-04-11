@@ -75,6 +75,13 @@ const routes: Routes = [
     loadChildren: () => import('./pages/auth/mobile-login/mobile-login.module').then( m => m.MobileLoginPageModule)
   },
   {
+    path: 'legal-webview/:doc',
+    loadChildren: () =>
+      import('./pages/legal-webview/legal-webview.module').then(
+        (m) => m.LegalWebviewPageModule
+      ),
+  },
+  {
     path: 'profile-details/:phoneNumber/:isEdit/:userId',
     loadChildren: () => import('./pages/profile-details/profile-details.module').then( m => m.ProfileDetailsPageModule)
   },

@@ -37,6 +37,14 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     // Cleanup any subscriptions or timers if needed
   }
 
+  openTerms(): void {
+    this.router.navigate(['/legal-webview', 'terms']);
+  }
+
+  openPrivacy(): void {
+    this.router.navigate(['/legal-webview', 'privacy']);
+  }
+
   async onSubmit() {
     if (this.mobileForm.valid) {
       const loading = await this.loadingController.create({

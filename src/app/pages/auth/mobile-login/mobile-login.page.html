@@ -1,16 +1,17 @@
 
 <ion-content [fullscreen]="true" class="mobile-login-content">
   <div class="mobile-login-container">
+    <div class="mobile-login-main">
     <!-- Logo Section -->
     <div class="logo-section">
       <img src="assets/logo.svg" alt="Cerca Logo" class="logo">
       <div class="logo-text">Cerca</div>
     </div>
 
-    <!-- Welcome Message -->
-    <div class="welcome-section">
-      <h2 class="welcome-message">Welcome Back! 👋</h2>
-      <p class="welcome-subtitle">Enter your mobile number to continue</p>
+    <!-- Headline -->
+    <div class="headline-section">
+      <h1 class="login-title">{{ 'AUTH.mobileLogin.title' | translate }}</h1>
+      <p class="login-subtitle">{{ 'AUTH.mobileLogin.subtitle' | translate }}</p>
     </div>
 
     <!-- Form Section -->
@@ -43,5 +44,12 @@
         {{ 'AUTH.mobileLogin.continue' | translate }}
       </button>
     </form>
+    </div>
+
+    <div class="legal-notice" role="note">
+      <p class="legal-line">
+        <span class="legal-text">{{ 'AUTH.mobileLogin.legalPrefix' | translate }}</span>&nbsp;<button type="button" class="legal-link" (click)="openTerms()">{{ 'AUTH.mobileLogin.termsLink' | translate }}</button><span class="legal-text"> {{ 'AUTH.mobileLogin.legalConjunction' | translate }} </span><button type="button" class="legal-link" (click)="openPrivacy()">{{ 'AUTH.mobileLogin.privacyLink' | translate }}</button><span class="legal-text">{{ 'AUTH.mobileLogin.legalSuffix' | translate }}</span>
+      </p>
+    </div>
   </div>
 </ion-content>

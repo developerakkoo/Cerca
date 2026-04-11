@@ -18,15 +18,25 @@
 
 .mobile-login-container {
   padding: 32px;
-  height: 100%;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  min-height: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 32px;
+  gap: 16px;
   max-width: 500px;
   margin: 0 auto;
   position: relative;
+}
+
+.mobile-login-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 24px;
 }
 
 // Logo Section
@@ -43,7 +53,7 @@
     height: 100px;
     object-fit: contain;
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
-    animation: logoFloat 3s ease-in-out infinite;
+    animation: logoFloat 5s ease-in-out infinite;
   }
 
   .logo-text {
@@ -55,29 +65,86 @@
   }
 }
 
-// Welcome Section
-.welcome-section {
+// Headline (title + subtitle)
+.headline-section {
   text-align: center;
   width: 100%;
   animation: fadeInDown 0.6s ease-out 0.2s backwards;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 
-  .welcome-message {
-    font-size: 2.2rem;
+  .login-title {
+    font-size: 1.65rem;
     font-weight: 700;
     color: var(--ion-color-primary-contrast);
-    margin: 0;
-    margin-bottom: 10px;
-    letter-spacing: -0.5px;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    margin: 0 0 10px;
+    letter-spacing: -0.3px;
+    line-height: 1.25;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
-  .welcome-subtitle {
-    font-size: 1.05rem;
-    color: rgba(var(--ion-color-primary-contrast-rgb), 0.8);
+  .login-subtitle {
+    font-size: 0.98rem;
+    color: rgba(var(--ion-color-primary-contrast-rgb), 0.82);
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.45;
     font-weight: 400;
+  }
+}
+
+// Legal notice: compact inline copy (typical app footer — one flowing sentence)
+.legal-notice {
+  width: 100%;
+  max-width: 300px;
+  margin: 0;
+  padding: 8px 8px 0;
+}
+
+.legal-line {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: rgba(var(--ion-color-primary-contrast-rgb), 0.75);
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.legal-text {
+  display: inline;
+  font: inherit;
+  color: inherit;
+}
+
+.legal-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  vertical-align: baseline;
+  color: var(--ion-color-primary-contrast);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary-contrast);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  &:active {
+    opacity: 0.88;
   }
 }
 
@@ -291,7 +358,7 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-8px);
+    transform: translateY(-4px);
   }
 }
 
@@ -299,7 +366,17 @@
 @media (max-width: 480px) {
   .mobile-login-container {
     padding: 24px;
-    gap: 28px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    gap: 12px;
+  }
+
+  .mobile-login-main {
+    gap: 20px;
+  }
+
+  .legal-notice {
+    max-width: 100%;
+    padding: 4px 4px 0;
   }
 
   .logo-section {
@@ -313,14 +390,19 @@
     }
   }
 
-  .welcome-section {
-    .welcome-message {
-      font-size: 1.8rem;
+  .headline-section {
+    .login-title {
+      font-size: 1.45rem;
     }
 
-    .welcome-subtitle {
-      font-size: 0.95rem;
+    .login-subtitle {
+      font-size: 0.92rem;
     }
+  }
+
+  .legal-line {
+    font-size: 0.75rem;
+    line-height: 1.4;
   }
 
   .input-container {

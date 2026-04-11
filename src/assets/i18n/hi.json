@@ -185,11 +185,17 @@
       "signUp": "साइन अप करें"
     },
     "mobileLogin": {
-      "title": "मोबाइल लॉगिन",
-      "subtitle": "अपना मोबाइल नंबर दर्ज करें",
+      "title": "साइन इन करें",
+      "subtitle": "अपना 10 अंकों का मोबाइल नंबर दर्ज करें",
       "mobileNumber": "मोबाइल नंबर",
       "continue": "जारी रखें",
-      "invalidNumber": "कृपया एक वैध मोबाइल नंबर दर्ज करें"
+      "invalidNumber": "कृपया एक वैध मोबाइल नंबर दर्ज करें",
+      "legalPrefix": "लॉग इन करके, आप हमारे",
+      "termsLink": "नियमों व शर्तों",
+      "legalConjunction": "और",
+      "privacyLink": "गोपनीयता नीति",
+      "legalSuffix": "से सहमत हैं।",
+      "legalPlaceholder": "लिंक जोड़े जाने के बाद यह पेज उपलब्ध होगा।"
     },
     "otp": {
       "title": "OTP सत्यापित करें",

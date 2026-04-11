@@ -11,6 +11,10 @@ export const environment = {
   // Local backend (for development)  
   // apiUrl: 'http://192.168.1.14:3000',
   // Razorpay configuration
+  legal: {
+    termsUrl: 'https://cerca.app/terms',
+    privacyUrl: 'https://cerca.app/privacy',
+  },
   razorpay: {
     // Live keys
     key: 'rzp_live_S6q5OGF0WYChTn',

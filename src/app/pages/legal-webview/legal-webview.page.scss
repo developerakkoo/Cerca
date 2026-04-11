@@ -1,0 +1,39 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.legal-webview-content {
+  flex: 1;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+  --overflow: hidden;
+}
+
+.legal-frame {
+  width: 100%;
+  height: 100%;
+  min-height: calc(100dvh - 56px - env(safe-area-inset-top, 0px));
+  border: 0;
+  display: block;
+  background: var(--ion-background-color, #fff);
+}
+
+.legal-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 24px 16px;
+  text-align: center;
+
+  p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--ion-color-medium);
+  }
+}

@@ -185,11 +185,17 @@
       "signUp": "Sign Up"
     },
     "mobileLogin": {
-      "title": "Mobile Login",
-      "subtitle": "Enter your mobile number",
+      "title": "Sign in",
+      "subtitle": "Enter your 10-digit mobile number",
       "mobileNumber": "Mobile Number",
       "continue": "Continue",
-      "invalidNumber": "Please enter a valid mobile number"
+      "invalidNumber": "Please enter a valid mobile number",
+      "legalPrefix": "By logging in, you accept our",
+      "termsLink": "Terms & Conditions",
+      "legalConjunction": "and",
+      "privacyLink": "Privacy Policy",
+      "legalSuffix": ".",
+      "legalPlaceholder": "This page will be available once the link is configured."
     },
     "otp": {
       "title": "Verify OTP",

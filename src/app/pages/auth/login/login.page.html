@@ -1,55 +1,51 @@
-
 <ion-content [fullscreen]="true" class="login-content">
-  <div class="login-container">
-    <!-- Logo Section -->
-    <div class="logo-section">
-      <img src="assets/logo.svg" alt="Cerca Logo" class="logo-image" />
+  <div class="login-shell">
+    <div class="background-pattern" aria-hidden="true"></div>
+
+    <div class="login-card">
+      <div class="logo-section">
+        <img src="assets/logo.svg" alt="Cerca Logo" class="logo-image" width="120" height="120" />
+      </div>
+
+      <header class="header-section">
+        <h1 class="title">{{ 'AUTH.login.title' | translate }}</h1>
+        <p class="subtitle">{{ 'AUTH.login.subtitle' | translate }}</p>
+      </header>
+
+      <button
+        type="button"
+        class="mobile-button"
+        (click)="goToMobileLogin()"
+      >
+        <ion-icon name="phone-portrait-outline" class="button-icon" aria-hidden="true"></ion-icon>
+        <span>{{ 'AUTH.login.continueWithMobile' | translate }}</span>
+      </button>
+
+      <!-- Social / divider / register (uncomment when needed; styles remain in login.page.scss)
+      <div class="social-buttons">
+        <button type="button" class="social-button google">
+          <ion-icon name="logo-google"></ion-icon>
+          <span>{{ 'AUTH.login.continueWithGoogle' | translate }}</span>
+        </button>
+        <button type="button" class="social-button facebook">
+          <ion-icon name="logo-facebook"></ion-icon>
+          <span>{{ 'AUTH.login.continueWithFacebook' | translate }}</span>
+        </button>
+        <button type="button" class="social-button apple">
+          <ion-icon name="logo-apple"></ion-icon>
+          <span>{{ 'AUTH.login.continueWithApple' | translate }}</span>
+        </button>
+      </div>
+      <div class="divider">
+        <span class="line"></span>
+        <span class="text">{{ 'AUTH.login.or' | translate }}</span>
+        <span class="line"></span>
+      </div>
+      <div class="register-link">
+        <span>{{ 'AUTH.login.dontHaveAccount' | translate }} </span>
+        <a href="/register">{{ 'AUTH.login.signUp' | translate }}</a>
+      </div>
+      -->
     </div>
-
-    <!-- Header Section -->
-    <div class="header-section">
-      <h1 class="title">{{ 'AUTH.login.title' | translate }}</h1>
-      <p class="subtitle">{{ 'AUTH.login.subtitle' | translate }}</p>
-    </div>
-
-    <!-- Social Login Section -->
-    <!-- <div class="social-buttons">
-      <button class="social-button google">
-        <ion-icon name="logo-google"></ion-icon>
-        <span>{{ 'AUTH.login.continueWithGoogle' | translate }}</span>
-      </button>
-      
-      <button class="social-button facebook">
-        <ion-icon name="logo-facebook"></ion-icon>
-        <span>{{ 'AUTH.login.continueWithFacebook' | translate }}</span>
-      </button>
-      
-      <button class="social-button apple">
-        <ion-icon name="logo-apple"></ion-icon>
-        <span>{{ 'AUTH.login.continueWithApple' | translate }}</span>
-      </button>
-    </div> -->
-
-    <!-- Divider -->
-    <!-- <div class="divider">
-      <span class="line"></span>
-      <span class="text">{{ 'AUTH.login.or' | translate }}</span>
-      <span class="line"></span>
-    </div> -->
-
-    <!-- Mobile Login Button -->
-    <button class="mobile-button" (click)="goToMobileLogin()">
-      <ion-icon name="phone-portrait-outline" class="button-icon"></ion-icon>
-      <span>{{ 'AUTH.login.continueWithMobile' | translate }}</span>
-    </button>
-
-    <!-- Register Link -->
-    <!-- <div class="register-link">
-      <span>{{ 'AUTH.login.dontHaveAccount' | translate }} </span>
-      <a href="/register">{{ 'AUTH.login.signUp' | translate }}</a>
-    </div> -->
   </div>
-  
-  <!-- Background Pattern Overlay -->
-  <div class="background-pattern"></div>
 </ion-content>
