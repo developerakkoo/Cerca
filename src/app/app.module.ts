@@ -1,4 +1,4 @@
-import { NgModule } from '@angular/core';
+import { APP_INITIALIZER, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { RouteReuseStrategy } from '@angular/router';
 import { HttpClient, HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
@@ -9,13 +9,14 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { SharedModule } from './module/shared/shared.module';
 import { GeocodingService } from './services/geocoding.service';
-import { IonicStorageModule } from '@ionic/storage-angular';
-import { TranslateLoader } from '@ngx-translate/core';
+import { IonicStorageModule, Storage } from '@ionic/storage-angular';
+import { TranslateLoader, TranslateService } from '@ngx-translate/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { SocketIoModule, SocketIoConfig } from 'ngx-socket-io';
 import { environment } from 'src/environments/environment';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
+import { i18nAppInitializerFactory } from './i18n-app-initializer.factory';
 
 const config: SocketIoConfig = {
   url: environment.apiUrl,
@@ -63,6 +64,12 @@ export function createTranslateLoader(http: HttpClient) {
     }),
   ],
   providers: [
+    {
+      provide: APP_INITIALIZER,
+      useFactory: i18nAppInitializerFactory,
+      deps: [TranslateService, Storage],
+      multi: true,
+    },
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     GeocodingService,
     {

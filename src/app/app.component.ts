@@ -52,7 +52,7 @@ export class AppComponent implements OnDestroy {
     // Initialize theme service (must be early to apply theme before UI renders)
     await this.themeService.initializeTheme();
 
-    // Initialize language service (must be early to load translations before UI renders)
+    // Sync LanguageService.selected (translations load in APP_INITIALIZER before bootstrap)
     await this.languageService.initializeLanguage();
 
     // Simple check: if token and user data exist, restore session

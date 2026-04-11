@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
 import { StorageService } from '../services/storage.service';
 import { UserService } from '../services/user.service';
 
@@ -18,33 +19,44 @@ export class LanguageService {
   ) {}
 
   /**
-   * Initialize language on app start
-   * Should be called in app.component.ts ngOnInit
+   * Sync LanguageService state with TranslateService after APP_INITIALIZER (or full init as fallback).
    */
   async initializeLanguage(): Promise<void> {
+    const current = this.translate.currentLang;
+    if (
+      current &&
+      ['en', 'hi', 'mr'].includes(current)
+    ) {
+      this.selected = current;
+      return;
+    }
+
     try {
-      // Set default language first
       this.translate.setDefaultLang(this.DEFAULT_LANGUAGE);
-      
-      // Load saved language preference
+
       const savedLang = await this.storageService.get(this.STORAGE_KEY);
-      
-      if (savedLang && ['en', 'hi', 'mr'].includes(savedLang)) {
+
+      if (
+        typeof savedLang === 'string' &&
+        ['en', 'hi', 'mr'].includes(savedLang)
+      ) {
         this.selected = savedLang;
-        await this.translate.use(savedLang).toPromise();
+        await firstValueFrom(this.translate.use(savedLang));
         console.log(`🌐 Language initialized: ${savedLang}`);
       } else {
-        // No saved language, use default
         this.selected = this.DEFAULT_LANGUAGE;
-        await this.translate.use(this.DEFAULT_LANGUAGE).toPromise();
+        await firstValueFrom(this.translate.use(this.DEFAULT_LANGUAGE));
         await this.storageService.set(this.STORAGE_KEY, this.DEFAULT_LANGUAGE);
         console.log(`🌐 Language initialized with default: ${this.DEFAULT_LANGUAGE}`);
       }
     } catch (error) {
       console.error('Error initializing language:', error);
-      // Fallback to default
       this.selected = this.DEFAULT_LANGUAGE;
-      this.translate.use(this.DEFAULT_LANGUAGE);
+      try {
+        await firstValueFrom(this.translate.use(this.DEFAULT_LANGUAGE));
+      } catch {
+        this.translate.use(this.DEFAULT_LANGUAGE);
+      }
     }
   }
 
@@ -59,7 +71,7 @@ export class LanguageService {
 
     try {
       this.selected = lang;
-      await this.translate.use(lang).toPromise();
+      await firstValueFrom(this.translate.use(lang));
       await this.storageService.set(this.STORAGE_KEY, lang);
       
       // Also update user preferences if user is logged in
