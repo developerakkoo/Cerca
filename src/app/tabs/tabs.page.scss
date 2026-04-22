@@ -4,11 +4,19 @@ ion-tab-bar {
     --border: none;
     box-shadow: 0 -2px 10px rgba(var(--ion-color-dark-rgb), 0.1);
     border-radius: 20px 20px 0 0;
-    height: 65px;
-    padding: 5px 0;
+    /* content-box: ~65px row + bottom inset (restores Ionic safe-area padding lost to old shorthand) */
+    box-sizing: content-box;
+    min-height: 65px;
+    height: auto;
+    padding-top: 5px;
+    padding-bottom: calc(
+      5px + var(--ion-safe-area-bottom, env(safe-area-inset-bottom, 0px))
+    );
+    padding-left: 0;
+    padding-right: 0;
     margin: 0;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
   
   ion-tab-button {

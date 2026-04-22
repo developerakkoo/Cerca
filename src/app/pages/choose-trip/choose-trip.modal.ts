@@ -46,7 +46,7 @@ export class ChooseTripModal implements OnInit, OnDestroy {
   @Input() pickupAddress: string = '';
   @Input() destinationAddress: string = '';
   @Input() vehicleServices: VehicleServices | null = null;
-  @Input() calculatedFares: { cercaSmall?: FareBreakdown; cercaMedium?: FareBreakdown; cercaLarge?: FareBreakdown } = {};
+  @Input() calculatedFares: { cercaZip?: FareBreakdown; cercaGlide?: FareBreakdown; cercaTitan?: FareBreakdown } = {};
   @Input() vehicleETAs: { small?: string; medium?: string; large?: string } = {};
   @Input() selectedVehicle: string = 'small';
   @Input() isLoadingServices: boolean = false;
@@ -351,8 +351,8 @@ export class ChooseTripModal implements OnInit, OnDestroy {
    * Get price for vehicle type
    */
   getPrice(vehicleType: 'small' | 'medium' | 'large'): number {
-    const fareKey = vehicleType === 'small' ? 'cercaSmall' : 
-                    vehicleType === 'medium' ? 'cercaMedium' : 'cercaLarge';
+    const fareKey = vehicleType === 'small' ? 'cercaZip' : 
+                    vehicleType === 'medium' ? 'cercaGlide' : 'cercaTitan';
     const fare = this.calculatedFares[fareKey];
     
     if (fare) {
@@ -360,9 +360,9 @@ export class ChooseTripModal implements OnInit, OnDestroy {
     }
     
     // Fallback to service price
-    const service = vehicleType === 'small' ? this.vehicleServices?.cercaSmall :
-                    vehicleType === 'medium' ? this.vehicleServices?.cercaMedium :
-                    this.vehicleServices?.cercaLarge;
+    const service = vehicleType === 'small' ? this.vehicleServices?.cercaZip :
+                    vehicleType === 'medium' ? this.vehicleServices?.cercaGlide :
+                    this.vehicleServices?.cercaTitan;
     
     return service?.price || 0;
   }
@@ -378,9 +378,9 @@ export class ChooseTripModal implements OnInit, OnDestroy {
    * Check if vehicle is enabled
    */
   isVehicleEnabled(vehicleType: 'small' | 'medium' | 'large'): boolean {
-    const service = vehicleType === 'small' ? this.vehicleServices?.cercaSmall :
-                    vehicleType === 'medium' ? this.vehicleServices?.cercaMedium :
-                    this.vehicleServices?.cercaLarge;
+    const service = vehicleType === 'small' ? this.vehicleServices?.cercaZip :
+                    vehicleType === 'medium' ? this.vehicleServices?.cercaGlide :
+                    this.vehicleServices?.cercaTitan;
     return service?.enabled || false;
   }
 
@@ -388,9 +388,9 @@ export class ChooseTripModal implements OnInit, OnDestroy {
    * Get vehicle name
    */
   getVehicleName(vehicleType: 'small' | 'medium' | 'large'): string {
-    const service = vehicleType === 'small' ? this.vehicleServices?.cercaSmall :
-                    vehicleType === 'medium' ? this.vehicleServices?.cercaMedium :
-                    this.vehicleServices?.cercaLarge;
+    const service = vehicleType === 'small' ? this.vehicleServices?.cercaZip :
+                    vehicleType === 'medium' ? this.vehicleServices?.cercaGlide :
+                    this.vehicleServices?.cercaTitan;
     return service?.name || vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1);
   }
 
@@ -398,9 +398,9 @@ export class ChooseTripModal implements OnInit, OnDestroy {
    * Get vehicle image path
    */
   getVehicleImage(vehicleType: 'small' | 'medium' | 'large'): string {
-    const service = vehicleType === 'small' ? this.vehicleServices?.cercaSmall :
-                    vehicleType === 'medium' ? this.vehicleServices?.cercaMedium :
-                    this.vehicleServices?.cercaLarge;
+    const service = vehicleType === 'small' ? this.vehicleServices?.cercaZip :
+                    vehicleType === 'medium' ? this.vehicleServices?.cercaGlide :
+                    this.vehicleServices?.cercaTitan;
     
     if (vehicleType === 'small') {
       return service?.imagePath || 'assets/cars/cerca-small.png';

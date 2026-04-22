@@ -15,9 +15,9 @@ export interface VehicleService {
 }
 
 export interface VehicleServices {
-  cercaSmall: VehicleService;
-  cercaMedium: VehicleService;
-  cercaLarge: VehicleService;
+  cercaZip: VehicleService;
+  cercaGlide: VehicleService;
+  cercaTitan: VehicleService;
 }
 
 export interface PricingConfigurations {
@@ -30,24 +30,24 @@ export interface PricingConfigurations {
 }
 
 const DEFAULT_VEHICLE_SERVICES: VehicleServices = {
-  cercaSmall: {
-    name: 'Cerca Small',
+  cercaZip: {
+    name: 'Cerca Zip',
     price: 299,
     perMinuteRate: 2,
     seats: 4,
     enabled: true,
     imagePath: 'assets/cars/cerca-small.png'
   },
-  cercaMedium: {
-    name: 'Cerca Medium',
+  cercaGlide: {
+    name: 'Cerca Glide',
     price: 499,
     perMinuteRate: 3,
     seats: 6,
     enabled: true,
     imagePath: 'assets/cars/Cerca-medium.png'
   },
-  cercaLarge: {
-    name: 'Cerca Large',
+  cercaTitan: {
+    name: 'Cerca Titan',
     price: 699,
     perMinuteRate: 4,
     seats: 8,
@@ -119,11 +119,11 @@ export class SettingsService {
       map((services) => {
         switch (type) {
           case 'small':
-            return services.cercaSmall?.enabled ? services.cercaSmall : null;
+            return services.cercaZip?.enabled ? services.cercaZip : null;
           case 'medium':
-            return services.cercaMedium?.enabled ? services.cercaMedium : null;
+            return services.cercaGlide?.enabled ? services.cercaGlide : null;
           case 'large':
-            return services.cercaLarge?.enabled ? services.cercaLarge : null;
+            return services.cercaTitan?.enabled ? services.cercaTitan : null;
           default:
             return null;
         }

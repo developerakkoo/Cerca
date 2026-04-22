@@ -40,7 +40,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   isLoadingServices = false;
   
   // Fare calculation properties
-  calculatedFares: { cercaSmall?: FareBreakdown; cercaMedium?: FareBreakdown; cercaLarge?: FareBreakdown } = {};
+  calculatedFares: { cercaZip?: FareBreakdown; cercaGlide?: FareBreakdown; cercaTitan?: FareBreakdown } = {};
   isCalculatingFares = false;
   fareCalculationError: string | null = null;
   private fareCalculationTimeout: any = null;
@@ -779,13 +779,13 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
    */
   private calculateVehicleETAs() {
     if (this.vehicleServices) {
-      if (this.vehicleServices.cercaSmall?.enabled) {
+      if (this.vehicleServices.cercaZip?.enabled) {
         this.vehicleETAs.small = this.calculateDriverETA('small');
       }
-      if (this.vehicleServices.cercaMedium?.enabled) {
+      if (this.vehicleServices.cercaGlide?.enabled) {
         this.vehicleETAs.medium = this.calculateDriverETA('medium');
       }
-      if (this.vehicleServices.cercaLarge?.enabled) {
+      if (this.vehicleServices.cercaTitan?.enabled) {
         this.vehicleETAs.large = this.calculateDriverETA('large');
       }
     }

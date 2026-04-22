@@ -10,8 +10,10 @@ import { StorageService } from './storage.service';
 
 export interface User {
   id?: string;
+  _id?: string;
   email?: string;
   name?: string;
+  fullName?: string;
   photoURL?: string;
   phoneNumber?: string;
   isLoggedIn: boolean;
@@ -119,6 +121,41 @@ export class UserService {
   // Get user as observable
   getUser(): Observable<any> {
     return this.user$;
+  }
+
+  /**
+   * Merge GET /users/:id into current session (preserves token, isLoggedIn).
+   * Errors are swallowed; caller can still subscribe for completion.
+   */
+  refreshUserFromApi(userId: string): Observable<any> {
+    if (!userId) {
+      return of(null);
+    }
+    return this.http.get<any>(`${environment.apiUrl}/users/${userId}`).pipe(
+      tap((apiUser) => {
+        if (!apiUser || typeof apiUser !== 'object') return;
+        const current = this.userSubject.value || {};
+        const merged = {
+          ...current,
+          ...apiUser,
+          id: apiUser.id || apiUser._id || current.id,
+          _id: apiUser._id || apiUser.id || current._id,
+          isLoggedIn: current.isLoggedIn !== false,
+        };
+        if (current.token) {
+          merged.token = current.token;
+        }
+        if (current.phoneNumber && !merged.phoneNumber) {
+          merged.phoneNumber = current.phoneNumber;
+        }
+        this.userSubject.next(merged);
+        this.saveUserToStorage(merged);
+      }),
+      catchError((err) => {
+        console.warn('refreshUserFromApi failed:', err);
+        return of(null);
+      })
+    );
   }
 
   // Set complete user data

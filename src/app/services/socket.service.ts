@@ -1,6 +1,6 @@
 import { Injectable, NgZone, Injector } from '@angular/core';
 import { Socket } from 'ngx-socket-io';
-import { Observable, BehaviorSubject, fromEvent, Subject } from 'rxjs';
+import { Observable, BehaviorSubject } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { Storage } from '@ionic/storage-angular';
 import { RideService } from './ride.service';
@@ -16,6 +16,13 @@ export interface ConnectionStatus {
   error?: string;
 }
 
+type ConnectionLifecycleState =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'stopped';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -24,13 +31,16 @@ export class SocketService {
     connected: false,
   });
 
+  private lifecycleState: ConnectionLifecycleState = 'idle';
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private reconnectDelay = 2000;
-  private isInitialized = false;
+  private maxReconnectDelay = 30000;
   private reconnectTimeout: any = null;
-  
-  // Store event listener handlers for cleanup
+  private listenersRegistered = false;
+  private shouldMaintainConnection = false;
+  private managedConfig?: SocketConfig;
+
   private eventHandlers: {
     event: string;
     handler: (...args: any[]) => void;
@@ -72,60 +82,39 @@ export class SocketService {
    * Initialize socket connection
    */
   async initialize(config: SocketConfig): Promise<void> {
-    console.log('🚀 ========================================');
-    console.log('🚀 INITIALIZING SOCKET CONNECTION');
-    console.log('🚀 ========================================');
-    console.log('📋 Config:', config);
+    await this.ensureConnected(config);
+  }
 
-    if (this.isInitialized) {
-      console.log('⚠️ Socket already initialized - skipping');
-      return;
+  async ensureConnected(config?: SocketConfig): Promise<void> {
+    if (config) {
+      this.managedConfig = config;
     }
 
     try {
-      // Get user ID from storage if not provided
-      const userId = config.userId || (await this.storage.get('userId'));
+      const effectiveConfig = this.managedConfig || (await this.storage.get('socketConfig'));
+      if (!effectiveConfig) {
+        throw new Error('Socket config is required for connection');
+      }
 
-      console.log('👤 User ID:', userId);
+      const userId = effectiveConfig.userId || (await this.storage.get('userId'));
 
-      if (!userId) {
+      if (!userId || !effectiveConfig.userType) {
         throw new Error('User ID is required for socket connection');
       }
 
-      // Store config
-      await this.storage.set('socketConfig', config);
+      await this.storage.set('socketConfig', effectiveConfig);
       await this.storage.set('userId', userId);
+      this.managedConfig = { ...effectiveConfig, userId };
+      this.shouldMaintainConnection = true;
 
-      // Configure socket
       this.socket.ioSocket.io.opts.query = {
         userId,
-        userType: config.userType,
+        userType: effectiveConfig.userType,
       };
 
-      console.log(
-        '🔧 Socket query params:',
-        this.socket.ioSocket.io.opts.query
-      );
-      console.log('🌐 Target URL:', environment.apiUrl);
-      console.log('🔌 Transports:', this.socket.ioSocket.io.opts.transports);
-
-      // Setup event listeners
       this.setupEventListeners();
-
-      // Connect
-      console.log('📞 Calling socket.connect()...');
-      this.socket.connect();
-      this.isInitialized = true;
-
-      console.log('✅ Socket initialization started successfully');
-      console.log('========================================');
+      this.connectNow(this.isConnected() ? 'connected' : 'connecting');
     } catch (error) {
-      console.error('❌ ========================================');
-      console.error('❌ SOCKET INITIALIZATION ERROR');
-      console.error('❌ ========================================');
-      console.error('📝 Error:', error);
-      console.error('========================================');
-
       this.connectionStatus$.next({
         connected: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -138,11 +127,11 @@ export class SocketService {
    * Setup socket event listeners
    */
   private setupEventListeners(): void {
-    console.log('🔧 ========================================');
-    console.log('🔧 SETTING UP SOCKET EVENT LISTENERS');
-    console.log('🔧 ========================================');
+    if (this.listenersRegistered) {
+      return;
+    }
+    this.listenersRegistered = true;
 
-    // Helper to add and track event listeners
     const addTrackedListener = (
       event: string,
       handler: (...args: any[]) => void
@@ -154,20 +143,8 @@ export class SocketService {
     // Connection events
     addTrackedListener('connect', () => {
       this.zone.run(() => {
-        console.log('✅ ========================================');
-        console.log('✅ SOCKET CONNECTED SUCCESSFULLY!');
-        console.log('✅ ========================================');
-        console.log('📡 Socket ID:', this.socket.ioSocket.id);
-        console.log('🌐 Server URL:', environment.apiUrl);
-        console.log(
-          '🔌 Transport:',
-          this.socket.ioSocket.io.engine.transport.name
-        );
-        console.log('⏰ Connected at:', new Date().toLocaleTimeString());
-        console.log('========================================');
-
+        this.lifecycleState = 'connected';
         this.reconnectAttempts = 0;
-        // Clear any pending reconnect timeout
         if (this.reconnectTimeout) {
           clearTimeout(this.reconnectTimeout);
           this.reconnectTimeout = null;
@@ -177,16 +154,11 @@ export class SocketService {
           socketId: this.socket.ioSocket.id,
         });
 
-        // Register as rider
-        this.registerRider();
-        
-        // Sync ride state after reconnection
-        // This ensures active rides are restored after socket reconnection
+        void this.registerCurrentUser();
         const rideService = this.getRideService();
         if (rideService) {
-          rideService.syncRideStateFromBackend().catch(err => {
-            console.error('❌ Failed to sync ride state after reconnection:', err);
-            // Don't block connection if sync fails
+          rideService.syncRideStateFromBackend().catch((err) => {
+            console.error('Failed to sync ride state after reconnection:', err);
           });
         }
       });
@@ -194,31 +166,26 @@ export class SocketService {
 
     addTrackedListener('disconnect', (reason: string) => {
       this.zone.run(() => {
-        console.log('❌ ========================================');
-        console.log('❌ SOCKET DISCONNECTED');
-        console.log('❌ ========================================');
-        console.log('📝 Reason:', reason);
-        console.log('⏰ Disconnected at:', new Date().toLocaleTimeString());
-        console.log('========================================');
-
         this.connectionStatus$.next({
           connected: false,
           error: reason,
         });
+
+        if (this.shouldMaintainConnection) {
+          this.scheduleReconnect(`disconnect:${reason}`);
+        } else {
+          this.lifecycleState = 'stopped';
+        }
       });
     });
 
     addTrackedListener('connect_error', (error: Error) => {
       this.zone.run(() => {
-        console.error('⚠️ ========================================');
-        console.error('⚠️ SOCKET CONNECTION ERROR');
-        console.error('⚠️ ========================================');
-        console.error('📝 Error:', error.message);
-        console.error('🔍 Full Error:', error);
-        console.error('⏰ Error at:', new Date().toLocaleTimeString());
-        console.error('========================================');
-
-        this.handleReconnect();
+        this.connectionStatus$.next({
+          connected: false,
+          error: error.message,
+        });
+        this.scheduleReconnect(`connect_error:${error.message}`);
       });
     });
 
@@ -235,56 +202,57 @@ export class SocketService {
   }
 
   /**
-   * Register as rider after connection
+   * Register current rider after connection
    */
-  private async registerRider(): Promise<void> {
-    console.log('🎫 ========================================');
-    console.log('🎫 REGISTERING AS RIDER');
-    console.log('🎫 ========================================');
-
+  private async registerCurrentUser(): Promise<void> {
     try {
+      if (!this.managedConfig || this.managedConfig.userType !== 'rider') {
+        return;
+      }
       const userId = await this.storage.get('userId');
-      console.log('👤 User ID from storage:', userId);
-
       if (userId) {
-        this.emit('riderConnect', { userId });
-        console.log('✅ Rider registration message sent');
-        console.log('========================================');
-      } else {
-        console.warn('⚠️ No user ID found - cannot register');
-        console.log('========================================');
+        this.socket.emit('riderConnect', { userId });
       }
     } catch (error) {
-      console.error('❌ Error registering rider:', error);
-      console.log('========================================');
+      console.error('Error registering rider:', error);
     }
   }
 
-  /**
-   * Handle reconnection logic
-   */
-  private handleReconnect(): void {
-    // Clear any existing reconnect timeout
+  private connectNow(nextState: ConnectionLifecycleState): void {
+    if (this.isConnected()) {
+      return;
+    }
+    this.lifecycleState = nextState;
+    this.socket.connect();
+  }
+
+  private scheduleReconnect(reason: string): void {
+    if (!this.shouldMaintainConnection || this.lifecycleState === 'stopped') {
+      return;
+    }
+
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
+      return;
     }
 
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      const delay =
-        this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
-
-      console.log(
-        `Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+      this.lifecycleState = 'reconnecting';
+      const jitter = Math.floor(Math.random() * 500);
+      const delay = Math.min(
+        this.maxReconnectDelay,
+        this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1) + jitter
       );
 
       this.reconnectTimeout = setTimeout(() => {
         this.reconnectTimeout = null;
-        this.socket.connect();
+        console.log(
+          `[Socket] reconnect attempt=${this.reconnectAttempts} reason=${reason} delayMs=${delay}`
+        );
+        this.connectNow('reconnecting');
       }, delay);
     } else {
-      console.error('Max reconnection attempts reached');
+      this.lifecycleState = 'idle';
       this.connectionStatus$.next({
         connected: false,
         error: 'Max reconnection attempts reached',
@@ -296,24 +264,10 @@ export class SocketService {
    * Emit event to server
    */
   emit(event: string, data?: any): void {
-    console.log('📤 ========================================');
-    console.log('📤 EMITTING EVENT');
-    console.log('📤 ========================================');
-    console.log('📝 Event Name:', event);
-    console.log('📦 Data:', data);
-    console.log(
-      '📡 Connection Status:',
-      this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'
-    );
-
     if (!this.isConnected()) {
-      console.error('⚠️ Cannot emit - Socket not connected!');
-      console.error('========================================');
+      console.error(`Cannot emit ${event}; socket is disconnected`);
       return;
     }
-
-    console.log('✅ Emitting to server...');
-    console.log('========================================');
     this.socket.emit(event, data);
   }
 
@@ -321,19 +275,9 @@ export class SocketService {
    * Listen for event from server
    */
   on<T = any>(event: string): Observable<T> {
-    console.log('👂 Setting up listener for event:', event);
-
     return new Observable((observer) => {
       const handler = (data: T) => {
         this.zone.run(() => {
-          console.log('📥 ========================================');
-          console.log('📥 RECEIVED EVENT FROM SERVER');
-          console.log('📥 ========================================');
-          console.log('📝 Event Name:', event);
-          console.log('📦 Data:', data);
-          console.log('⏰ Received at:', new Date().toLocaleTimeString());
-          console.log('========================================');
-
           observer.next(data);
         });
       };
@@ -342,7 +286,6 @@ export class SocketService {
 
       // Cleanup
       return () => {
-        console.log('🧹 Cleaning up listener for event:', event);
         this.socket.off(event, handler);
       };
     });
@@ -377,31 +320,23 @@ export class SocketService {
   /**
    * Disconnect socket
    */
-  async disconnect(): Promise<void> {
+  async disconnect(notifyServer: boolean = true): Promise<void> {
     try {
-      // Clear reconnect timeout
+      this.shouldMaintainConnection = false;
+      this.lifecycleState = 'stopped';
       if (this.reconnectTimeout) {
         clearTimeout(this.reconnectTimeout);
         this.reconnectTimeout = null;
       }
 
-      // Remove all event listeners
-      this.eventHandlers.forEach(({ event, handler }) => {
-        this.socket.off(event, handler);
-      });
-      this.eventHandlers = [];
-
       const userId = await this.storage.get('userId');
-      if (userId && this.isConnected()) {
-        this.emit('riderDisconnect', { userId });
+      if (notifyServer && userId && this.isConnected()) {
+        this.socket.emit('riderDisconnect', { userId });
       }
 
       this.socket.disconnect();
-      this.isInitialized = false;
       this.reconnectAttempts = 0;
       this.connectionStatus$.next({ connected: false });
-
-      console.log('Socket disconnected successfully');
     } catch (error) {
       console.error('Error during disconnect:', error);
     }
@@ -432,28 +367,12 @@ export class SocketService {
    * Wait for connection with default 30-second timeout to prevent infinite hanging
    */
   async waitForConnection(timeoutMs: number = 30000): Promise<void> {
-    console.log('⏳ ========================================');
-    console.log('⏳ WAITING FOR SOCKET CONNECTION...');
-    console.log('⏳ ========================================');
-    console.log(
-      '📡 Current Status:',
-      this.isConnected() ? 'CONNECTED' : 'DISCONNECTED'
-    );
-    console.log('🌐 Target URL:', environment.apiUrl);
-    console.log('⏰ Timeout:', timeoutMs, 'ms');
-    console.log('⏰ Started waiting at:', new Date().toLocaleTimeString());
-    console.log('========================================');
-
     if (this.isConnected()) {
-      console.log('✅ Already connected! Socket ID:', this.socket.ioSocket.id);
       return;
     }
 
-    // Check if max reconnection attempts have been reached
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      const errorMsg = `Max reconnection attempts (${this.maxReconnectAttempts}) reached. Cannot wait for connection.`;
-      console.error('❌', errorMsg);
-      throw new Error(errorMsg);
+    if (this.shouldMaintainConnection && this.lifecycleState !== 'reconnecting') {
+      this.connectNow('connecting');
     }
 
     return new Promise((resolve, reject) => {
@@ -462,7 +381,6 @@ export class SocketService {
 
       // Set up timeout
       waitTimeout = setTimeout(() => {
-        console.error('⏰ Connection timeout after', timeoutMs, 'ms');
         if (subscription) {
           subscription.unsubscribe();
         }
@@ -475,10 +393,7 @@ export class SocketService {
 
       // Subscribe to connection status updates
       subscription = this.connectionStatus$.subscribe((status) => {
-        console.log('📊 Connection status update:', status);
-
         if (status.connected) {
-          console.log('✅ Connection established! Resolving...');
           if (subscription) {
             subscription.unsubscribe();
           }
@@ -489,9 +404,7 @@ export class SocketService {
           resolve();
         }
 
-        // Reject if max reconnection attempts reached
         if (status.error === 'Max reconnection attempts reached') {
-          console.error('❌ Max reconnection attempts reached. Rejecting wait promise.');
           if (subscription) {
             subscription.unsubscribe();
           }
@@ -503,5 +416,13 @@ export class SocketService {
         }
       });
     });
+  }
+
+  async onNetworkReachable(): Promise<void> {
+    if (!this.shouldMaintainConnection) {
+      return;
+    }
+    this.reconnectAttempts = 0;
+    this.connectNow('reconnecting');
   }
 }

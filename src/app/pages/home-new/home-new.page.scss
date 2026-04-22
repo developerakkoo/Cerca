@@ -178,7 +178,8 @@ ion-header {
 // Vehicle Selection Container - Floating Cards Style
 .vehicle-selection-container {
   position: fixed;
-  bottom: calc(88px + env(safe-area-inset-bottom));
+  /* Align with prior 88px + env: offset is 75px + env, so +13px */
+  bottom: calc(var(--cerca-tab-bar-offset) + 13px);
   left: 20px;
   right: 20px;
   z-index: 150;

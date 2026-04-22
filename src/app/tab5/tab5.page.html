@@ -25,15 +25,15 @@
       <div class="profile-header">
         <ion-avatar class="user-avatar">
           <div class="avatar-content" *ngIf="user">
-            {{ user.fullName | slice:0:1  }}
+            {{ (user.fullName || user.name || user.phoneNumber || 'U') | slice:0:1 }}
           </div>
-          <div class="avatar-content" *ngIf="!user?.fullName">
+          <div class="avatar-content" *ngIf="!user">
             U
           </div>
         </ion-avatar>
         <div class="profile-info">
-          <h2>{{user?.fullName || 'User'}}</h2>
-          <p>{{user?.email || 'No email provided'}}</p>
+          <h2>{{ user?.fullName || user?.name || 'User' }}</h2>
+          <p>{{ user?.email || user?.phoneNumber || 'No email provided' }}</p>
         </div>
       </div>
     </ion-card-content>

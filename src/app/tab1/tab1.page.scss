@@ -2,7 +2,7 @@
 // Modern, premium UI with floating inputs and horizontal scrolling ride cards
 
 :host {
-  --tab1-tab-bar-height: 65px;
+  --tab1-tab-bar-height: var(--cerca-tab-bar-offset, calc(65px + env(safe-area-inset-bottom, 0px)));
   background: transparent !important;
 
   // Ensure ion-content doesn't intercept map touches
@@ -160,7 +160,7 @@
 // Address Card in Confirm Mode
 .address-card {
   position: absolute;
-  bottom: calc(65px + 16px + env(safe-area-inset-bottom)); // 65px = tabs bar height
+  bottom: calc(var(--cerca-tab-bar-offset) + 16px);
   left: 16px;
   right: 16px;
   z-index: 200;
@@ -333,7 +333,7 @@
 // Ride Cards Section
 .ride-cards-section {
   position: absolute;
-  bottom: calc(var(--tab1-tab-bar-height, 65px) + env(safe-area-inset-bottom));
+  bottom: var(--cerca-tab-bar-offset);
   left: 0;
   right: 0;
   background: white;

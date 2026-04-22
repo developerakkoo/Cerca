@@ -54,48 +54,48 @@
           <div *ngIf="!isLoadingServices && vehicleServices" class="vehicle-list-container">
             <ion-list>
               <ion-radio-group name="auto" [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="vehicle-radio-group">
-                <!-- Cerca Small -->
-                <ion-item *ngIf="vehicleServices.cercaSmall?.enabled" lines="none" class="vehicle-item">
+                <!-- Cerca Zip -->
+                <ion-item *ngIf="vehicleServices.cercaZip?.enabled" lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" alt="Cerca Small Vehicle" />
+                    <img [src]="vehicleServices.cercaZip?.imagePath || 'assets/cars/cerca-small.png'" alt="Cerca Zip vehicle" />
                   </ion-avatar>
                   <ion-radio value="small" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">{{ vehicleServices.cercaSmall?.name || ('MODAL.cercaSmall' | translate) }}</span>
-                        <span class="vehicle-price">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
+                        <span class="vehicle-name">{{ vehicleServices.cercaZip?.name || ('MODAL.cercaZip' | translate) }}</span>
+                        <span class="vehicle-price">₹{{ vehicleServices.cercaZip?.price || 299 }}</span>
                       </div>
-                      <span class="vehicle-seats">{{ vehicleServices.cercaSmall?.seats || 4 }} {{ 'MODAL.seats' | translate }}</span>
+                      <span class="vehicle-seats">{{ vehicleServices.cercaZip?.seats || 4 }} {{ 'MODAL.seats' | translate }}</span>
                     </div>
                   </ion-radio>
                 </ion-item>
-                <!-- Cerca Medium -->
-                <ion-item *ngIf="vehicleServices.cercaMedium?.enabled" lines="none" class="vehicle-item">
+                <!-- Cerca Glide -->
+                <ion-item *ngIf="vehicleServices.cercaGlide?.enabled" lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Cerca Medium Vehicle" />
+                    <img [src]="vehicleServices.cercaGlide?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Cerca Glide vehicle" />
                   </ion-avatar>
                   <ion-radio value="medium" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">{{ vehicleServices.cercaMedium?.name || ('MODAL.cercaMedium' | translate) }}</span>
-                        <span class="vehicle-price">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
+                        <span class="vehicle-name">{{ vehicleServices.cercaGlide?.name || ('MODAL.cercaGlide' | translate) }}</span>
+                        <span class="vehicle-price">₹{{ vehicleServices.cercaGlide?.price || 499 }}</span>
                       </div>
-                      <span class="vehicle-seats">{{ vehicleServices.cercaMedium?.seats || 6 }} {{ 'MODAL.seats' | translate }}</span>
+                      <span class="vehicle-seats">{{ vehicleServices.cercaGlide?.seats || 6 }} {{ 'MODAL.seats' | translate }}</span>
                     </div>
                   </ion-radio>
                 </ion-item>
-                <!-- Cerca Large -->
-                <ion-item *ngIf="vehicleServices.cercaLarge?.enabled" lines="none" class="vehicle-item">
+                <!-- Cerca Titan -->
+                <ion-item *ngIf="vehicleServices.cercaTitan?.enabled" lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" alt="Cerca Large Vehicle" />
+                    <img [src]="vehicleServices.cercaTitan?.imagePath || 'assets/cars/cerca-large.png'" alt="Cerca Titan vehicle" />
                   </ion-avatar>
                   <ion-radio value="large" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">{{ vehicleServices.cercaLarge?.name || ('MODAL.cercaLarge' | translate) }}</span>
-                        <span class="vehicle-price">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
+                        <span class="vehicle-name">{{ vehicleServices.cercaTitan?.name || ('MODAL.cercaTitan' | translate) }}</span>
+                        <span class="vehicle-price">₹{{ vehicleServices.cercaTitan?.price || 699 }}</span>
                       </div>
-                      <span class="vehicle-seats">{{ vehicleServices.cercaLarge?.seats || 8 }} {{ 'MODAL.seats' | translate }}</span>
+                      <span class="vehicle-seats">{{ vehicleServices.cercaTitan?.seats || 8 }} {{ 'MODAL.seats' | translate }}</span>
                     </div>
                   </ion-radio>
                 </ion-item>
@@ -109,12 +109,12 @@
               <ion-radio-group name="auto" [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="vehicle-radio-group">
                 <ion-item lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img src="assets/cars/cerca-small.png" alt="Cerca Small Vehicle" />
+                    <img src="assets/cars/cerca-small.png" alt="Cerca Zip vehicle" />
                   </ion-avatar>
                   <ion-radio value="small" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">{{ 'MODAL.cercaSmall' | translate }}</span>
+                        <span class="vehicle-name">{{ 'MODAL.cercaZip' | translate }}</span>
                         <span class="vehicle-price">₹299</span>
                       </div>
                       <span class="vehicle-seats">4 {{ 'MODAL.seats' | translate }}</span>
@@ -123,12 +123,12 @@
                 </ion-item>
                 <ion-item lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img src="assets/cars/Cerca-medium.png" alt="Cerca Medium Vehicle" />
+                    <img src="assets/cars/Cerca-medium.png" alt="Cerca Glide vehicle" />
                   </ion-avatar>
                   <ion-radio value="medium" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">{{ 'MODAL.cercaMedium' | translate }}</span>
+                        <span class="vehicle-name">{{ 'MODAL.cercaGlide' | translate }}</span>
                         <span class="vehicle-price">₹499</span>
                       </div>
                       <span class="vehicle-seats">6 {{ 'MODAL.seats' | translate }}</span>
@@ -137,12 +137,12 @@
                 </ion-item>
                 <ion-item lines="none" class="vehicle-item">
                   <ion-avatar class="vehicle-avatar">
-                    <img src="assets/cars/cerca-large.png" alt="Cerca Large Vehicle" />
+                    <img src="assets/cars/cerca-large.png" alt="Cerca Titan vehicle" />
                   </ion-avatar>
                   <ion-radio value="large" class="vehicle-radio">
                     <div class="vehicle-info">
                       <div class="vehicle-header">
-                        <span class="vehicle-name">{{ 'MODAL.cercaLarge' | translate }}</span>
+                        <span class="vehicle-name">{{ 'MODAL.cercaTitan' | translate }}</span>
                         <span class="vehicle-price">₹699</span>
                       </div>
                       <span class="vehicle-seats">8 {{ 'MODAL.seats' | translate }}</span>

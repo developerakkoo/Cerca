@@ -24,9 +24,8 @@ const config: SocketIoConfig = {
     // Try websocket first, then fallback to polling (matches driver app)
     transports: ['websocket', 'polling'],
     autoConnect: false,
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 2000,
+    // Reconnect policy is managed by SocketService state machine
+    reconnection: false,
     // Add timeout configuration (30 seconds for HTTPS)
     timeout: 30000,
     // Force new connection

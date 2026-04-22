@@ -25,9 +25,9 @@ export interface AllFaresResponse {
     distance: number;
     estimatedDuration: number;
     fares: {
-      cercaSmall?: FareBreakdown;
-      cercaMedium?: FareBreakdown;
-      cercaLarge?: FareBreakdown;
+      cercaZip?: FareBreakdown;
+      cercaGlide?: FareBreakdown;
+      cercaTitan?: FareBreakdown;
     };
   };
 }

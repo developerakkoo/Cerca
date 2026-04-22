@@ -71,9 +71,9 @@
     "whereAreYou": "आप कहाँ हैं?",
     "whereTo": "कहाँ जाना है?",
     "proceedToPayment": "भुगतान के लिए आगे बढ़ें",
-    "cercaSmall": "सर्का स्मॉल",
-    "cercaMedium": "सर्का मीडियम",
-    "cercaLarge": "सर्का लार्ज",
+    "cercaZip": "सर्का ज़िप",
+    "cercaGlide": "सर्का ग्लाइड",
+    "cercaTitan": "सर्का टाइटन",
     "seats": "सीटें"
   },
   "BOOKINGS": {
@@ -224,9 +224,9 @@
     "whereAreYou": "आप कहाँ हैं?",
     "whereTo": "कहाँ जाना है?",
     "proceedToPayment": "भुगतान के लिए आगे बढ़ें",
-    "cercaSmall": "सर्का स्मॉल",
-    "cercaMedium": "सर्का मीडियम",
-    "cercaLarge": "सर्का लार्ज",
+    "cercaZip": "सर्का ज़िप",
+    "cercaGlide": "सर्का ग्लाइड",
+    "cercaTitan": "सर्का टाइटन",
     "seats": "सीटें"
   },
   "NOTIFICATIONS": {

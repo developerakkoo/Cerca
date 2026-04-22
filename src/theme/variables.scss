@@ -118,6 +118,9 @@
 	--radius-xl: 20px;
 	--radius-full: 9999px;
 
+	/* Tab bar footprint: 65px min content + 5px top pad + 5px bottom pad + system inset (see tabs.page.scss) */
+	--cerca-tab-bar-offset: calc(75px + env(safe-area-inset-bottom, 0px));
+
 }
 
 /* Dark Theme Overrides */

@@ -43,75 +43,75 @@
         <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
           
           <!-- Small -->
-          <div class="vehicle-item" *ngIf="vehicleServices.cercaSmall?.enabled" 
+          <div class="vehicle-item" *ngIf="vehicleServices.cercaZip?.enabled" 
                [class.selected]="selectedVehicle === 'small'"
                (click)="selectedVehicle = 'small'">
             <div class="vehicle-info">
-              <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" alt="Small">
+              <img [src]="vehicleServices.cercaZip?.imagePath || 'assets/cars/cerca-small.png'" alt="Small">
               <div class="details">
-                <span class="name">{{ vehicleServices.cercaSmall?.name || 'Cerca Small' }}</span>
-                <span class="seats">{{ vehicleServices.cercaSmall?.seats || 4 }} seats</span>
+                <span class="name">{{ vehicleServices.cercaZip?.name || 'Cerca Small' }}</span>
+                <span class="seats">{{ vehicleServices.cercaZip?.seats || 4 }} seats</span>
               </div>
             </div>
             <div class="price-radio">
-              <span class="price" *ngIf="calculatedFares?.cercaSmall && !isCalculatingFares">
-                ₹{{ calculatedFares?.cercaSmall?.finalFare }}
+              <span class="price" *ngIf="calculatedFares?.cercaZip && !isCalculatingFares">
+                ₹{{ calculatedFares?.cercaZip?.finalFare }}
               </span>
-              <span class="price loading" *ngIf="!calculatedFares?.cercaSmall && isCalculatingFares && pickupAddress && destinationAddress">
+              <span class="price loading" *ngIf="!calculatedFares?.cercaZip && isCalculatingFares && pickupAddress && destinationAddress">
                 <ion-spinner name="dots" style="width: 16px; height: 16px;"></ion-spinner>
               </span>
-              <span class="price" *ngIf="!calculatedFares?.cercaSmall && (!isCalculatingFares || !pickupAddress || !destinationAddress)">
-                ₹{{ vehicleServices.cercaSmall?.price || 299 }}
+              <span class="price" *ngIf="!calculatedFares?.cercaZip && (!isCalculatingFares || !pickupAddress || !destinationAddress)">
+                ₹{{ vehicleServices.cercaZip?.price || 299 }}
               </span>
               <ion-radio value="small" mode="md"></ion-radio>
             </div>
           </div>
 
           <!-- Medium -->
-          <div class="vehicle-item" *ngIf="vehicleServices.cercaMedium?.enabled"
+          <div class="vehicle-item" *ngIf="vehicleServices.cercaGlide?.enabled"
                [class.selected]="selectedVehicle === 'medium'"
                (click)="selectedVehicle = 'medium'">
             <div class="vehicle-info">
-              <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Medium">
+              <img [src]="vehicleServices.cercaGlide?.imagePath || 'assets/cars/Cerca-medium.png'" alt="Medium">
               <div class="details">
-                <span class="name">{{ vehicleServices.cercaMedium?.name || 'Cerca Medium' }}</span>
-                <span class="seats">{{ vehicleServices.cercaMedium?.seats || 6 }} seats</span>
+                <span class="name">{{ vehicleServices.cercaGlide?.name || 'Cerca Medium' }}</span>
+                <span class="seats">{{ vehicleServices.cercaGlide?.seats || 6 }} seats</span>
               </div>
             </div>
             <div class="price-radio">
-              <span class="price" *ngIf="calculatedFares?.cercaMedium && !isCalculatingFares">
-                ₹{{ calculatedFares?.cercaMedium?.finalFare }}
+              <span class="price" *ngIf="calculatedFares?.cercaGlide && !isCalculatingFares">
+                ₹{{ calculatedFares?.cercaGlide?.finalFare }}
               </span>
-              <span class="price loading" *ngIf="!calculatedFares?.cercaMedium && isCalculatingFares && pickupAddress && destinationAddress">
+              <span class="price loading" *ngIf="!calculatedFares?.cercaGlide && isCalculatingFares && pickupAddress && destinationAddress">
                 <ion-spinner name="dots" style="width: 16px; height: 16px;"></ion-spinner>
               </span>
-              <span class="price" *ngIf="!calculatedFares?.cercaMedium && (!isCalculatingFares || !pickupAddress || !destinationAddress)">
-                ₹{{ vehicleServices.cercaMedium?.price || 499 }}
+              <span class="price" *ngIf="!calculatedFares?.cercaGlide && (!isCalculatingFares || !pickupAddress || !destinationAddress)">
+                ₹{{ vehicleServices.cercaGlide?.price || 499 }}
               </span>
               <ion-radio value="medium" mode="md"></ion-radio>
             </div>
           </div>
 
           <!-- Large -->
-          <div class="vehicle-item" *ngIf="vehicleServices.cercaLarge?.enabled"
+          <div class="vehicle-item" *ngIf="vehicleServices.cercaTitan?.enabled"
                [class.selected]="selectedVehicle === 'large'"
                (click)="selectedVehicle = 'large'">
             <div class="vehicle-info">
-              <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" alt="Large">
+              <img [src]="vehicleServices.cercaTitan?.imagePath || 'assets/cars/cerca-large.png'" alt="Large">
               <div class="details">
-                <span class="name">{{ vehicleServices.cercaLarge?.name || 'Cerca Large' }}</span>
-                <span class="seats">{{ vehicleServices.cercaLarge?.seats || 8 }} seats</span>
+                <span class="name">{{ vehicleServices.cercaTitan?.name || 'Cerca Large' }}</span>
+                <span class="seats">{{ vehicleServices.cercaTitan?.seats || 8 }} seats</span>
               </div>
             </div>
             <div class="price-radio">
-              <span class="price" *ngIf="calculatedFares?.cercaLarge && !isCalculatingFares">
-                ₹{{ calculatedFares?.cercaLarge?.finalFare }}
+              <span class="price" *ngIf="calculatedFares?.cercaTitan && !isCalculatingFares">
+                ₹{{ calculatedFares?.cercaTitan?.finalFare }}
               </span>
-              <span class="price loading" *ngIf="!calculatedFares?.cercaLarge && isCalculatingFares && pickupAddress && destinationAddress">
+              <span class="price loading" *ngIf="!calculatedFares?.cercaTitan && isCalculatingFares && pickupAddress && destinationAddress">
                 <ion-spinner name="dots" style="width: 16px; height: 16px;"></ion-spinner>
               </span>
-              <span class="price" *ngIf="!calculatedFares?.cercaLarge && (!isCalculatingFares || !pickupAddress || !destinationAddress)">
-                ₹{{ vehicleServices.cercaLarge?.price || 699 }}
+              <span class="price" *ngIf="!calculatedFares?.cercaTitan && (!isCalculatingFares || !pickupAddress || !destinationAddress)">
+                ₹{{ vehicleServices.cercaTitan?.price || 699 }}
               </span>
               <ion-radio value="large" mode="md"></ion-radio>
             </div>

@@ -236,7 +236,7 @@
           Pay ₹{{getRemainingAmount() | number:'1.2-2'}} now + Wallet ₹{{getWalletAmountUsed() | number:'1.2-2'}}
         </ng-container>
         <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'cash'">
-          Pay ₹{{totalAmount | number:'1.2-2'}}
+          Book Now for ₹{{totalAmount | number:'1.2-2'}}
         </ng-container>
         <ng-container *ngIf="!isWalletSelected && selectedPaymentMethod === 'razorpay'">
           Request Ride (Pay ₹{{totalAmount | number:'1.2-2'}} after ride)

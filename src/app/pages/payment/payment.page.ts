@@ -341,12 +341,12 @@ export class PaymentPage implements OnInit {
     }
 
     // Determine service type from vehicle selection
-    // Mapping: Cerca Small → hatchback, Cerca Medium → sedan, Cerca Large → suv
+    // Mapping: Cerca Zip → hatchback, Cerca Glide → sedan, Cerca Titan → suv
     const service = this.pendingRideDetails?.selectedVehicle === 'small' 
-      ? 'hatchback'  // Cerca Small needs hatchback drivers
+      ? 'hatchback'  // Cerca Zip tier
       : this.pendingRideDetails?.selectedVehicle === 'medium'
-      ? 'sedan'      // Cerca Medium needs sedan drivers
-      : 'suv';       // Cerca Large needs suv drivers
+      ? 'sedan'      // Cerca Glide tier
+      : 'suv';       // Cerca Titan tier
 
     const loading = await this.loadingCtrl.create({
       message: 'Validating promo code...',
@@ -746,12 +746,12 @@ export class PaymentPage implements OnInit {
       const estimatedDistance = this.pendingRideDetails?.distanceInKm || 5.2;
 
       // Determine service type from vehicle selection
-      // Mapping: Cerca Small → hatchback, Cerca Medium → sedan, Cerca Large → suv
+      // Mapping: Cerca Zip → hatchback, Cerca Glide → sedan, Cerca Titan → suv
       const service = this.pendingRideDetails?.selectedVehicle === 'small' 
-        ? 'hatchback'  // Cerca Small needs hatchback drivers
+        ? 'hatchback'  // Cerca Zip tier
         : this.pendingRideDetails?.selectedVehicle === 'medium'
-        ? 'sedan'      // Cerca Medium needs sedan drivers
-        : 'suv';       // Cerca Large needs suv drivers
+        ? 'sedan'      // Cerca Glide tier
+        : 'suv';       // Cerca Titan tier
 
       // Log fare information before sending
       console.log('[Fare Tracking] Sending ride request:', {
@@ -891,16 +891,16 @@ export class PaymentPage implements OnInit {
     let perMinuteRate = 0;
     switch (vehicle) {
       case 'small':
-        vehicleBasePrice = this.vehicleServices.cercaSmall?.price || 299;
-        perMinuteRate = this.vehicleServices.cercaSmall?.perMinuteRate || 2;
+        vehicleBasePrice = this.vehicleServices.cercaZip?.price || 299;
+        perMinuteRate = this.vehicleServices.cercaZip?.perMinuteRate || 2;
         break;
       case 'medium':
-        vehicleBasePrice = this.vehicleServices.cercaMedium?.price || 499;
-        perMinuteRate = this.vehicleServices.cercaMedium?.perMinuteRate || 3;
+        vehicleBasePrice = this.vehicleServices.cercaGlide?.price || 499;
+        perMinuteRate = this.vehicleServices.cercaGlide?.perMinuteRate || 3;
         break;
       case 'large':
-        vehicleBasePrice = this.vehicleServices.cercaLarge?.price || 699;
-        perMinuteRate = this.vehicleServices.cercaLarge?.perMinuteRate || 4;
+        vehicleBasePrice = this.vehicleServices.cercaTitan?.price || 699;
+        perMinuteRate = this.vehicleServices.cercaTitan?.perMinuteRate || 4;
         break;
       default:
         vehicleBasePrice = 299;

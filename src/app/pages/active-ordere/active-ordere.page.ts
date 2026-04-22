@@ -37,9 +37,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef;
   private map!: GoogleMap;
   private modalElement: HTMLElement | null = null;
-  private driverMarkerId!: string;
-  private userMarkerId!: string;
-  private destinationMarkerId!: string;
+  private driverMarkerId?: string;
+  private userMarkerId?: string;
+  private destinationMarkerId?: string;
   private routeLineId!: string;
   private routePolylines: string[] = []; // Store multiple polyline IDs
   private modalObserver?: MutationObserver;
@@ -75,6 +75,19 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private isMapInitialized = false;
   private isMapInitializing = false;
   private hasLoadedFromAPI = false;
+
+  /** Serializes native map driver-marker ops to prevent overlapping remove/add → duplicate cabs. */
+  private driverMarkerOpChain: Promise<void> = Promise.resolve();
+  private lastDriverMarkerLat = 0;
+  private lastDriverMarkerLng = 0;
+  private lastRouteRedrawAt = 0;
+  private lastRouteDriverLat = 0;
+  private lastRouteDriverLng = 0;
+  private lastRouteTargetKey = '';
+  private lastCameraUpdate = 0;
+  private static readonly DRIVER_MARKER_DEDUP_METERS = 12;
+  private static readonly ROUTE_REDRAW_MIN_INTERVAL_MS = 20_000;
+  private static readonly ROUTE_REDRAW_MOVE_METERS = 80;
 
   pickupLocation = '';
   destinationLocation = '';
@@ -361,7 +374,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
             if (pc[0] !== nc[0] || pc[1] !== nc[1]) {
               if (rideStatus === 'in_progress' || this.destinationMarkerId) {
                 await this.addDestinationMarker();
-                await this.updateDriverMarker();
+                await this.updateDriverMarker({ forceRoute: true });
               }
             }
           }
@@ -438,8 +451,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
           this.driverLocation = location;
 
-          // Update marker on map in real-time
-          this.updateDriverMarker();
+          // Update marker on map in real-time (serialized + throttled inside)
+          void this.updateDriverMarker();
 
           console.log('✅ Driver marker updated on map');
         }
@@ -559,16 +572,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     // Dismiss any open modals (chat modal, etc.)
     this.modalController.dismiss();
     
-    // Leave ride room when navigating away (optional - helps with cleanup)
-    if (this.currentRide && !this.isViewOnlyMode) {
-      try {
-        this.rideService.leaveRideRoom(this.currentRide._id).catch((error) => {
-          console.warn('⚠️ Error leaving ride room:', error);
-        });
-      } catch (error) {
-        console.warn('⚠️ Error leaving ride room:', error);
-      }
-    }
+    // Keep room membership across page transitions; server auto-rejoin logic
+    // and session continuity are more important than aggressive leave/join churn.
     
     // Reset rating flag when leaving (for new rides)
     if (this.currentRideStatus !== 'completed') {
@@ -625,7 +630,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.map.destroy();
       this.map = undefined as any;
     }
-    
+    this.resetMapOverlayState();
+
     // Reset rating flag
     this.hasShownRating = false;
   }
@@ -788,6 +794,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         }
         // Add destination marker when ride starts
         await this.addDestinationMarker();
+        void this.updateDriverMarker({ forceRoute: true });
         break;
       case 'completed':
         this.stopPickupWaitTicker();
@@ -888,6 +895,228 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     console.log('📊 Status updated:', status, '| Text:', this.statusText);
   }
 
+  private resetMapOverlayState(): void {
+    this.driverMarkerId = undefined;
+    this.userMarkerId = undefined;
+    this.destinationMarkerId = undefined;
+    this.routePolylines = [];
+    this.lastCameraUpdate = 0;
+    this.lastDriverMarkerLat = 0;
+    this.lastDriverMarkerLng = 0;
+    this.lastRouteRedrawAt = 0;
+    this.lastRouteDriverLat = 0;
+    this.lastRouteDriverLng = 0;
+    this.lastRouteTargetKey = '';
+    this.driverMarkerOpChain = Promise.resolve();
+  }
+
+  private distanceMeters(
+    a: { lat: number; lng: number },
+    b: { lat: number; lng: number }
+  ): number {
+    const R = 6371000;
+    const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+    const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+    const la = (a.lat * Math.PI) / 180;
+    const lb = (b.lat * Math.PI) / 180;
+    const x =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(la) * Math.cos(lb) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(Math.min(1, x)));
+  }
+
+  /** Whether the driver→target route polyline should be recomputed (Directions API). */
+  private computeRouteRedrawNeeded(forceRoute: boolean): boolean {
+    if (forceRoute) return true;
+    const lat = this.driverLocation.latitude;
+    const lng = this.driverLocation.longitude;
+    if (!lat || !lng) return false;
+    const driverCoord = { lat, lng };
+    const routeKey =
+      this.currentRideStatus === 'in_progress' ? 'dropoff' : 'pickup';
+    if (this.lastRouteRedrawAt === 0) return true;
+    if (routeKey !== this.lastRouteTargetKey) return true;
+    if (Date.now() - this.lastRouteRedrawAt > ActiveOrderePage.ROUTE_REDRAW_MIN_INTERVAL_MS) {
+      return true;
+    }
+    const moved = this.distanceMeters(driverCoord, {
+      lat: this.lastRouteDriverLat,
+      lng: this.lastRouteDriverLng,
+    });
+    return moved > ActiveOrderePage.ROUTE_REDRAW_MOVE_METERS;
+  }
+
+  private enqueueDriverMarkerUpdate(fn: () => Promise<void>): Promise<void> {
+    const run = async () => {
+      try {
+        await fn();
+      } catch (e) {
+        console.error('Driver marker op failed:', e);
+      }
+    };
+    const p = this.driverMarkerOpChain.then(run);
+    this.driverMarkerOpChain = p;
+    return p;
+  }
+
+  /**
+   * Queue a driver cab marker + optional route update. Overlapping socket events are serialized.
+   */
+  private updateDriverMarker(options?: { forceRoute?: boolean }): Promise<void> {
+    const forceRoute = options?.forceRoute === true;
+    if (!this.isMapInitialized || !this.map) {
+      return Promise.resolve();
+    }
+    const lat = this.driverLocation.latitude;
+    const lng = this.driverLocation.longitude;
+    if (!lat || !lng) {
+      return Promise.resolve();
+    }
+    const needsRoute = this.computeRouteRedrawNeeded(forceRoute);
+    const hasLastPlaced =
+      this.lastDriverMarkerLat !== 0 && this.lastDriverMarkerLng !== 0;
+    if (
+      hasLastPlaced &&
+      !forceRoute &&
+      this.distanceMeters(
+        { lat, lng },
+        { lat: this.lastDriverMarkerLat, lng: this.lastDriverMarkerLng }
+      ) < ActiveOrderePage.DRIVER_MARKER_DEDUP_METERS &&
+      !needsRoute
+    ) {
+      return Promise.resolve();
+    }
+    return this.enqueueDriverMarkerUpdate(() =>
+      this.updateDriverMarkerInternal({ forceRoute })
+    );
+  }
+
+  private async updateDriverMarkerInternal(opts?: {
+    initialFit?: boolean;
+    forceRoute?: boolean;
+  }): Promise<void> {
+    if (!this.isMapInitialized || !this.map) return;
+
+    if (!this.realDriver) {
+      if (this.driverMarkerId) {
+        try {
+          await this.map.removeMarker(this.driverMarkerId);
+        } catch {
+          /* stale id */
+        }
+        this.driverMarkerId = undefined;
+      }
+      return;
+    }
+
+    const lat = this.driverLocation.latitude;
+    const lng = this.driverLocation.longitude;
+    if (!lat || !lng) return;
+
+    const driverCoord = { lat, lng };
+    const targetCoord =
+      this.currentRideStatus === 'in_progress'
+        ? {
+            lat:
+              this.currentRide?.dropoffLocation?.coordinates[1] ||
+              this.userLocation.latitude,
+            lng:
+              this.currentRide?.dropoffLocation?.coordinates[0] ||
+              this.userLocation.longitude,
+          }
+        : {
+            lat: this.userLocation.latitude,
+            lng: this.userLocation.longitude,
+          };
+
+    const routeKey =
+      this.currentRideStatus === 'in_progress' ? 'dropoff' : 'pickup';
+    const forceRoute = opts?.forceRoute === true;
+    const redrawRoute =
+      opts?.initialFit === true ||
+      forceRoute ||
+      this.lastRouteRedrawAt === 0 ||
+      routeKey !== this.lastRouteTargetKey ||
+      Date.now() - this.lastRouteRedrawAt >
+        ActiveOrderePage.ROUTE_REDRAW_MIN_INTERVAL_MS ||
+      this.distanceMeters(driverCoord, {
+        lat: this.lastRouteDriverLat,
+        lng: this.lastRouteDriverLng,
+      }) > ActiveOrderePage.ROUTE_REDRAW_MOVE_METERS;
+
+    try {
+      if (this.driverMarkerId) {
+        try {
+          await this.map.removeMarker(this.driverMarkerId);
+        } catch {
+          /* stale id */
+        }
+        this.driverMarkerId = undefined;
+      }
+
+      const title =
+        this.currentRideStatus === 'in_progress'
+          ? 'Your Ride'
+          : 'Driver Location';
+
+      const driverMarkerResult = await this.map.addMarker({
+        coordinate: driverCoord,
+        title,
+        snippet: this.realDriver?.name || 'Driver',
+        iconUrl: 'assets/cab-east.png',
+        iconSize: {
+          width: 40,
+          height: 40,
+        },
+      });
+      this.driverMarkerId = driverMarkerResult;
+
+      this.lastDriverMarkerLat = lat;
+      this.lastDriverMarkerLng = lng;
+
+      if (redrawRoute) {
+        await this.clearRoute();
+        await this.drawRouteToTarget(driverCoord, targetCoord);
+        this.lastRouteRedrawAt = Date.now();
+        this.lastRouteDriverLat = lat;
+        this.lastRouteDriverLng = lng;
+        this.lastRouteTargetKey = routeKey;
+      }
+
+      if (opts?.initialFit) {
+        await this.map.setCamera({
+          coordinate: {
+            lat: (targetCoord.lat + driverCoord.lat) / 2,
+            lng: (targetCoord.lng + driverCoord.lng) / 2,
+          },
+          zoom: 14,
+        });
+        this.lastCameraUpdate = Date.now();
+      } else {
+        const now = Date.now();
+        if (!this.lastCameraUpdate || now - this.lastCameraUpdate > 10000) {
+          this.lastCameraUpdate = now;
+          const centerLat = (driverCoord.lat + targetCoord.lat) / 2;
+          const centerLng = (driverCoord.lng + targetCoord.lng) / 2;
+          const latDiff = Math.abs(driverCoord.lat - targetCoord.lat);
+          const lngDiff = Math.abs(driverCoord.lng - targetCoord.lng);
+          const maxDiff = Math.max(latDiff, lngDiff);
+          let zoom = 15;
+          if (maxDiff > 0.05) zoom = 12;
+          else if (maxDiff > 0.02) zoom = 13;
+          else if (maxDiff > 0.01) zoom = 14;
+          await this.map.setCamera({
+            coordinate: { lat: centerLat, lng: centerLng },
+            zoom,
+            animate: true,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating driver marker:', error);
+    }
+  }
+
   /**
    * Initialize map if needed (with guards to prevent duplicate initialization)
    */
@@ -913,9 +1142,12 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
 
     this.isMapInitializing = true;
-    await this.initializeMap();
-    this.isMapInitialized = true;
-    this.isMapInitializing = false;
+    try {
+      await this.initializeMap();
+      this.isMapInitialized = true;
+    } finally {
+      this.isMapInitializing = false;
+    }
   }
 
   private async initializeMap() {
@@ -969,57 +1201,23 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       });
       this.userMarkerId = userMarkerResult;
 
-      // Add driver marker if driver location is available
+      // Add driver marker if driver location is available (same path as socket updates)
       if (
         this.driverLocation.latitude &&
         this.driverLocation.longitude &&
         this.realDriver
       ) {
-        await this.addDriverMarker();
+        await this.enqueueDriverMarkerUpdate(() =>
+          this.updateDriverMarkerInternal({
+            initialFit: true,
+            forceRoute: true,
+          })
+        );
       }
     } catch (error) {
       console.error('❌ Error creating map:', error);
-      this.isMapInitializing = false;
       throw error;
     }
-  }
-
-  private async addDriverMarker() {
-    if (!this.map || !this.realDriver) return;
-
-    const driverCoord = {
-      lat: this.driverLocation.latitude,
-      lng: this.driverLocation.longitude,
-    };
-
-    const driverMarkerResult = await this.map.addMarker({
-      coordinate: driverCoord,
-      title: 'Driver Location',
-      snippet: this.realDriver.name,
-      iconUrl: 'assets/cab-east.png',
-      iconSize: {
-        width: 40,
-        height: 40,
-      },
-    });
-    this.driverMarkerId = driverMarkerResult;
-
-    // Draw route using Google Directions API
-    const userCoord = {
-      lat: this.userLocation.latitude,
-      lng: this.userLocation.longitude,
-    };
-
-    await this.drawRouteToTarget(driverCoord, userCoord);
-
-    // Fit map to show both markers
-    await this.map.setCamera({
-      coordinate: {
-        lat: (userCoord.lat + driverCoord.lat) / 2,
-        lng: (userCoord.lng + driverCoord.lng) / 2,
-      },
-      zoom: 14,
-    });
   }
 
   private async addDestinationMarker() {
@@ -1058,137 +1256,19 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     console.log('✅ Destination marker added');
   }
 
-  private async updateDriverMarker() {
-    if (!this.isMapInitialized || !this.map) {
-      console.warn(
-        '⚠️ Cannot update driver marker - map not initialized yet'
-      );
-      return;
-    }
-
-    if (!this.driverLocation.latitude || !this.driverLocation.longitude) {
-      console.warn(
-        '⚠️ Cannot update driver marker - driver location not available'
-      );
-      return;
-    }
-
-    // If driver marker doesn't exist yet, create it
-    if (!this.driverMarkerId && this.realDriver) {
-      console.log('🆕 Creating initial driver marker');
-      await this.addDriverMarker();
-      return;
-    }
-
-    // Update existing marker position (using removeMarker + addMarker as workaround)
-    try {
-      console.log('🔄 Updating driver marker position...');
-
-      if (this.driverMarkerId) {
-        await this.map.removeMarker(this.driverMarkerId);
-      }
-
-      // Remove old route polylines
-      await this.clearRoute();
-
-      const driverCoord = {
-        lat: this.driverLocation.latitude,
-        lng: this.driverLocation.longitude,
-      };
-
-      console.log('📍 Driver coordinates:', driverCoord);
-
-      // Re-add driver marker
-      const driverMarkerResult = await this.map.addMarker({
-        coordinate: driverCoord,
-        title:
-          this.currentRideStatus === 'in_progress'
-            ? 'Your Ride'
-            : 'Driver Location',
-        snippet: this.realDriver?.name || 'Driver',
-        iconUrl: 'assets/cab-east.png',
-        iconSize: {
-          width: 40,
-          height: 40,
-        },
-      });
-      this.driverMarkerId = driverMarkerResult;
-
-      // Determine which location to connect based on ride status
-      const targetCoord =
-        this.currentRideStatus === 'in_progress'
-          ? {
-              // During ride, show route to destination
-              lat:
-                this.currentRide?.dropoffLocation.coordinates[1] ||
-                this.userLocation.latitude,
-              lng:
-                this.currentRide?.dropoffLocation.coordinates[0] ||
-                this.userLocation.longitude,
-            }
-          : {
-              // Before ride starts, show route to pickup
-              lat: this.userLocation.latitude,
-              lng: this.userLocation.longitude,
-            };
-
-      console.log('🎯 Target coordinates:', targetCoord);
-
-      // Draw route using Google Directions API
-      await this.drawRouteToTarget(driverCoord, targetCoord);
-
-      // Auto-adjust camera to show both markers (but not too frequently)
-      // Only adjust every 5th update to avoid jerky camera movements
-      const now = Date.now();
-      if (!this.lastCameraUpdate || now - this.lastCameraUpdate > 10000) {
-        this.lastCameraUpdate = now;
-
-        // Calculate center point between driver and target
-        const centerLat = (driverCoord.lat + targetCoord.lat) / 2;
-        const centerLng = (driverCoord.lng + targetCoord.lng) / 2;
-
-        // Calculate appropriate zoom level based on distance
-        const latDiff = Math.abs(driverCoord.lat - targetCoord.lat);
-        const lngDiff = Math.abs(driverCoord.lng - targetCoord.lng);
-        const maxDiff = Math.max(latDiff, lngDiff);
-
-        let zoom = 15;
-        if (maxDiff > 0.05) zoom = 12;
-        else if (maxDiff > 0.02) zoom = 13;
-        else if (maxDiff > 0.01) zoom = 14;
-
-        await this.map.setCamera({
-          coordinate: {
-            lat: centerLat,
-            lng: centerLng,
-          },
-          zoom: zoom,
-          animate: true,
-        });
-
-        console.log('📷 Camera adjusted to show both locations');
-      }
-
-      console.log('✅ Driver marker and route updated successfully');
-    } catch (error) {
-      console.error('❌ Error updating driver marker:', error);
-    }
-  }
-
-  private lastCameraUpdate = 0;
-
   /**
    * Clear existing route polylines from map
    */
   private async clearRoute() {
-    if (this.routePolylines.length > 0) {
-      try {
-        await this.map.removePolylines(this.routePolylines);
-        this.routePolylines = [];
-        console.log('🧹 Route polylines cleared');
-      } catch (error) {
-        console.error('Error clearing route:', error);
-      }
+    if (!this.map || this.routePolylines.length === 0) {
+      return;
+    }
+    try {
+      await this.map.removePolylines(this.routePolylines);
+      this.routePolylines = [];
+      console.log('🧹 Route polylines cleared');
+    } catch (error) {
+      console.error('Error clearing route:', error);
     }
   }
 
@@ -1199,6 +1279,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     origin: { lat: number; lng: number },
     destination: { lat: number; lng: number }
   ) {
+    if (!this.map) return;
     try {
       console.log('🗺️ Fetching route from Google Directions API...');
       console.log('📍 Origin:', origin);
@@ -1290,6 +1371,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     origin: { lat: number; lng: number },
     destination: { lat: number; lng: number }
   ) {
+    if (!this.map) return;
     try {
       const polylineResult = await this.map.addPolylines([
         {
@@ -1648,6 +1730,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           expectedRevision: rev,
         })
       );
+
+      try {
+        const rid =
+          this.currentRide?._id != null ? String(this.currentRide._id) : '';
+        if (rid) {
+          await this.rideService.joinRideRoom(rid, undefined, 'User');
+        }
+      } catch (joinErr) {
+        console.warn('joinRideRoom after destination update:', joinErr);
+      }
 
       const ok = await this.toastController.create({
         message: 'Destination updated',

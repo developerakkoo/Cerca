@@ -11,6 +11,8 @@ import { SystemSettingsService } from './services/system-settings.service';
 import { Subscription, interval } from 'rxjs';
 import { AlertController } from '@ionic/angular';
 import { App } from '@capacitor/app';
+import { Network } from '@capacitor/network';
+import type { PluginListenerHandle } from '@capacitor/core';
 
 @Component({
   selector: 'app-root',
@@ -24,6 +26,7 @@ export class AppComponent implements OnDestroy {
   private statusCheckInterval?: Subscription;
   private resumeSubscription?: Subscription;
   private backButtonSubscription?: Subscription;
+  private networkListener?: PluginListenerHandle;
 
   constructor(
     private userService: UserService,
@@ -109,9 +112,7 @@ export class AppComponent implements OnDestroy {
           console.log('👤 Extracted User ID:', userId);
 
           if (userId) {
-            console.log('🚀 Calling socketService.initialize()...');
-
-            await this.socketService.initialize({
+            await this.socketService.ensureConnected({
               userId,
               userType: 'rider',
             });
@@ -141,6 +142,7 @@ export class AppComponent implements OnDestroy {
 
             // Setup app resume check
             this.setupAppResumeCheck(userId);
+            this.setupNetworkReconnect();
           } else {
             console.warn('⚠️ ========================================');
             console.warn('⚠️ User logged in but no user ID found');
@@ -176,6 +178,7 @@ export class AppComponent implements OnDestroy {
 
         // Stop app resume check
         this.stopAppResumeCheck();
+        this.teardownNetworkReconnect();
 
         // Navigate to login page if not already there
         const currentUrl = this.router.url;
@@ -221,6 +224,12 @@ export class AppComponent implements OnDestroy {
     this.resumeSubscription = this.platform.resume.subscribe(() => {
       console.log('📱 App resumed - checking user status');
       this.checkUserStatus(userId);
+      this.socketService.ensureConnected({ userId, userType: 'rider' }).catch((error) => {
+        console.error('Failed to reconnect socket on resume:', error);
+      });
+      this.rideService.syncRideStateFromBackend().catch((error) => {
+        console.error('Failed to sync ride on resume:', error);
+      });
     });
   }
 
@@ -231,6 +240,25 @@ export class AppComponent implements OnDestroy {
     if (this.resumeSubscription) {
       this.resumeSubscription.unsubscribe();
       this.resumeSubscription = undefined;
+    }
+  }
+
+  private async setupNetworkReconnect() {
+    this.teardownNetworkReconnect();
+    this.networkListener = await Network.addListener('networkStatusChange', (status) => {
+      if (!status.connected) {
+        return;
+      }
+      this.socketService.onNetworkReachable().catch((error) => {
+        console.error('Failed to reconnect socket after network recovery:', error);
+      });
+    });
+  }
+
+  private teardownNetworkReconnect() {
+    if (this.networkListener) {
+      this.networkListener.remove();
+      this.networkListener = undefined;
     }
   }
 
@@ -356,12 +384,13 @@ export class AppComponent implements OnDestroy {
     this.stopPeriodicStatusCheck();
     // Stop app resume check
     this.stopAppResumeCheck();
+    // Stop network listener
+    this.teardownNetworkReconnect();
     // Unsubscribe from back button
     if (this.backButtonSubscription) {
       this.backButtonSubscription.unsubscribe();
       this.backButtonSubscription = undefined;
     }
-    // Cleanup socket connection on app destroy
-    this.socketService.disconnect();
+    // Keep socket lifecycle tied to auth/logout only
   }
 }

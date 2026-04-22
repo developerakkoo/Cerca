@@ -1173,27 +1173,14 @@ export class RideService {
       console.error('❌ [RideService] Socket is not connected! Cannot send message via socket.');
       console.error('   Message will only be sent via REST API.');
       console.error('   Attempting to reconnect socket...');
-      
-      // Try to reconnect socket by reinitializing
+
       try {
         const userId = await this.storage.get('userId');
         if (userId) {
-          console.log('🔄 [RideService] Reinitializing socket connection...');
-          // Reset initialization flag and reconnect
-          (this.socketService as any).isInitialized = false;
-          await this.socketService.initialize({ userId, userType: 'rider' });
-          
-          // Wait for connection (socket connection is async)
-          console.log('⏳ [RideService] Waiting for socket connection...');
-          let retries = 0;
-          const maxRetries = 5;
-          while (retries < maxRetries && !this.socketService.isConnected()) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            retries++;
-            console.log(`   Retry ${retries}/${maxRetries}...`);
-          }
-          
-          // Check again
+          console.log('🔄 [RideService] Ensuring socket connection via SocketService...');
+          await this.socketService.ensureConnected({ userId, userType: 'rider' });
+          await this.socketService.waitForConnection(10000);
+
           const stillConnected = this.socketService.isConnected();
           const newSocketId = this.socketService.getSocketId();
           console.log('🔌 [RideService] Socket connection after retry:', stillConnected ? 'CONNECTED' : 'DISCONNECTED');

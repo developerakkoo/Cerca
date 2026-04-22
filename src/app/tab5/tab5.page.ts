@@ -25,6 +25,7 @@ export class Tab5Page implements OnInit, OnDestroy {
   activeSupportCount: number = 0;
   isLoading: boolean = true;
   private subscriptions: Subscription[] = [];
+  private supportIssuesSub?: Subscription;
   languages: Language[] = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
     { code: 'hi', name: 'Hindi', flag: '🇮🇳' },
@@ -44,13 +45,26 @@ export class Tab5Page implements OnInit, OnDestroy {
   ngOnInit() {
     this.initializeLanguage();
     this.animateItems();
-    this.getUser();
-    this.loadActiveSupportCount();
+    const userSub = this.userService.getUser().subscribe((user: User) => {
+      this.user = user;
+      this.isLoading = false;
+      this.reloadSupportCount(user);
+    });
+    this.subscriptions.push(userSub);
     this.setupSocketListeners();
+  }
+
+  ionViewWillEnter() {
+    const u = this.userService.getCurrentUser();
+    const uid = u?.id || u?._id;
+    if (uid && u?.isLoggedIn) {
+      this.userService.refreshUserFromApi(String(uid)).subscribe();
+    }
   }
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.supportIssuesSub?.unsubscribe();
   }
 
   private initializeLanguage() {
@@ -76,15 +90,6 @@ export class Tab5Page implements OnInit, OnDestroy {
     });
   }
 
-  getUser() {
-    this.isLoading = true;
-    this.userService.getUser().subscribe((user: User) => {
-      this.user = user;
-      this.isLoading = false;
-    });
-  }
-
-
   toggleNotifications() {
     this.notificationsEnabled = !this.notificationsEnabled;
     // Implement notifications logic
@@ -97,11 +102,13 @@ export class Tab5Page implements OnInit, OnDestroy {
   }
 
   editProfile() {
-    if (this.user?.id) {
-      this.router.navigate(['/profile-details', 
-         this.user.phoneNumber,
-        true,
-         this.user.id 
+    const uid = this.user?.id || this.user?._id;
+    if (uid) {
+      this.router.navigate([
+        '/profile-details',
+        this.user.phoneNumber || '',
+        'true',
+        String(uid),
       ]);
     }
   }
@@ -115,23 +122,30 @@ export class Tab5Page implements OnInit, OnDestroy {
     this.router.navigate(['/support-list']);
   }
 
-  loadActiveSupportCount() {
-    this.userService.getUser().subscribe((user: User) => {
-      if (user?.id) {
-        const sub = this.supportService.getUserIssues(user.id).subscribe({
-          next: (issues: SupportIssue[]) => {
-            this.activeSupportCount = issues.filter(
-              issue => ['WAITING_FOR_ADMIN', 'ADMIN_ASSIGNED', 'CHAT_ACTIVE', 'FEEDBACK_PENDING'].includes(issue.status)
-            ).length;
-          },
-          error: (error) => {
-            console.error('Error loading support count:', error);
-            this.activeSupportCount = 0;
-          }
-        });
-        this.subscriptions.push(sub);
-      }
+  private reloadSupportCount(user: User | any) {
+    const uid = user?.id || user?._id;
+    this.supportIssuesSub?.unsubscribe();
+    if (!uid || !user?.isLoggedIn) {
+      this.activeSupportCount = 0;
+      return;
+    }
+    this.supportIssuesSub = this.supportService.getUserIssues(String(uid)).subscribe({
+      next: (issues: SupportIssue[]) => {
+        this.activeSupportCount = issues.filter((issue) =>
+          ['WAITING_FOR_ADMIN', 'ADMIN_ASSIGNED', 'CHAT_ACTIVE', 'FEEDBACK_PENDING'].includes(
+            issue.status
+          )
+        ).length;
+      },
+      error: (error) => {
+        console.error('Error loading support count:', error);
+        this.activeSupportCount = 0;
+      },
     });
+  }
+
+  loadActiveSupportCount() {
+    this.reloadSupportCount(this.userService.getCurrentUser());
   }
 
   setupSocketListeners() {

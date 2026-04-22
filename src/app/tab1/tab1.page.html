@@ -101,22 +101,22 @@
         
         <!-- Small Ride Card -->
         <div class="ride-card" 
-             *ngIf="vehicleServices.cercaSmall?.enabled"
+             *ngIf="vehicleServices.cercaZip?.enabled"
              [class.selected]="selectedVehicle === 'small'"
              (click)="selectedVehicle = 'small'">
           <div class="vehicle-image-wrapper">
-            <img [src]="vehicleServices.cercaSmall?.imagePath || 'assets/cars/cerca-small.png'" 
-                 alt="Small"
+            <img [src]="vehicleServices.cercaZip?.imagePath || 'assets/cars/cerca-small.png'" 
+                 alt="Cerca Zip"
                  onerror="this.src='assets/cars/cerca-small.png'">
           </div>
           <div class="ride-info">
-            <h4 class="ride-name">{{ vehicleServices.cercaSmall?.name || 'Small' }}</h4>
+            <h4 class="ride-name">{{ vehicleServices.cercaZip?.name || 'Cerca Zip' }}</h4>
             <p class="ride-eta">{{ vehicleETAs.small || '2-4 min' }} away</p>
           </div>
           <div class="ride-price-radio">
             <p class="ride-price">
-              <span *ngIf="calculatedFares?.cercaSmall">₹{{ calculatedFares?.cercaSmall?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaSmall">₹{{ vehicleServices.cercaSmall?.price || 299 }}</span>
+              <span *ngIf="calculatedFares?.cercaZip">₹{{ calculatedFares?.cercaZip?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaZip">₹{{ vehicleServices.cercaZip?.price || 299 }}</span>
             </p>
             <ion-radio value="small" mode="md" class="ride-radio"></ion-radio>
           </div>
@@ -124,22 +124,22 @@
 
         <!-- Medium Ride Card -->
         <div class="ride-card" 
-             *ngIf="vehicleServices.cercaMedium?.enabled"
+             *ngIf="vehicleServices.cercaGlide?.enabled"
              [class.selected]="selectedVehicle === 'medium'"
              (click)="selectedVehicle = 'medium'">
           <div class="vehicle-image-wrapper">
-            <img [src]="vehicleServices.cercaMedium?.imagePath || 'assets/cars/Cerca-medium.png'" 
-                 alt="Medium"
+            <img [src]="vehicleServices.cercaGlide?.imagePath || 'assets/cars/Cerca-medium.png'" 
+                 alt="Cerca Glide"
                  onerror="this.src='assets/cars/Cerca-medium.png'">
           </div>
           <div class="ride-info">
-            <h4 class="ride-name">{{ vehicleServices.cercaMedium?.name || 'Medium' }}</h4>
+            <h4 class="ride-name">{{ vehicleServices.cercaGlide?.name || 'Cerca Glide' }}</h4>
             <p class="ride-eta">{{ vehicleETAs.medium || '3-5 min' }} away</p>
           </div>
           <div class="ride-price-radio">
             <p class="ride-price">
-              <span *ngIf="calculatedFares?.cercaMedium">₹{{ calculatedFares?.cercaMedium?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaMedium">₹{{ vehicleServices.cercaMedium?.price || 499 }}</span>
+              <span *ngIf="calculatedFares?.cercaGlide">₹{{ calculatedFares?.cercaGlide?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaGlide">₹{{ vehicleServices.cercaGlide?.price || 499 }}</span>
             </p>
             <ion-radio value="medium" mode="md" class="ride-radio"></ion-radio>
           </div>
@@ -147,22 +147,22 @@
 
         <!-- Large Ride Card -->
         <div class="ride-card" 
-             *ngIf="vehicleServices.cercaLarge?.enabled"
+             *ngIf="vehicleServices.cercaTitan?.enabled"
              [class.selected]="selectedVehicle === 'large'"
              (click)="selectedVehicle = 'large'">
           <div class="vehicle-image-wrapper">
-            <img [src]="vehicleServices.cercaLarge?.imagePath || 'assets/cars/cerca-large.png'" 
-                 alt="Large"
+            <img [src]="vehicleServices.cercaTitan?.imagePath || 'assets/cars/cerca-large.png'" 
+                 alt="Cerca Titan"
                  onerror="this.src='assets/cars/cerca-large.png'">
           </div>
           <div class="ride-info">
-            <h4 class="ride-name">{{ vehicleServices.cercaLarge?.name || 'Large' }}</h4>
+            <h4 class="ride-name">{{ vehicleServices.cercaTitan?.name || 'Cerca Titan' }}</h4>
             <p class="ride-eta">{{ vehicleETAs.large || '4-6 min' }} away</p>
           </div>
           <div class="ride-price-radio">
             <p class="ride-price">
-              <span *ngIf="calculatedFares?.cercaLarge">₹{{ calculatedFares?.cercaLarge?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaLarge">₹{{ vehicleServices.cercaLarge?.price || 699 }}</span>
+              <span *ngIf="calculatedFares?.cercaTitan">₹{{ calculatedFares?.cercaTitan?.finalFare }}</span>
+              <span *ngIf="!calculatedFares?.cercaTitan">₹{{ vehicleServices.cercaTitan?.price || 699 }}</span>
             </p>
             <ion-radio value="large" mode="md" class="ride-radio"></ion-radio>
           </div>

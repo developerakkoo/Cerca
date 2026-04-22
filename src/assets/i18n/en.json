@@ -71,9 +71,9 @@
     "whereAreYou": "Where are you?",
     "whereTo": "Where to?",
     "proceedToPayment": "Proceed to Payment",
-    "cercaSmall": "Cerca Small",
-    "cercaMedium": "Cerca Medium",
-    "cercaLarge": "Cerca Large",
+    "cercaZip": "Cerca Zip",
+    "cercaGlide": "Cerca Glide",
+    "cercaTitan": "Cerca Titan",
     "seats": "seats"
   },
   "BOOKINGS": {
@@ -224,9 +224,9 @@
     "whereAreYou": "Where are you?",
     "whereTo": "Where to?",
     "proceedToPayment": "Proceed to Payment",
-    "cercaSmall": "Cerca Small",
-    "cercaMedium": "Cerca Medium",
-    "cercaLarge": "Cerca Large",
+    "cercaZip": "Cerca Zip",
+    "cercaGlide": "Cerca Glide",
+    "cercaTitan": "Cerca Titan",
     "seats": "seats"
   },
   "NOTIFICATIONS": {
