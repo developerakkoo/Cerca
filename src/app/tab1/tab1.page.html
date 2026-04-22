@@ -63,25 +63,47 @@
     <!-- Floating Input Section - Always at top -->
     <div class="floating-inputs">
       <!-- Pickup Input Card -->
-      <div class="input-card pickup-card" (click)="onInputFocus('pickup')">
-        <div class="input-icon-wrapper pickup-icon">
-          <ion-icon name="location-outline"></ion-icon>
+      <div class="input-card pickup-card">
+        <div class="input-card-main" (click)="onInputFocus('pickup')">
+          <div class="input-icon-wrapper pickup-icon">
+            <ion-icon name="location-outline"></ion-icon>
+          </div>
+          <div class="input-content">
+            <span *ngIf="!pickupAddress" class="input-placeholder">Pickup location</span>
+            <span *ngIf="pickupAddress" class="input-value">{{ pickupAddress }}</span>
+          </div>
         </div>
-        <div class="input-content">
-          <span *ngIf="!pickupAddress" class="input-placeholder">Pickup location</span>
-          <span *ngIf="pickupAddress" class="input-value">{{ pickupAddress }}</span>
-        </div>
+        <ion-button
+          *ngIf="pickupAddress"
+          class="input-clear-btn"
+          fill="clear"
+          size="small"
+          aria-label="Clear pickup and choose again"
+          (click)="clearPickupAddress($event)">
+          <ion-icon slot="icon-only" name="close-outline"></ion-icon>
+        </ion-button>
       </div>
 
       <!-- Destination Input Card -->
-      <div class="input-card destination-card" (click)="onInputFocus('destination')">
-        <div class="input-icon-wrapper destination-icon">
-          <ion-icon name="navigate-outline"></ion-icon>
+      <div class="input-card destination-card">
+        <div class="input-card-main" (click)="onInputFocus('destination')">
+          <div class="input-icon-wrapper destination-icon">
+            <ion-icon name="navigate-outline"></ion-icon>
+          </div>
+          <div class="input-content">
+            <span *ngIf="!destinationAddress" class="input-placeholder">Where to?</span>
+            <span *ngIf="destinationAddress" class="input-value">{{ destinationAddress }}</span>
+          </div>
         </div>
-        <div class="input-content">
-          <span *ngIf="!destinationAddress" class="input-placeholder">Where to?</span>
-          <span *ngIf="destinationAddress" class="input-value">{{ destinationAddress }}</span>
-        </div>
+        <ion-button
+          *ngIf="destinationAddress"
+          class="input-clear-btn"
+          fill="clear"
+          size="small"
+          aria-label="Clear destination and choose again"
+          (click)="clearDestinationAddress($event)">
+          <ion-icon slot="icon-only" name="close-outline"></ion-icon>
+        </ion-button>
       </div>
     </div>
 
@@ -97,13 +119,18 @@
 
     <!-- Ride Cards Vertical List -->
     <div class="ride-cards-container" *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares">
-      <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
+      <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)" class="ride-tier-radio-group">
         
         <!-- Small Ride Card -->
         <div class="ride-card" 
              *ngIf="vehicleServices.cercaZip?.enabled"
              [class.selected]="selectedVehicle === 'small'"
-             (click)="selectedVehicle = 'small'">
+             role="button"
+             tabindex="0"
+             [attr.aria-checked]="selectedVehicle === 'small'"
+             (click)="selectVehicle('small')"
+             (keydown.enter)="selectVehicle('small')"
+             (keydown.space)="$event.preventDefault(); selectVehicle('small')">
           <div class="vehicle-image-wrapper">
             <img [src]="vehicleServices.cercaZip?.imagePath || 'assets/cars/cerca-small.png'" 
                  alt="Cerca Zip"
@@ -114,11 +141,11 @@
             <p class="ride-eta">{{ vehicleETAs.small || '2-4 min' }} away</p>
           </div>
           <div class="ride-price-radio">
-            <p class="ride-price">
+            <p class="ride-price ride-price--primary">
               <span *ngIf="calculatedFares?.cercaZip">₹{{ calculatedFares?.cercaZip?.finalFare }}</span>
               <span *ngIf="!calculatedFares?.cercaZip">₹{{ vehicleServices.cercaZip?.price || 299 }}</span>
             </p>
-            <ion-radio value="small" mode="md" class="ride-radio"></ion-radio>
+            <ion-radio value="small" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
           </div>
         </div>
 
@@ -126,7 +153,12 @@
         <div class="ride-card" 
              *ngIf="vehicleServices.cercaGlide?.enabled"
              [class.selected]="selectedVehicle === 'medium'"
-             (click)="selectedVehicle = 'medium'">
+             role="button"
+             tabindex="0"
+             [attr.aria-checked]="selectedVehicle === 'medium'"
+             (click)="selectVehicle('medium')"
+             (keydown.enter)="selectVehicle('medium')"
+             (keydown.space)="$event.preventDefault(); selectVehicle('medium')">
           <div class="vehicle-image-wrapper">
             <img [src]="vehicleServices.cercaGlide?.imagePath || 'assets/cars/Cerca-medium.png'" 
                  alt="Cerca Glide"
@@ -137,11 +169,11 @@
             <p class="ride-eta">{{ vehicleETAs.medium || '3-5 min' }} away</p>
           </div>
           <div class="ride-price-radio">
-            <p class="ride-price">
+            <p class="ride-price ride-price--primary">
               <span *ngIf="calculatedFares?.cercaGlide">₹{{ calculatedFares?.cercaGlide?.finalFare }}</span>
               <span *ngIf="!calculatedFares?.cercaGlide">₹{{ vehicleServices.cercaGlide?.price || 499 }}</span>
             </p>
-            <ion-radio value="medium" mode="md" class="ride-radio"></ion-radio>
+            <ion-radio value="medium" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
           </div>
         </div>
 
@@ -149,7 +181,12 @@
         <div class="ride-card" 
              *ngIf="vehicleServices.cercaTitan?.enabled"
              [class.selected]="selectedVehicle === 'large'"
-             (click)="selectedVehicle = 'large'">
+             role="button"
+             tabindex="0"
+             [attr.aria-checked]="selectedVehicle === 'large'"
+             (click)="selectVehicle('large')"
+             (keydown.enter)="selectVehicle('large')"
+             (keydown.space)="$event.preventDefault(); selectVehicle('large')">
           <div class="vehicle-image-wrapper">
             <img [src]="vehicleServices.cercaTitan?.imagePath || 'assets/cars/cerca-large.png'" 
                  alt="Cerca Titan"
@@ -160,23 +197,25 @@
             <p class="ride-eta">{{ vehicleETAs.large || '4-6 min' }} away</p>
           </div>
           <div class="ride-price-radio">
-            <p class="ride-price">
+            <p class="ride-price ride-price--primary">
               <span *ngIf="calculatedFares?.cercaTitan">₹{{ calculatedFares?.cercaTitan?.finalFare }}</span>
               <span *ngIf="!calculatedFares?.cercaTitan">₹{{ vehicleServices.cercaTitan?.price || 699 }}</span>
             </p>
-            <ion-radio value="large" mode="md" class="ride-radio"></ion-radio>
+            <ion-radio value="large" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
           </div>
         </div>
 
       </ion-radio-group>
-      
-      <!-- Book Now Button -->
-      <div class="book-now-wrapper" *ngIf="selectedVehicle">
-        <button class="book-now-btn" (click)="goToPayment()">
-          <span class="btn-text">Book Now</span>
-          <ion-icon name="arrow-forward-outline"></ion-icon>
-        </button>
-      </div>
+    </div>
+
+    <!-- Book Now — outside scroll area so CTA always stays visible above tab bar -->
+    <div
+      class="book-now-wrapper"
+      *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares && selectedVehicle">
+      <button class="book-now-btn" (click)="goToPayment()">
+        <span class="btn-text">Book Now</span>
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </button>
     </div>
     </div>
   </div>

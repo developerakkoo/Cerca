@@ -89,6 +89,21 @@ capacitor-google-map * {
   --backdrop-opacity: 0.8;
 }
 
+/* Choose Trip sheet modal — host + content part (scoped to this cssClass only) */
+ion-modal.choose-trip-modal {
+  --width: 100%;
+  --max-width: 100%;
+  --border-radius: 24px 24px 0 0;
+  --backdrop-opacity: 0.4;
+}
+
+ion-modal.choose-trip-modal::part(content) {
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+}
+
 /* Share Ride Alert Styles */
 .share-ride-alert {
   --backdrop-opacity: 0.6;

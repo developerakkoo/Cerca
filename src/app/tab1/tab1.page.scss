@@ -247,21 +247,53 @@
   .input-card {
     background: white;
     border-radius: 12px;
-    padding: 12px 16px;
+    padding: 4px 4px 4px 12px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
     pointer-events: auto;
     min-height: 48px;
     height: 48px;
     will-change: transform, box-shadow;
 
-    &:active {
+    &:active .input-card-main {
       transform: scale(0.98);
+    }
+
+    &:active {
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .input-card-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0 8px 4px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .input-clear-btn {
+      --padding-start: 8px;
+      --padding-end: 8px;
+      margin: 0;
+      flex-shrink: 0;
+      height: 44px;
+      width: 44px;
+      color: rgba(0, 0, 0, 0.45);
+
+      ion-icon {
+        font-size: 22px;
+      }
+
+      &:active {
+        color: rgba(0, 0, 0, 0.75);
+      }
     }
 
     .input-icon-wrapper {
@@ -330,33 +362,40 @@
   }
 }
 
-// Ride Cards Section
+// Ride Cards Section (Tab1 map sheet — same visual language as choose-trip modal)
+$ride-ink: #0e2a47;
+$ride-ink-tint: rgba(14, 42, 71, 0.06);
+$ride-gutter: 20px;
+
 .ride-cards-section {
   position: absolute;
   bottom: var(--cerca-tab-bar-offset);
   left: 0;
   right: 0;
-  background: white;
+  background: #fff;
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
   z-index: 200;
-  padding: 20px;
-  padding-bottom: calc(20px + env(safe-area-inset-bottom));
-  height: clamp(45vh, 70vh, 82vh);
+  padding: $ride-gutter;
+  padding-bottom: calc(#{$ride-gutter} + env(safe-area-inset-bottom, 0px));
+  height: auto;
+  max-height: min(90dvh, calc(100dvh - var(--cerca-tab-bar-offset) - 32px));
   display: flex;
   flex-direction: column;
   animation: slideUpModal 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   overflow: hidden;
   transform: translateY(100%);
+  align-items: stretch;
 
   .section-title {
     font-size: 20px;
-    font-weight: 700;
-    color: var(--ion-color-dark);
-    margin: 0 0 16px 0;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.87);
+    margin: 0 0 12px;
     padding: 0;
     letter-spacing: -0.01em;
+    line-height: 1.25;
     flex-shrink: 0;
   }
 
@@ -365,12 +404,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: var(--spacing-xl);
+    padding: 32px $ride-gutter 40px;
     color: var(--ion-color-medium);
-    flex: 1;
+    min-height: 140px;
+    flex: 0 0 auto;
 
     p {
-      margin-top: var(--spacing-md);
+      margin-top: 16px;
       font-size: 15px;
       font-weight: 500;
     }
@@ -379,75 +419,79 @@
   .ride-cards-container {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
     width: 100%;
-    padding: 0 0 8px 0;
+    padding: 0 0 4px;
+    max-height: min(60vh, calc(100dvh - 220px));
 
-    ion-radio-group {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    ion-radio-group.ride-tier-radio-group {
       width: 100%;
       padding: 0;
+
+      // Ionic wraps options in a light-DOM wrapper — gap must live here
+      .radio-group-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: 100%;
+      }
     }
 
     .ride-card {
-      background: white;
-      border-radius: 12px;
+      background: #fff;
+      border-radius: 16px;
       padding: 16px;
-      border: 2px solid rgba(var(--ion-color-medium-rgb), 0.1);
+      border: 2px solid rgba(0, 0, 0, 0.08);
       width: 100%;
-      min-height: 80px;
+      min-height: 96px;
       height: auto;
       display: flex;
       flex-direction: row;
-      align-items: center;
+      align-items: stretch;
       justify-content: space-between;
       gap: 16px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-      transition: all var(--transition-base);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      transition:
+        border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.15s ease;
       cursor: pointer;
       flex-shrink: 0;
       position: relative;
-      will-change: transform, border-color, background, box-shadow;
-      animation: fadeInStagger 0.3s ease-out forwards;
+      outline: none;
+      animation: fadeInStagger 0.28s ease-out forwards;
 
-      &:nth-child(1) {
-        animation-delay: 0.05s;
-      }
-      &:nth-child(2) {
-        animation-delay: 0.1s;
-      }
-      &:nth-child(3) {
-        animation-delay: 0.15s;
+      &:focus-visible {
+        box-shadow: 0 0 0 3px rgba(14, 42, 71, 0.25);
       }
 
       &:active {
-        transform: scale(0.98);
+        transform: scale(0.985);
       }
 
       &.selected {
-        border-color: var(--ion-color-primary);
-        border-width: 2px;
-        background: rgba(var(--ion-color-primary-rgb), 0.04);
-        box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb), 0.15);
+        border-color: $ride-ink;
+        background: $ride-ink-tint;
+        box-shadow: 0 4px 16px rgba(14, 42, 71, 0.18);
       }
 
       .vehicle-image-wrapper {
         width: 64px;
         height: 64px;
         min-width: 64px;
+        align-self: center;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        background: rgba(var(--ion-color-light-rgb), 0.5);
-        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.04);
+        border-radius: 12px;
         padding: 8px;
 
         img {
@@ -462,25 +506,25 @@
         display: flex;
         flex-direction: column;
         justify-content: center;
-        gap: 4px;
+        gap: 6px;
         flex: 1;
         min-width: 0;
 
         .ride-name {
-          font-weight: 500;
-          color: rgba(0, 0, 0, 0.87);
+          font-weight: 600;
+          color: rgba(0, 0, 0, 0.9);
           font-size: 16px;
-          letter-spacing: 0.15px;
-          line-height: 1.5;
+          letter-spacing: -0.01em;
+          line-height: 1.3;
           margin: 0;
         }
 
         .ride-eta {
-          font-size: 14px;
-          color: rgba(0, 0, 0, 0.6);
-          font-weight: 400;
+          font-size: 13px;
+          color: rgba(0, 0, 0, 0.72);
+          font-weight: 500;
           margin: 0;
-          line-height: 1.43;
+          line-height: 1.4;
         }
       }
 
@@ -488,70 +532,80 @@
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        justify-content: center;
-        gap: 8px;
+        justify-content: flex-start;
+        align-self: flex-start;
         flex-shrink: 0;
+        padding-top: 2px;
+        gap: 0;
+        min-width: 72px;
 
         .ride-price {
-          font-weight: 500;
-          color: rgba(0, 0, 0, 0.87);
-          font-size: 18px;
-          letter-spacing: 0.15px;
-          line-height: 1.33;
           margin: 0;
+          line-height: 1.2;
         }
 
-        .ride-radio {
-          --color: var(--ion-color-medium);
-          --color-checked: var(--ion-color-primary);
-          width: 24px;
-          height: 24px;
-          margin: 0;
-          // Ensure touch target is at least 44x44px
-          padding: 10px;
-          min-width: 44px;
-          min-height: 44px;
+        .ride-price--primary {
+          font-weight: 700;
+          font-size: 22px;
+          color: $ride-ink;
+          letter-spacing: -0.02em;
+        }
+
+        // Keep in DOM for ion-radio-group / ngModel; card is the visible control
+        .ride-radio--visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+          opacity: 0;
+          pointer-events: none;
         }
       }
     }
+  }
 
-    // Book Now Button Wrapper
-    .book-now-wrapper {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(0, 0, 0, 0.08);
-      flex-shrink: 0;
+  .book-now-wrapper {
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    width: 100%;
 
-      .book-now-btn {
-        width: 100%;
-        height: 52px;
-        background: var(--ion-color-primary);
-        border: none;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+    .book-now-btn {
+      width: 100%;
+      height: 54px;
+      background: $ride-ink;
+      border: none;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 6px 18px rgba(14, 42, 71, 0.35);
 
-        &:active {
-          transform: scale(0.98);
-          box-shadow: 0 2px 8px rgba(var(--ion-color-primary-rgb), 0.25);
-        }
+      &:active {
+        transform: scale(0.99);
+        box-shadow: 0 4px 12px rgba(14, 42, 71, 0.28);
+      }
 
-        .btn-text {
-          font-size: 17px;
-          font-weight: 600;
-          color: white;
-          letter-spacing: 0.3px;
-        }
+      .btn-text {
+        font-size: 15px;
+        font-weight: 600;
+        color: #fff;
+        letter-spacing: 0.01em;
+      }
 
-        ion-icon {
-          font-size: 20px;
-          color: white;
-        }
+      ion-icon {
+        font-size: 20px;
+        color: #fff;
       }
     }
   }
@@ -606,11 +660,11 @@
 @media (max-width: 400px) {
   .ride-cards-section {
     padding: 16px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 
     .ride-cards-container .ride-card {
       padding: 12px;
-      min-height: 72px;
+      min-height: 88px;
       gap: 12px;
 
       .vehicle-image-wrapper {
@@ -623,8 +677,8 @@
         font-size: 15px;
       }
 
-      .ride-price-radio .ride-price {
-        font-size: 16px;
+      .ride-price-radio .ride-price--primary {
+        font-size: 20px;
       }
     }
   }

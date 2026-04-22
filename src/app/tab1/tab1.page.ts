@@ -272,6 +272,22 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   }
 
 
+  clearPickupAddress(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.zone.run(() => {
+      this.userService.setPickup('');
+    });
+  }
+
+  clearDestinationAddress(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.zone.run(() => {
+      this.userService.setDestination('');
+    });
+  }
+
   async onInputFocus(type: 'pickup' | 'destination') {
     const modal = await this.modalController.create({
       component: SearchPage,
@@ -368,6 +384,15 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   onVehicleSelect(event: any) {
     this.selectedVehicle = event.detail.value;
     // Recalculate fares when vehicle changes (in case promo code applies differently)
+    this.calculateFares();
+  }
+
+  /** Card tap / keyboard — keeps ion-radio-group model in sync */
+  selectVehicle(tier: 'small' | 'medium' | 'large'): void {
+    if (this.selectedVehicle === tier) {
+      return;
+    }
+    this.selectedVehicle = tier;
     this.calculateFares();
   }
 

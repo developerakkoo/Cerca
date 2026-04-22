@@ -8,109 +8,80 @@
   cssClass="choose-trip-modal">
   
   <ng-template>
-    <!-- Grab Handle -->
-    <div class="modal-handle" #handle>
-      <div class="handle-bar"></div>
+    <div class="modal-sheet-top">
+      <div class="modal-handle" #handle>
+        <div class="handle-bar"></div>
+      </div>
+
+      <div class="modal-header">
+        <h2 class="header-title">Choose a trip</h2>
+      </div>
     </div>
 
-    <!-- Sticky Header -->
-    <div class="modal-header">
-      <h2 class="header-title">Choose a trip</h2>
-    </div>
-
-    <!-- Scrollable Content -->
     <ion-content 
       #contentWrapper
       class="modal-content"
+      [class.modal-content--with-cta]="rideListVisible()"
       [scrollEvents]="true"
       [fullscreen]="false">
       
-      <!-- Loading State -->
       <div class="loading-state" *ngIf="isLoadingServices || isCalculatingFares">
         <ion-spinner></ion-spinner>
         <p>Finding available rides...</p>
       </div>
 
-      <!-- Ride Options List -->
-      <div class="ride-options-list" *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares">
-        <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event.detail.value)">
-          
-          <!-- Small Ride Option -->
-          <div class="ride-option" 
-               *ngIf="isVehicleEnabled('small')"
-               [class.selected]="selectedVehicle === 'small'"
-               (click)="onVehicleSelect('small')">
-            <div class="vehicle-image-wrapper">
-              <img [src]="getVehicleImage('small')" 
-                   alt="Cerca Zip"
-                   onerror="this.src='assets/cars/cerca-small.png'">
+      <div class="ride-options-list" *ngIf="rideListVisible()">
+        <div class="ride-options-inner">
+          <ng-container *ngFor="let tier of vehicleTiers">
+            <div
+              *ngIf="isVehicleEnabled(tier)"
+              class="ride-option"
+              [class.selected]="selectedVehicle === tier"
+              role="button"
+              tabindex="0"
+              [attr.aria-checked]="selectedVehicle === tier"
+              (click)="onVehicleSelect(tier)"
+              (keydown)="onCardKeydown($event, tier)">
+              <div class="vehicle-image-wrapper">
+                <img
+                  [src]="getVehicleImage(tier)"
+                  [alt]="getVehicleName(tier)"
+                  (error)="onVehicleImgError($event, tier)">
+              </div>
+              <div class="ride-main">
+                <div class="ride-title-row">
+                  <h4 class="ride-name">{{ getVehicleName(tier) }}</h4>
+                  <div class="ride-badges">
+                    <span class="badge badge--popular" *ngIf="isMostPopular(tier)">Most Popular</span>
+                    <span class="badge badge--availability" *ngIf="showHighAvailability(tier)">High availability</span>
+                    <span class="badge badge--limited" *ngIf="showLimitedAvailability(tier)">Limited availability</span>
+                  </div>
+                </div>
+                <p class="ride-subtitle">{{ getTierSubtitle(tier) }}</p>
+                <p class="ride-meta">{{ getPickupAndRideSummary(tier) }}</p>
+              </div>
+              <div class="ride-aside">
+                <p class="ride-price ride-price--primary">₹{{ getPrice(tier) }}</p>
+              </div>
             </div>
-            <div class="ride-info">
-              <h4 class="ride-name">{{ getVehicleName('small') }}</h4>
-              <p class="ride-eta">{{ getETA('small') }} away</p>
-            </div>
-            <div class="ride-price-radio">
-              <p class="ride-price">₹{{ getPrice('small') }}</p>
-              <ion-radio value="small" mode="md" class="ride-radio"></ion-radio>
-            </div>
-          </div>
-
-          <!-- Medium Ride Option -->
-          <div class="ride-option" 
-               *ngIf="isVehicleEnabled('medium')"
-               [class.selected]="selectedVehicle === 'medium'"
-               (click)="onVehicleSelect('medium')">
-            <div class="vehicle-image-wrapper">
-              <img [src]="getVehicleImage('medium')" 
-                   alt="Cerca Glide"
-                   onerror="this.src='assets/cars/Cerca-medium.png'">
-            </div>
-            <div class="ride-info">
-              <h4 class="ride-name">{{ getVehicleName('medium') }}</h4>
-              <p class="ride-eta">{{ getETA('medium') }} away</p>
-            </div>
-            <div class="ride-price-radio">
-              <p class="ride-price">₹{{ getPrice('medium') }}</p>
-              <ion-radio value="medium" mode="md" class="ride-radio"></ion-radio>
-            </div>
-          </div>
-
-          <!-- Large Ride Option -->
-          <div class="ride-option" 
-               *ngIf="isVehicleEnabled('large')"
-               [class.selected]="selectedVehicle === 'large'"
-               (click)="onVehicleSelect('large')">
-            <div class="vehicle-image-wrapper">
-              <img [src]="getVehicleImage('large')" 
-                   alt="Cerca Titan"
-                   onerror="this.src='assets/cars/cerca-large.png'">
-            </div>
-            <div class="ride-info">
-              <h4 class="ride-name">{{ getVehicleName('large') }}</h4>
-              <p class="ride-eta">{{ getETA('large') }} away</p>
-            </div>
-            <div class="ride-price-radio">
-              <p class="ride-price">₹{{ getPrice('large') }}</p>
-              <ion-radio value="large" mode="md" class="ride-radio"></ion-radio>
-            </div>
-          </div>
-
-        </ion-radio-group>
+          </ng-container>
+        </div>
       </div>
 
     </ion-content>
 
-    <!-- Footer - Only visible when expanded -->
-    <div class="modal-footer" *ngIf="currentBreakpoint >= 0.55">
-      <ion-button 
-        expand="block" 
-        class="confirm-button"
+    <div
+      class="modal-footer modal-footer--sticky"
+      *ngIf="rideListVisible()"
+      [class.modal-footer--inactive]="!selectedVehicle">
+      <ion-button
+        expand="block"
+        class="cta-book"
         (click)="onConfirmRide()"
         [disabled]="!selectedVehicle">
-        Confirm Ride
+        {{ getCtaLabel() }}
       </ion-button>
     </div>
 
   </ng-template>
 </ion-modal>
-
