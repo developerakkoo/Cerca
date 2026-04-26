@@ -35,7 +35,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   // Booking properties
   pickupAddress = '';
   destinationAddress = '';
-  selectedVehicle: string = 'small';
+  selectedVehicle: string = 'cercaZip';
   vehicleServices: VehicleServices | null = null;
   isLoadingServices = false;
   
@@ -44,9 +44,15 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   isCalculatingFares = false;
   fareCalculationError: string | null = null;
   private fareCalculationTimeout: any = null;
+  /** Last successful calculate-all-fares API payload (for payment quote guard). */
+  private lastFareQuoteSnapshot: {
+    apiDistanceKm: number;
+    estimatedDurationMin: number;
+    fares: { cercaZip?: FareBreakdown; cercaGlide?: FareBreakdown; cercaTitan?: FareBreakdown };
+  } | null = null;
   
   // ETA properties
-  vehicleETAs: { small?: string; medium?: string; large?: string } = {};
+  vehicleETAs: { cercaZip?: string; cercaGlide?: string; cercaTitan?: string } = {};
   
   // Map and confirm mode properties
   map: GoogleMap | null = null;
@@ -388,7 +394,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /** Card tap / keyboard — keeps ion-radio-group model in sync */
-  selectVehicle(tier: 'small' | 'medium' | 'large'): void {
+  selectVehicle(tier: 'cercaZip' | 'cercaGlide' | 'cercaTitan'): void {
     if (this.selectedVehicle === tier) {
       return;
     }
@@ -788,9 +794,9 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   calculateDriverETA(vehicleType: string): string {
     // Base ETA ranges (can be enhanced with real driver data)
     const etaRanges: { [key: string]: { min: number; max: number } } = {
-      small: { min: 2, max: 4 },
-      medium: { min: 3, max: 5 },
-      large: { min: 4, max: 6 }
+      cercaZip: { min: 2, max: 4 },
+      cercaGlide: { min: 3, max: 5 },
+      cercaTitan: { min: 4, max: 6 }
     };
     
     const range = etaRanges[vehicleType] || { min: 3, max: 5 };
@@ -805,13 +811,13 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   private calculateVehicleETAs() {
     if (this.vehicleServices) {
       if (this.vehicleServices.cercaZip?.enabled) {
-        this.vehicleETAs.small = this.calculateDriverETA('small');
+        this.vehicleETAs.cercaZip = this.calculateDriverETA('cercaZip');
       }
       if (this.vehicleServices.cercaGlide?.enabled) {
-        this.vehicleETAs.medium = this.calculateDriverETA('medium');
+        this.vehicleETAs.cercaGlide = this.calculateDriverETA('cercaGlide');
       }
       if (this.vehicleServices.cercaTitan?.enabled) {
-        this.vehicleETAs.large = this.calculateDriverETA('large');
+        this.vehicleETAs.cercaTitan = this.calculateDriverETA('cercaTitan');
       }
     }
   }
@@ -832,6 +838,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
       this.calculatedFares = {};
       this.vehicleETAs = {};
       this.fareCalculationError = null;
+      this.lastFareQuoteSnapshot = null;
       return;
     }
 
@@ -848,6 +855,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
     try {
       this.isCalculatingFares = true;
       this.fareCalculationError = null;
+      this.fareService.clearCache();
 
       const currentLocation = this.userService.getCurrentLocation();
       
@@ -924,11 +932,17 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
             if (response.success && response.data.fares) {
               this.calculatedFares = response.data.fares;
               this.fareCalculationError = null;
+              this.lastFareQuoteSnapshot = {
+                apiDistanceKm: response.data.distance,
+                estimatedDurationMin: response.data.estimatedDuration,
+                fares: { ...response.data.fares },
+              };
               // Recalculate ETAs when fares are successfully calculated
               this.calculateVehicleETAs();
             } else {
               this.fareCalculationError = 'Failed to calculate fares';
               this.calculatedFares = {};
+              this.lastFareQuoteSnapshot = null;
             }
             this.isCalculatingFares = false;
           });
@@ -938,6 +952,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
           this.zone.run(() => {
             this.fareCalculationError = 'Error calculating fares';
             this.calculatedFares = {};
+            this.lastFareQuoteSnapshot = null;
             this.isCalculatingFares = false;
           });
         }
@@ -947,6 +962,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
       this.zone.run(() => {
         this.fareCalculationError = 'Error calculating fares';
         this.calculatedFares = {};
+        this.lastFareQuoteSnapshot = null;
         this.isCalculatingFares = false;
       });
     }
@@ -1001,6 +1017,30 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
         dropoffLocation.lng
       );
 
+      const tier = this.selectedVehicle as 'cercaZip' | 'cercaGlide' | 'cercaTitan';
+      const tierFare = this.calculatedFares[tier];
+      const snap = this.lastFareQuoteSnapshot;
+      const fareQuoteSnapshot =
+        tierFare && snap
+          ? {
+              selectedVehicle: tier,
+              quotedFinalFare: tierFare.finalFare,
+              quotedFareAfterMinimum: tierFare.fareAfterMinimum,
+              apiDistanceKm: snap.apiDistanceKm,
+              estimatedDurationMin: snap.estimatedDurationMin,
+              haversineDistanceKm: distanceInKm,
+            }
+          : tierFare
+            ? {
+                selectedVehicle: tier,
+                quotedFinalFare: tierFare.finalFare,
+                quotedFareAfterMinimum: tierFare.fareAfterMinimum,
+                apiDistanceKm: distanceInKm,
+                estimatedDurationMin: Math.max(1, Math.round(distanceInKm * 2)),
+                haversineDistanceKm: distanceInKm,
+              }
+            : null;
+
       this.userService.setPendingRideDetails({
         pickupAddress: this.pickupAddress,
         dropoffAddress: this.destinationAddress,
@@ -1014,6 +1054,11 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
           longitude: dropoffLocation.lng,
         },
         distanceInKm: distanceInKm,
+        estimatedDuration:
+          fareQuoteSnapshot?.estimatedDurationMin ??
+          snap?.estimatedDurationMin ??
+          Math.max(1, Math.round(distanceInKm * 2)),
+        fareQuoteSnapshot,
       });
 
       await loading.dismiss();

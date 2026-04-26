@@ -36,15 +36,11 @@ import { SearchPage, SearchModalResult } from '../search/search.page';
 export class ActiveOrderePage implements OnInit, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef;
   private map!: GoogleMap;
-  private modalElement: HTMLElement | null = null;
   private driverMarkerId?: string;
   private userMarkerId?: string;
   private destinationMarkerId?: string;
   private routeLineId!: string;
   private routePolylines: string[] = []; // Store multiple polyline IDs
-  private modalObserver?: MutationObserver;
-  private modalCheckInterval?: any;
-
   // Socket.IO subscriptions
   private rideSubscription?: Subscription;
   private rideStatusSubscription?: Subscription;
@@ -53,6 +49,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private backButtonSubscription?: Subscription;
   private unreadCountSubscription?: Subscription;
   private routerSubscription?: Subscription;
+  private appResumeSub?: Subscription;
+  private resumeReconcileDebounce: ReturnType<typeof setTimeout> | null = null;
+  private appForegroundListenerReady = false;
 
   // Timeout references for cleanup
   private ratingTimeout?: any;
@@ -86,8 +85,23 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private lastRouteTargetKey = '';
   private lastCameraUpdate = 0;
   private static readonly DRIVER_MARKER_DEDUP_METERS = 12;
-  private static readonly ROUTE_REDRAW_MIN_INTERVAL_MS = 20_000;
-  private static readonly ROUTE_REDRAW_MOVE_METERS = 80;
+  /** Fewer Directions API calls; trail polyline shows movement between refreshes. */
+  private static readonly ROUTE_REDRAW_MIN_INTERVAL_MS = 50_000;
+  private static readonly ROUTE_REDRAW_MOVE_METERS = 100;
+  /** Cap native marker add/remove to avoid jank (Capacitor has no setPosition). */
+  private static readonly MIN_DRIVER_MARKER_INTERVAL_MS = 450;
+  private lastNativeDriverMarkerAt = 0;
+  private mapViewToken = 0;
+  /** Raw socket location vs smoothed point used for the cab on map. */
+  private driverTargetLocation: Location | null = null;
+  private displayDriverLocation: Location | null = null;
+  private driverSmoothingTimer: ReturnType<typeof setInterval> | null = null;
+  private driverTrail: { lat: number; lng: number }[] = [];
+  private static readonly TRAIL_MAX_POINTS = 200;
+  private trailPolylineIds: string[] = [];
+  private lastTrailDrawAt = 0;
+  private static readonly TRAIL_REDRAW_MIN_MS = 2000;
+  // QA: poor GPS, tunnel, long ride (trail cap 200), background/resume, terminal ride (no broadcast)
 
   pickupLocation = '';
   destinationLocation = '';
@@ -188,14 +202,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         // Set up back button handler
         this.setupBackButtonHandler();
         
-        // Setup modal pointer-events fix
-        this.setupModalPointerEventsFix();
-        
         // Only open modal for active rides
         if (!this.isViewOnlyMode) {
           this.isDriverModalOpen = true;
         }
-        
+        this.setupAppForegroundListener();
         return; // Skip active ride sync check since we have rideId
       } catch (error) {
         console.error('❌ [ActiveOrderPage] Error fetching ride details:', error);
@@ -254,9 +265,6 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     // Set up Android back button handler
     this.setupBackButtonHandler();
     
-    // Setup modal pointer-events fix for header clickability
-    this.setupModalPointerEventsFix();
-
     // Listen for navigation events to close modal
     this.routerSubscription = this.router.events
       .pipe(filter(event => event instanceof NavigationStart))
@@ -312,6 +320,13 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           if (isNewRide) {
             console.log('🆕 New ride detected, resetting rating flag');
             this.hasShownRating = false;
+            this.mapViewToken++;
+            this.stopDriverSmoothingLoop();
+            this.driverTrail = [];
+            this.trailPolylineIds = [];
+            this.displayDriverLocation = null;
+            this.driverTargetLocation = null;
+            void this.clearTrailPolylines();
           }
 
           this.currentRide = ride;
@@ -445,16 +460,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       .getDriverLocation()
       .subscribe((location) => {
         if (location) {
-          console.log('📍 Driver location update received:', location);
-          console.log('📍 Previous location:', this.driverLocation);
-          console.log('📍 New location:', location);
-
           this.driverLocation = location;
-
-          // Update marker on map in real-time (serialized + throttled inside)
+          this.driverTargetLocation = location;
+          if (!this.displayDriverLocation) {
+            this.displayDriverLocation = { ...location };
+          }
+          this.pushDriverTrailPoint(location);
+          this.ensureDriverSmoothingLoop();
           void this.updateDriverMarker();
-
-          console.log('✅ Driver marker updated on map');
         }
       });
 
@@ -510,14 +523,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         longitude: ride.pickupLocation.coordinates[0],
       };
 
-      // Set initial status based on ride status
-      const initialStatus = this.rideService.getRideStatus();
-      initialStatus.subscribe((status) => {
-        this.handleRideStatusChange(status);
-      });
+      // One-shot: align UI with current `rideStatus$` without a leaking subscription
+      const initial = await firstValueFrom(
+        this.rideService.getRideStatus().pipe(take(1))
+      );
+      this.handleRideStatusChange(initial);
 
       await this.initializeMapIfNeeded();
     }
+    this.setupAppForegroundListener();
   }
 
   async ionViewDidEnter() {
@@ -534,35 +548,72 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.isDriverModalOpen = true;
     }
     
-    // Re-establish socket connections if we have an active ride
     if (this.currentRide && !this.isViewOnlyMode) {
-      const rideId = this.currentRide._id;
-      
-      // Re-join ride room to receive events
-      try {
-        console.log('🚪 [ActiveOrderPage] Re-joining ride room:', rideId);
-        await this.rideService.joinRideRoom(rideId != null ? String(rideId) : '', undefined, 'User');
-        console.log('✅ [ActiveOrderPage] Re-joined ride room successfully');
-      } catch (error) {
-        console.error('❌ [ActiveOrderPage] Error re-joining room:', error);
-      }
-      
-      // Refresh ride state from backend to get latest data
-      try {
-        console.log('🔄 [ActiveOrderPage] Refreshing ride state from backend');
-        await this.fetchRideDetailsFromAPI(rideId);
-        console.log('✅ [ActiveOrderPage] Ride state refreshed');
-      } catch (error) {
-        console.error('❌ [ActiveOrderPage] Error refreshing ride state:', error);
-      }
-      
-      // Fetch unread message count
-      try {
-        await this.rideService.getUnreadCountForRide(rideId);
-      } catch (error) {
-        console.error('❌ [ActiveOrderPage] Error fetching unread count:', error);
-      }
+      await this.reconcileActiveRideView(
+        this.currentRide._id != null ? String(this.currentRide._id) : undefined
+      );
     }
+  }
+
+  /**
+   * Re-joins socket room, refetches ride from API, refreshes chat unread.
+   * Used on tab enter and on app resume when user stays on this page.
+   */
+  private async reconcileActiveRideView(rideId: string | undefined): Promise<void> {
+    if (rideId == null || this.isViewOnlyMode) {
+      return;
+    }
+    const idStr = String(rideId);
+
+    try {
+      console.log('🚪 [ActiveOrderPage] Re-joining ride room:', idStr);
+      await this.rideService.joinRideRoom(idStr, undefined, 'User');
+      console.log('✅ [ActiveOrderPage] Re-joined ride room successfully');
+    } catch (error) {
+      console.error('❌ [ActiveOrderPage] Error re-joining room:', error);
+    }
+
+    try {
+      console.log('🔄 [ActiveOrderPage] Refreshing ride from API');
+      await this.fetchRideDetailsFromAPI(idStr);
+      console.log('✅ [ActiveOrderPage] Ride state refreshed');
+    } catch (error) {
+      console.error('❌ [ActiveOrderPage] Error refreshing ride state:', error);
+    }
+
+    try {
+      await this.rideService.getUnreadCountForRide(idStr);
+    } catch (error) {
+      console.error('❌ [ActiveOrderPage] Error fetching unread count:', error);
+    }
+  }
+
+  private setupAppForegroundListener(): void {
+    if (this.appForegroundListenerReady) {
+      return;
+    }
+    this.appForegroundListenerReady = true;
+    this.appResumeSub = this.platform.resume.subscribe(() => {
+      this.scheduleReconcileOnForeground();
+    });
+  }
+
+  private scheduleReconcileOnForeground(): void {
+    if (this.resumeReconcileDebounce) {
+      clearTimeout(this.resumeReconcileDebounce);
+    }
+    this.resumeReconcileDebounce = setTimeout(() => {
+      this.resumeReconcileDebounce = null;
+      const rideId =
+        this.rideService.getCurrentRideValue()?._id ?? this.currentRide?._id;
+      if (rideId == null || this.isViewOnlyMode) {
+        return;
+      }
+      if (!this.router.url.includes('/active-ordere')) {
+        return;
+      }
+      void this.reconcileActiveRideView(rideId);
+    }, 280);
   }
 
   ionViewWillLeave() {
@@ -586,6 +637,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   // }
 
   ngOnDestroy() {
+    this.mapViewToken++;
+    this.stopDriverSmoothingLoop();
     // Always close modal when component is destroyed
     this.isDriverModalOpen = false;
     this.isMapInitialized = false;
@@ -599,6 +652,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.backButtonSubscription?.unsubscribe();
     this.unreadCountSubscription?.unsubscribe();
     this.routerSubscription?.unsubscribe();
+    this.appResumeSub?.unsubscribe();
+    if (this.resumeReconcileDebounce) {
+      clearTimeout(this.resumeReconcileDebounce);
+      this.resumeReconcileDebounce = null;
+    }
     this.stopPickupWaitTicker();
 
     // Clear all timeouts
@@ -611,18 +669,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.rateUsTimeout = undefined;
     }
 
-    // Cleanup modal observer and interval
-    if (this.modalObserver) {
-      this.modalObserver.disconnect();
+    // Legacy: remove DOM hooks from previous modal pointer workarounds
+    const legacyOverlay = document.getElementById('header-click-overlay');
+    if (legacyOverlay) {
+      legacyOverlay.remove();
     }
-    if (this.modalCheckInterval) {
-      clearInterval(this.modalCheckInterval);
-    }
-    
-    // Remove overlay if it exists
-    const overlay = document.getElementById('header-click-overlay');
-    if (overlay) {
-      overlay.remove();
+    const legacyStyle = document.getElementById('modal-header-pointer-fix');
+    if (legacyStyle) {
+      legacyStyle.remove();
     }
 
     // Destroy map
@@ -656,9 +710,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       // Update current ride with API data
       if (response) {
         this.currentRide = response as Ride;
-        
-        // Update ride service to sync with backend
-        this.rideService['currentRide$'].next(response as Ride);
+        await this.rideService.applyServerRide(response as Ride);
         
         // Set status immediately so template renders correctly
         const status = this.currentRide.status as RideStatus;
@@ -896,6 +948,12 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   private resetMapOverlayState(): void {
+    this.stopDriverSmoothingLoop();
+    this.trailPolylineIds = [];
+    this.driverTrail = [];
+    this.displayDriverLocation = null;
+    this.driverTargetLocation = null;
+    this.lastTrailDrawAt = 0;
     this.driverMarkerId = undefined;
     this.userMarkerId = undefined;
     this.destinationMarkerId = undefined;
@@ -907,6 +965,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     this.lastRouteDriverLat = 0;
     this.lastRouteDriverLng = 0;
     this.lastRouteTargetKey = '';
+    this.lastNativeDriverMarkerAt = 0;
     this.driverMarkerOpChain = Promise.resolve();
   }
 
@@ -923,6 +982,137 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       Math.sin(dLat / 2) ** 2 +
       Math.cos(la) * Math.cos(lb) * Math.sin(dLng / 2) ** 2;
     return 2 * R * Math.asin(Math.sqrt(Math.min(1, x)));
+  }
+
+  private getDriverPointForMap(): { lat: number; lng: number } {
+    const d = this.displayDriverLocation || this.driverLocation;
+    if (!d?.latitude || !d?.longitude) {
+      return { lat: 0, lng: 0 };
+    }
+    return { lat: d.latitude, lng: d.longitude };
+  }
+
+  private ensureDriverSmoothingLoop(): void {
+    if (this.driverSmoothingTimer) {
+      return;
+    }
+    this.driverSmoothingTimer = setInterval(() => {
+      if (!this.displayDriverLocation || !this.driverTargetLocation) {
+        return;
+      }
+      const t = 0.22;
+      this.displayDriverLocation = {
+        latitude:
+          this.displayDriverLocation.latitude +
+          (this.driverTargetLocation.latitude - this.displayDriverLocation.latitude) * t,
+        longitude:
+          this.displayDriverLocation.longitude +
+          (this.driverTargetLocation.longitude - this.displayDriverLocation.longitude) * t,
+      };
+      const d = this.distanceMeters(
+        {
+          lat: this.displayDriverLocation.latitude,
+          lng: this.displayDriverLocation.longitude,
+        },
+        {
+          lat: this.driverTargetLocation.latitude,
+          lng: this.driverTargetLocation.longitude,
+        }
+      );
+      if (d < 3) {
+        this.displayDriverLocation = { ...this.driverTargetLocation };
+      }
+      this.ngZone.run(() => {
+        void this.updateDriverMarker({ skipMoveDedup: true });
+      });
+    }, 80);
+  }
+
+  private stopDriverSmoothingLoop(): void {
+    if (this.driverSmoothingTimer) {
+      clearInterval(this.driverSmoothingTimer);
+      this.driverSmoothingTimer = null;
+    }
+  }
+
+  private pushDriverTrailPoint(loc: Location): void {
+    if (!loc?.latitude || !loc?.longitude) {
+      return;
+    }
+    const p = { lat: loc.latitude, lng: loc.longitude };
+    const last = this.driverTrail[this.driverTrail.length - 1];
+    if (last) {
+      const m = this.distanceMeters(
+        { lat: last.lat, lng: last.lng },
+        { lat: p.lat, lng: p.lng }
+      );
+      if (m < 8) {
+        return;
+      }
+    }
+    this.driverTrail.push(p);
+    if (this.driverTrail.length > ActiveOrderePage.TRAIL_MAX_POINTS) {
+      this.driverTrail = this.driverTrail.slice(-ActiveOrderePage.TRAIL_MAX_POINTS);
+    }
+    const n = Date.now();
+    if (n - this.lastTrailDrawAt < ActiveOrderePage.TRAIL_REDRAW_MIN_MS) {
+      return;
+    }
+    this.lastTrailDrawAt = n;
+    void this.drawTrailPolylines();
+  }
+
+  private async clearTrailPolylines(): Promise<void> {
+    if (!this.map || this.trailPolylineIds.length === 0) {
+      this.trailPolylineIds = [];
+      return;
+    }
+    try {
+      await this.map.removePolylines(this.trailPolylineIds);
+    } catch {
+      /* ignore */
+    }
+    this.trailPolylineIds = [];
+  }
+
+  private async drawTrailPolylines(): Promise<void> {
+    if (!this.isMapInitialized || !this.map || this.driverTrail.length < 2) {
+      return;
+    }
+    await this.clearTrailPolylines();
+    try {
+      const path = this.driverTrail.map((x) => ({ lat: x.lat, lng: x.lng }));
+      this.trailPolylineIds = await this.map.addPolylines([
+        {
+          path,
+          strokeColor: '#7F8C8D',
+          strokeOpacity: 0.75,
+          strokeWeight: 4,
+        },
+      ]);
+    } catch (e) {
+      console.warn('Trail polyline draw failed', e);
+    }
+  }
+
+  private cabIconForMovement(
+    from: { lat: number; lng: number } | null,
+    to: { lat: number; lng: number }
+  ): string {
+    if (!from) {
+      return 'assets/cab-east.png';
+    }
+    const φ1 = (from.lat * Math.PI) / 180;
+    const φ2 = (to.lat * Math.PI) / 180;
+    const Δλ = ((to.lng - from.lng) * Math.PI) / 180;
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x =
+      Math.cos(φ1) * Math.sin(φ2) -
+      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    const br = (Math.atan2(y, x) * 180) / Math.PI;
+    void br;
+    // Replace with 8 directional assets (cab-n, cab-ne, …) when available; single art for now.
+    return 'assets/cab-east.png';
   }
 
   /** Whether the driver→target route polyline should be recomputed (Directions API). */
@@ -962,14 +1152,17 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   /**
    * Queue a driver cab marker + optional route update. Overlapping socket events are serialized.
    */
-  private updateDriverMarker(options?: { forceRoute?: boolean }): Promise<void> {
+  private updateDriverMarker(options?: {
+    forceRoute?: boolean;
+    skipMoveDedup?: boolean;
+  }): Promise<void> {
     const forceRoute = options?.forceRoute === true;
+    const skipMoveDedup = options?.skipMoveDedup === true;
     if (!this.isMapInitialized || !this.map) {
       return Promise.resolve();
     }
-    const lat = this.driverLocation.latitude;
-    const lng = this.driverLocation.longitude;
-    if (!lat || !lng) {
+    const p = this.getDriverPointForMap();
+    if (!p.lat || !p.lng) {
       return Promise.resolve();
     }
     const needsRoute = this.computeRouteRedrawNeeded(forceRoute);
@@ -978,13 +1171,26 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     if (
       hasLastPlaced &&
       !forceRoute &&
+      !skipMoveDedup &&
       this.distanceMeters(
-        { lat, lng },
+        { lat: p.lat, lng: p.lng },
         { lat: this.lastDriverMarkerLat, lng: this.lastDriverMarkerLng }
       ) < ActiveOrderePage.DRIVER_MARKER_DEDUP_METERS &&
       !needsRoute
     ) {
       return Promise.resolve();
+    }
+    if (!forceRoute && !needsRoute) {
+      const t = Date.now();
+      const minGap = skipMoveDedup
+        ? 200
+        : ActiveOrderePage.MIN_DRIVER_MARKER_INTERVAL_MS;
+      if (t - this.lastNativeDriverMarkerAt < minGap) {
+        return Promise.resolve();
+      }
+      this.lastNativeDriverMarkerAt = t;
+    } else {
+      this.lastNativeDriverMarkerAt = Date.now();
     }
     return this.enqueueDriverMarkerUpdate(() =>
       this.updateDriverMarkerInternal({ forceRoute })
@@ -1009,11 +1215,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       return;
     }
 
-    const lat = this.driverLocation.latitude;
-    const lng = this.driverLocation.longitude;
-    if (!lat || !lng) return;
-
-    const driverCoord = { lat, lng };
+    const rawLat = this.driverLocation.latitude;
+    const rawLng = this.driverLocation.longitude;
+    if (!rawLat || !rawLng) {
+      return;
+    }
+    const driverCoord = this.getDriverPointForMap();
+    if (!driverCoord.lat || !driverCoord.lng) {
+      return;
+    }
+    const rawDriverCoord = { lat: rawLat, lng: rawLng };
     const targetCoord =
       this.currentRideStatus === 'in_progress'
         ? {
@@ -1039,7 +1250,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       routeKey !== this.lastRouteTargetKey ||
       Date.now() - this.lastRouteRedrawAt >
         ActiveOrderePage.ROUTE_REDRAW_MIN_INTERVAL_MS ||
-      this.distanceMeters(driverCoord, {
+      this.distanceMeters(rawDriverCoord, {
         lat: this.lastRouteDriverLat,
         lng: this.lastRouteDriverLng,
       }) > ActiveOrderePage.ROUTE_REDRAW_MOVE_METERS;
@@ -1059,11 +1270,17 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           ? 'Your Ride'
           : 'Driver Location';
 
+      const prevForIcon =
+        this.lastDriverMarkerLat && this.lastDriverMarkerLng
+          ? { lat: this.lastDriverMarkerLat, lng: this.lastDriverMarkerLng }
+          : null;
+      const cabIcon = this.cabIconForMovement(prevForIcon, driverCoord);
+
       const driverMarkerResult = await this.map.addMarker({
         coordinate: driverCoord,
         title,
         snippet: this.realDriver?.name || 'Driver',
-        iconUrl: 'assets/cab-east.png',
+        iconUrl: cabIcon,
         iconSize: {
           width: 40,
           height: 40,
@@ -1071,15 +1288,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       });
       this.driverMarkerId = driverMarkerResult;
 
-      this.lastDriverMarkerLat = lat;
-      this.lastDriverMarkerLng = lng;
+      this.lastDriverMarkerLat = driverCoord.lat;
+      this.lastDriverMarkerLng = driverCoord.lng;
 
       if (redrawRoute) {
         await this.clearRoute();
-        await this.drawRouteToTarget(driverCoord, targetCoord);
+        await this.drawRouteToTarget(rawDriverCoord, targetCoord);
         this.lastRouteRedrawAt = Date.now();
-        this.lastRouteDriverLat = lat;
-        this.lastRouteDriverLng = lng;
+        this.lastRouteDriverLat = rawDriverCoord.lat;
+        this.lastRouteDriverLng = rawDriverCoord.lng;
         this.lastRouteTargetKey = routeKey;
       }
 
@@ -1260,13 +1477,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
    * Clear existing route polylines from map
    */
   private async clearRoute() {
-    if (!this.map || this.routePolylines.length === 0) {
+    if (!this.map) {
       return;
     }
     try {
-      await this.map.removePolylines(this.routePolylines);
-      this.routePolylines = [];
-      console.log('🧹 Route polylines cleared');
+      if (this.routePolylines.length > 0) {
+        await this.map.removePolylines(this.routePolylines);
+        this.routePolylines = [];
+        console.log('🧹 Route polylines cleared');
+      }
     } catch (error) {
       console.error('Error clearing route:', error);
     }
@@ -1279,19 +1498,27 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     origin: { lat: number; lng: number },
     destination: { lat: number; lng: number }
   ) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
+    const requestToken = this.mapViewToken;
     try {
       console.log('🗺️ Fetching route from Google Directions API...');
       console.log('📍 Origin:', origin);
       console.log('📍 Destination:', destination);
 
-      // Use Google Maps JavaScript Directions Service
-      const route = await this.getDirectionsRoute(origin, destination);
+      const route = await this.getDirectionsRoute(
+        origin,
+        destination,
+        requestToken
+      );
 
+      if (requestToken !== this.mapViewToken) {
+        return;
+      }
       if (route && route.length > 0) {
         console.log('✅ Route received with', route.length, 'points');
 
-        // Draw the route on the map
         const polylineResult = await this.map.addPolylines([
           {
             path: route,
@@ -1302,15 +1529,18 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         ]);
 
         this.routePolylines = polylineResult;
+        await this.drawTrailPolylines();
         console.log('✅ Route drawn on map');
       } else {
         console.warn('⚠️ No route found, falling back to straight line');
-        // Fallback to straight line if no route found
         await this.drawStraightLine(origin, destination);
+        await this.drawTrailPolylines();
       }
     } catch (error) {
       console.error('❌ Error fetching route:', error);
-      // Fallback to straight line on error
+      if (requestToken !== this.mapViewToken) {
+        return;
+      }
       await this.drawStraightLine(origin, destination);
     }
   }
@@ -1320,10 +1550,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
    */
   private async getDirectionsRoute(
     origin: { lat: number; lng: number },
-    destination: { lat: number; lng: number }
+    destination: { lat: number; lng: number },
+    requestToken: number
   ): Promise<{ lat: number; lng: number }[]> {
     return new Promise((resolve, reject) => {
-      // Check if Google Maps JavaScript API is loaded
+      if (requestToken !== this.mapViewToken) {
+        resolve([]);
+        return;
+      }
       if (typeof google === 'undefined' || !google.maps) {
         console.warn('⚠️ Google Maps JavaScript API not loaded');
         reject(new Error('Google Maps API not loaded'));
@@ -1339,11 +1573,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       };
 
       directionsService.route(request, (result, status) => {
+        if (requestToken !== this.mapViewToken) {
+          resolve([]);
+          return;
+        }
         if (status === google.maps.DirectionsStatus.OK && result) {
           const route = result.routes[0];
           const path: { lat: number; lng: number }[] = [];
 
-          // Extract all points from the route
           route.legs.forEach((leg) => {
             leg.steps.forEach((step) => {
               step.path.forEach((point) => {
@@ -1968,103 +2205,4 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Fix modal pointer-events to allow header clicks
-   * Modal covers entire screen, so we need to exclude header area
-   */
-  setupModalPointerEventsFix() {
-    // Use MutationObserver to watch for modal element creation
-    this.modalObserver = new MutationObserver(() => {
-      const modal = document.querySelector('ion-modal.show-modal');
-      if (modal) {
-        this.fixModalPointerEvents(modal as HTMLElement);
-      }
-    });
-
-    // Start observing
-    this.modalObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-
-    // Also check immediately and periodically
-    const checkModal = () => {
-      if (this.isDriverModalOpen) {
-        const modal = document.querySelector('ion-modal.show-modal');
-        if (modal) {
-          this.fixModalPointerEvents(modal as HTMLElement);
-        }
-      }
-    };
-
-    // Check immediately
-    setTimeout(checkModal, 100);
-
-    // Check periodically when modal might be open
-    this.modalCheckInterval = setInterval(checkModal, 500);
-  }
-
-  /**
-   * Fix modal's pointer-events to exclude header area
-   * The modal covers entire screen, so we create a "window" for the header
-   */
-  fixModalPointerEvents(modalElement: HTMLElement) {
-    if (!modalElement) return;
-
-    console.log('🔧 Fixing modal pointer-events for header area');
-
-    // Method 1: Use CSS clip-path to exclude header area from pointer-events
-    // This creates a "hole" in the modal's clickable area
-    try {
-      const modalId = modalElement.id || 'ion-overlay-4';
-      const styleId = 'modal-header-pointer-fix';
-      let styleEl = document.getElementById(styleId) as HTMLStyleElement;
-      
-      if (!styleEl) {
-        styleEl = document.createElement('style');
-        styleEl.id = styleId;
-        document.head.appendChild(styleEl);
-      }
-
-      // Use clip-path to exclude top 56px from modal's pointer-events
-      // This makes clicks pass through to the header
-      styleEl.textContent = `
-        ion-modal#${modalId}.show-modal {
-          clip-path: polygon(0 56px, 100% 56px, 100% 100%, 0 100%) !important;
-        }
-      `;
-    } catch (e) {
-      console.warn('Could not set clip-path via style element:', e);
-    }
-
-    // Method 2: Direct style manipulation as fallback
-    try {
-      (modalElement as any).style.clipPath = 'polygon(0 56px, 100% 56px, 100% 100%, 0 100%)';
-    } catch (e) {
-      console.warn('Could not set clip-path directly:', e);
-    }
-
-    // Method 3: Create a transparent overlay above modal in header area
-    // This sits between modal and header, allowing clicks to pass through
-    const overlayId = 'header-click-overlay';
-    let overlay = document.getElementById(overlayId) as HTMLElement;
-    
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = overlayId;
-      document.body.appendChild(overlay);
-    }
-
-    // Position overlay above modal but below header
-    overlay.style.cssText = `
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      height: 56px !important;
-      z-index: 99998 !important;
-      pointer-events: none !important;
-      background: transparent !important;
-    `;
-  }
 }

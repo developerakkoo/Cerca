@@ -213,8 +213,7 @@ export class RidePaymentPage implements OnInit, OnDestroy {
             ).toPromise();
             
             if (updatedRide) {
-              // Update ride service with latest state
-              this.rideService['currentRide$'].next(updatedRide);
+              await this.rideService.applyServerRide(updatedRide);
               console.log('✅ Ride state refreshed after payment - paymentStatus:', updatedRide.paymentStatus);
             }
           } catch (refreshError) {
@@ -266,7 +265,7 @@ export class RidePaymentPage implements OnInit, OnDestroy {
       await loading.dismiss();
       this.switchedToCash = true;
       if (updatedRide) {
-        this.rideService['currentRide$'].next(updatedRide);
+        await this.rideService.applyServerRide(updatedRide);
       }
       if (this.backButtonSubscription) {
         this.backButtonSubscription.unsubscribe();

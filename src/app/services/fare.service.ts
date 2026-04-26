@@ -119,7 +119,7 @@ export class FareService {
    * Calculate fare for a single vehicle type
    * @param pickupLocation Pickup location coordinates
    * @param dropoffLocation Dropoff location coordinates
-   * @param vehicleType Vehicle type ('small', 'medium', 'large')
+   * @param vehicleType Canonical tier: cercaZip | cercaGlide | cercaTitan
    * @param promoCode Optional promo code
    * @param userId Optional user ID for promo code validation
    * @returns Observable with fare breakdown
@@ -127,7 +127,7 @@ export class FareService {
   calculateFare(
     pickupLocation: Location,
     dropoffLocation: Location,
-    vehicleType: 'small' | 'medium' | 'large',
+    vehicleType: 'cercaZip' | 'cercaGlide' | 'cercaTitan',
     promoCode?: string,
     userId?: string
   ): Observable<SingleFareResponse> {

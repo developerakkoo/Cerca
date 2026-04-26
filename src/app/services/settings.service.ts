@@ -114,15 +114,15 @@ export class SettingsService {
   /**
    * Get vehicle service by type
    */
-  getVehicleServiceByType(type: 'small' | 'medium' | 'large'): Observable<VehicleService | null> {
+  getVehicleServiceByType(type: 'cercaZip' | 'cercaGlide' | 'cercaTitan'): Observable<VehicleService | null> {
     return this.vehicleServices$.pipe(
       map((services) => {
         switch (type) {
-          case 'small':
+          case 'cercaZip':
             return services.cercaZip?.enabled ? services.cercaZip : null;
-          case 'medium':
+          case 'cercaGlide':
             return services.cercaGlide?.enabled ? services.cercaGlide : null;
-          case 'large':
+          case 'cercaTitan':
             return services.cercaTitan?.enabled ? services.cercaTitan : null;
           default:
             return null;

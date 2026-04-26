@@ -1780,8 +1780,19 @@ export class RideService {
   }
 
   /**
+   * Apply a server-sourced ride snapshot so `currentRide$` and `rideStatus$` stay in lockstep.
+   * Use for API fetches, payment refresh, and backend reconciliation.
+   */
+  async applyServerRide(ride: Ride): Promise<void> {
+    this.currentRide$.next(ride);
+    this.rideStatus$.next(ride.status as RideStatus);
+    await this.storeRide(ride);
+  }
+
+  /**
    * Sync ride state from backend
-   * Checks backend for active rides and updates frontend state if mismatch detected
+   * Reconciles with the full /rides/user list: resolves completed/cancelled from server when
+   * the in-memory trip was still "active" (e.g. trip finished while app was in background).
    */
   async syncRideStateFromBackend(): Promise<void> {
     try {
@@ -1796,69 +1807,57 @@ export class RideService {
       console.log('🔄 ========================================');
       console.log('👤 User ID:', userId);
 
-      // Fetch user's rides from backend
       const rides = await firstValueFrom(
         this.http.get<Ride[]>(`${environment.apiUrl}/rides/user/${userId}`)
       );
 
-      // Find active rides (requested, accepted, arrived, in_progress)
-      const activeStatuses = ['requested', 'accepted', 'arrived', 'in_progress'];
+      const activeStatuses: string[] = [
+        'requested',
+        'searching',
+        'accepted',
+        'arrived',
+        'in_progress',
+      ];
       const activeRides = rides.filter((ride) =>
         activeStatuses.includes(ride.status)
       );
 
-      console.log('📊 Backend active rides:', activeRides.length);
-      console.log('📊 Frontend current ride:', this.currentRide$.value ? this.currentRide$.value._id : 'null');
-
-      // Get current frontend ride
       const frontendRide = this.currentRide$.value;
 
-      // Case 1: Backend has no active rides, but frontend thinks there is one
-      if (activeRides.length === 0 && frontendRide) {
-        const frontendStatus = frontendRide.status;
-        if (activeStatuses.includes(frontendStatus)) {
-          console.log('⚠️ Mismatch detected: Frontend has active ride but backend does not');
-          console.log('🧹 Clearing frontend ride state...');
+      console.log('📊 Backend active rides:', activeRides.length);
+      console.log('📊 Frontend current ride:', frontendRide ? frontendRide._id : 'null');
+
+      if (!frontendRide) {
+        if (activeRides.length > 0) {
+          const activeRide = activeRides[0];
+          console.log('📦 Restoring active ride from backend (no local ride):', activeRide._id);
+          await this.applyServerRide(activeRide);
+        }
+        console.log('✅ Ride state sync completed');
+        return;
+      }
+
+      const match = rides.find(
+        (r) => String(r._id) === String(frontendRide._id)
+      );
+
+      if (match) {
+        if (
+          match.status !== frontendRide.status ||
+          (match.paymentStatus || '') !==
+            (frontendRide.paymentStatus || '') ||
+          Number(match.fare) !== Number(frontendRide.fare) ||
+          this.isServerNewerMatch(match, frontendRide)
+        ) {
+          console.log('🔄 Reconciling local ride with backend');
+          await this.applyServerRide(match);
+        }
+      } else {
+        if (activeStatuses.includes(frontendRide.status)) {
+          console.log('⚠️ Stale local active ride: not in user rides list; clearing');
           this.currentRide$.next(null);
-          this.rideStatus$.next('cancelled');
+          this.rideStatus$.next('idle');
           await this.clearRide();
-          console.log('✅ Frontend state cleared');
-        }
-      }
-      // Case 2: Backend has active ride, but frontend doesn't know about it
-      else if (activeRides.length > 0 && !frontendRide) {
-        console.log('⚠️ Mismatch detected: Backend has active ride but frontend does not');
-        const activeRide = activeRides[0]; // Take the first active ride
-        console.log('📦 Restoring ride from backend:', activeRide._id);
-        this.currentRide$.next(activeRide);
-        this.rideStatus$.next(activeRide.status as RideStatus);
-        await this.storeRide(activeRide);
-        console.log('✅ Frontend state restored');
-      }
-      // Case 3: Both have rides, but status might differ
-      else if (activeRides.length > 0 && frontendRide) {
-        const backendRide = activeRides.find((r) => r._id === frontendRide._id);
-        if (backendRide && backendRide.status !== frontendRide.status) {
-          console.log('⚠️ Status mismatch detected');
-          console.log(`   Frontend: ${frontendRide.status}`);
-          console.log(`   Backend: ${backendRide.status}`);
-          console.log('🔄 Updating frontend status...');
-          this.currentRide$.next(backendRide);
-          this.rideStatus$.next(backendRide.status as RideStatus);
-          await this.storeRide(backendRide);
-          console.log('✅ Frontend status updated');
-        }
-        // If backend ride is cancelled/completed but frontend still thinks it's active
-        else if (!backendRide && activeStatuses.includes(frontendRide.status)) {
-          const backendRideStatus = rides.find((r) => r._id === frontendRide._id)?.status;
-          if (backendRideStatus === 'cancelled' || backendRideStatus === 'completed') {
-            console.log('⚠️ Ride was cancelled/completed in backend');
-            console.log('🧹 Clearing frontend ride state...');
-            this.currentRide$.next(null);
-            this.rideStatus$.next(backendRideStatus as RideStatus);
-            await this.clearRide();
-            console.log('✅ Frontend state cleared');
-          }
         }
       }
 
@@ -1866,8 +1865,19 @@ export class RideService {
       console.log('========================================');
     } catch (error) {
       console.error('❌ Error syncing ride state from backend:', error);
-      // Don't throw - this is a background sync operation
     }
+  }
+
+  private isServerNewerMatch(
+    match: Ride,
+    frontend: Ride
+  ): boolean {
+    if (!match.updatedAt || !frontend.updatedAt) {
+      return false;
+    }
+    const t1 = new Date(match.updatedAt).getTime();
+    const t0 = new Date(frontend.updatedAt).getTime();
+    return t1 > t0;
   }
 
   /**

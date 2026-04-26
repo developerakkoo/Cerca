@@ -18,8 +18,11 @@
   border-top-right-radius: 24px;
   cursor: grab;
   user-select: none;
-  touch-action: none;
-  
+  // pan-y: sheet drags and inner scroll; avoid touch-action none (fights scroll/breakpoint)
+  touch-action: pan-y;
+  // Parent ::part(content) may use pointer pass-through; handle must still receive drags
+  pointer-events: auto;
+
   &:active {
     cursor: grabbing;
   }
@@ -95,14 +98,22 @@ ion-header {
   }
 }
 
-// Exclude header area from modal's pointer-events coverage
-// Modal wrapper covers entire screen (z-index: 20005)
-// We'll use JavaScript to modify modal's pointer-events, but also add CSS fallback
+// Driver sheet: single hit-test layer so Ionic breakpoint drag + children work together
 ion-modal {
-  // Modal content should start below header
   &::part(content) {
-    margin-top: 56px !important; // Standard header height
-    top: 56px !important; // Push content down
+    margin-top: 56px !important; // Page header offset
+    top: 56px !important;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    background: var(--ion-color-light);
+    // Whole card receives events; map remains usable above the sheet (margin-top) and in WebView
+    pointer-events: auto;
+  }
+
+  // Handle + in-sheet toolbar are outside modal ion-content; they need explicit hit targets
+  ion-header {
+    pointer-events: auto;
   }
 }
 
@@ -138,15 +149,6 @@ ion-content{
   left: 0;
   z-index: 1;
   background: #f0f0f0; // Light gray background to show map container
-}
-
-/* Ionic sheet modal styling for driver details */
-ion-modal::part(content) {
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-  background: var(--ion-color-light);
-  pointer-events: none; // Let touches pass through to map
 }
 
 :root.ion-palette-dark {

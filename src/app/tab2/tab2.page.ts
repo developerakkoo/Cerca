@@ -4,7 +4,7 @@ import { RideService, Ride } from '../services/ride.service';
 import { UserService } from '../services/user.service';
 import { SocketService } from '../services/socket.service';
 import { firstValueFrom, Subscription } from 'rxjs';
-import { AlertController, ToastController } from '@ionic/angular';
+import { AlertController, Platform, ToastController } from '@ionic/angular';
 
 @Component({
   selector: 'app-tab2',
@@ -34,6 +34,8 @@ export class Tab2Page implements OnInit, OnDestroy {
   private socketSubscriptions: Subscription[] = [];
   private rideStatusSubscription?: Subscription;
   private currentRideSubscription?: Subscription;
+  private resumeSub?: Subscription;
+  private loadRidesDebounce: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private rideService: RideService,
@@ -41,7 +43,8 @@ export class Tab2Page implements OnInit, OnDestroy {
     private router: Router,
     private alertController: AlertController,
     private toastController: ToastController,
-    private socketService: SocketService
+    private socketService: SocketService,
+    private platform: Platform
   ) {}
 
   async ngOnInit() {
@@ -49,6 +52,15 @@ export class Tab2Page implements OnInit, OnDestroy {
     this.setupSocketListeners();
     this.setupRideStatusMonitoring();
     this.setupCurrentRideSubscription();
+    this.resumeSub = this.platform.resume.subscribe(() => {
+      if (this.loadRidesDebounce) {
+        clearTimeout(this.loadRidesDebounce);
+      }
+      this.loadRidesDebounce = setTimeout(() => {
+        this.loadRidesDebounce = null;
+        void this.loadRides();
+      }, 300);
+    });
   }
 
   async ionViewDidEnter() {
@@ -665,6 +677,12 @@ export class Tab2Page implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.loadRidesDebounce) {
+      clearTimeout(this.loadRidesDebounce);
+      this.loadRidesDebounce = null;
+    }
+    this.resumeSub?.unsubscribe();
+
     // Cleanup all timers
     this.stopAllTimers();
     

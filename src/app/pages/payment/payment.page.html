@@ -23,9 +23,15 @@
   </div>
 
   <div class="payment-container" *ngIf="!paymentError">
+    <ion-text color="warning" *ngIf="fareQuoteBlockedMessage" class="ion-padding-horizontal ion-margin-bottom" style="display: block;">
+      <p>{{ fareQuoteBlockedMessage }}</p>
+    </ion-text>
     <!-- Payment Summary -->
     <div class="payment-summary">
       <h2>{{ 'PAYMENT.paymentSummary' | translate }}</h2>
+      <p class="ion-text-wrap ion-margin-bottom" style="font-size: 0.85rem; color: var(--ion-color-medium);">
+        Final fare is based on actual time and distance for this trip. Short trips may be lower than the initial estimate.
+      </p>
       <div class="summary-details">
         <div class="summary-row">
           <span>{{ 'PAYMENT.baseFare' | translate }}</span>

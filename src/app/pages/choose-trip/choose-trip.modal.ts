@@ -19,7 +19,7 @@ import {
 import { VehicleServices } from '../../services/settings.service';
 import { FareBreakdown } from '../../services/fare.service';
 
-export type VehicleTier = 'small' | 'medium' | 'large';
+export type VehicleTier = 'cercaZip' | 'cercaGlide' | 'cercaTitan';
 
 /**
  * Choose Trip Modal Component
@@ -52,8 +52,8 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
   @Input() destinationAddress: string = '';
   @Input() vehicleServices: VehicleServices | null = null;
   @Input() calculatedFares: { cercaZip?: FareBreakdown; cercaGlide?: FareBreakdown; cercaTitan?: FareBreakdown } = {};
-  @Input() vehicleETAs: { small?: string; medium?: string; large?: string } = {};
-  @Input() selectedVehicle: string = 'small';
+  @Input() vehicleETAs: { cercaZip?: string; cercaGlide?: string; cercaTitan?: string } = {};
+  @Input() selectedVehicle: string = 'cercaZip';
   @Input() isLoadingServices: boolean = false;
   @Input() isCalculatingFares: boolean = false;
 
@@ -63,7 +63,7 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
   @Output() vehicleSelected = new EventEmitter<string>();
   @Output() confirmRide = new EventEmitter<void>();
 
-  readonly vehicleTiers: VehicleTier[] = ['small', 'medium', 'large'];
+  readonly vehicleTiers: VehicleTier[] = ['cercaZip', 'cercaGlide', 'cercaTitan'];
 
   currentBreakpoint: number = 0.25;
   isScrolling: boolean = false;
@@ -79,7 +79,7 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
   private rafId: number | null = null;
 
   /**
-   * When parent leaves `selectedVehicle` at legacy default `small`, auto-select Glide once
+   * When parent leaves `selectedVehicle` at default Zip, auto-select Glide once
    * after services + fares are ready.
    */
   private defaultSelectionApplied = false;
@@ -108,11 +108,11 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
 
   private applyDefaultMidTierSelection(): void {
     this.defaultSelectionApplied = true;
-    if (this.selectedVehicle !== 'small') {
+    if (this.selectedVehicle !== 'cercaZip') {
       return;
     }
-    if (this.isVehicleEnabled('medium')) {
-      this.zone.run(() => this.onVehicleSelect('medium'));
+    if (this.isVehicleEnabled('cercaGlide')) {
+      this.zone.run(() => this.onVehicleSelect('cercaGlide'));
     }
   }
 
@@ -330,20 +330,13 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
   }
 
   getPrice(vehicleType: VehicleTier): number {
-    const fareKey =
-      vehicleType === 'small' ? 'cercaZip' : vehicleType === 'medium' ? 'cercaGlide' : 'cercaTitan';
-    const fare = this.calculatedFares[fareKey];
+    const fare = this.calculatedFares[vehicleType];
 
     if (fare) {
       return fare.finalFare;
     }
 
-    const service =
-      vehicleType === 'small'
-        ? this.vehicleServices?.cercaZip
-        : vehicleType === 'medium'
-          ? this.vehicleServices?.cercaGlide
-          : this.vehicleServices?.cercaTitan;
+    const service = this.serviceForTier(vehicleType);
 
     return service?.price || 0;
   }
@@ -352,37 +345,37 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
     return this.vehicleETAs[vehicleType] || '2-4 min';
   }
 
+  private serviceForTier(t: VehicleTier) {
+    switch (t) {
+      case 'cercaZip':
+        return this.vehicleServices?.cercaZip;
+      case 'cercaGlide':
+        return this.vehicleServices?.cercaGlide;
+      case 'cercaTitan':
+        return this.vehicleServices?.cercaTitan;
+    }
+  }
+
   isVehicleEnabled(vehicleType: VehicleTier): boolean {
-    const service =
-      vehicleType === 'small'
-        ? this.vehicleServices?.cercaZip
-        : vehicleType === 'medium'
-          ? this.vehicleServices?.cercaGlide
-          : this.vehicleServices?.cercaTitan;
-    return service?.enabled || false;
+    return this.serviceForTier(vehicleType)?.enabled || false;
   }
 
   getVehicleName(vehicleType: VehicleTier): string {
-    const service =
-      vehicleType === 'small'
-        ? this.vehicleServices?.cercaZip
-        : vehicleType === 'medium'
-          ? this.vehicleServices?.cercaGlide
-          : this.vehicleServices?.cercaTitan;
-    return service?.name || vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1);
+    const service = this.serviceForTier(vehicleType);
+    const fallbacks: Record<VehicleTier, string> = {
+      cercaZip: 'Cerca Zip',
+      cercaGlide: 'Cerca Glide',
+      cercaTitan: 'Cerca Titan',
+    };
+    return service?.name || fallbacks[vehicleType];
   }
 
   getVehicleImage(vehicleType: VehicleTier): string {
-    const service =
-      vehicleType === 'small'
-        ? this.vehicleServices?.cercaZip
-        : vehicleType === 'medium'
-          ? this.vehicleServices?.cercaGlide
-          : this.vehicleServices?.cercaTitan;
+    const service = this.serviceForTier(vehicleType);
 
-    if (vehicleType === 'small') {
+    if (vehicleType === 'cercaZip') {
       return service?.imagePath || 'assets/cars/cerca-small.png';
-    } else if (vehicleType === 'medium') {
+    } else if (vehicleType === 'cercaGlide') {
       return service?.imagePath || 'assets/cars/Cerca-medium.png';
     } else {
       return service?.imagePath || 'assets/cars/cerca-large.png';
@@ -391,11 +384,11 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
 
   getTierSubtitle(vehicleType: VehicleTier): string {
     switch (vehicleType) {
-      case 'small':
+      case 'cercaZip':
         return 'Affordable • 4 seats';
-      case 'medium':
+      case 'cercaGlide':
         return 'Comfort • Sedan • AC';
-      case 'large':
+      case 'cercaTitan':
         return 'Premium SUV • Extra space';
       default:
         return '';
@@ -434,7 +427,7 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
   }
 
   isMostPopular(vehicleType: VehicleTier): boolean {
-    return vehicleType === 'medium' && this.isVehicleEnabled('medium');
+    return vehicleType === 'cercaGlide' && this.isVehicleEnabled('cercaGlide');
   }
 
   getPickupAndRideSummary(vehicleType: VehicleTier): string {
@@ -458,9 +451,9 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
 
   onVehicleImgError(event: Event, tier: VehicleTier): void {
     const el = event.target as HTMLImageElement;
-    if (tier === 'small') {
+    if (tier === 'cercaZip') {
       el.src = 'assets/cars/cerca-small.png';
-    } else if (tier === 'medium') {
+    } else if (tier === 'cercaGlide') {
       el.src = 'assets/cars/Cerca-medium.png';
     } else {
       el.src = 'assets/cars/cerca-large.png';

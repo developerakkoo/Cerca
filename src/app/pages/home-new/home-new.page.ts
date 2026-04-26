@@ -48,7 +48,7 @@ export class HomeNewPage implements OnInit, OnDestroy {
   // Booking properties
   pickupAddress = '';
   destinationAddress = '';
-  selectedVehicle: string = 'small';
+  selectedVehicle: string = 'cercaZip';
   vehicleServices: VehicleServices | null = null;
   isLoadingServices = false;
   
@@ -59,7 +59,7 @@ export class HomeNewPage implements OnInit, OnDestroy {
   private fareCalculationTimeout: any = null;
   
   // ETA properties
-  vehicleETAs: { small?: string; medium?: string; large?: string } = {};
+  vehicleETAs: { cercaZip?: string; cercaGlide?: string; cercaTitan?: string } = {};
   
   // Route animation properties
   routeAnimationInProgress = false;
@@ -335,9 +335,9 @@ export class HomeNewPage implements OnInit, OnDestroy {
   calculateDriverETA(vehicleType: string): string {
     // Base ETA ranges (can be enhanced with real driver data)
     const etaRanges: { [key: string]: { min: number; max: number } } = {
-      small: { min: 2, max: 4 },
-      medium: { min: 3, max: 5 },
-      large: { min: 4, max: 6 }
+      cercaZip: { min: 2, max: 4 },
+      cercaGlide: { min: 3, max: 5 },
+      cercaTitan: { min: 4, max: 6 }
     };
     
     const range = etaRanges[vehicleType] || { min: 3, max: 5 };
@@ -352,13 +352,13 @@ export class HomeNewPage implements OnInit, OnDestroy {
   private calculateVehicleETAs() {
     if (this.vehicleServices) {
       if (this.vehicleServices.cercaZip?.enabled) {
-        this.vehicleETAs.small = this.calculateDriverETA('small');
+        this.vehicleETAs.cercaZip = this.calculateDriverETA('cercaZip');
       }
       if (this.vehicleServices.cercaGlide?.enabled) {
-        this.vehicleETAs.medium = this.calculateDriverETA('medium');
+        this.vehicleETAs.cercaGlide = this.calculateDriverETA('cercaGlide');
       }
       if (this.vehicleServices.cercaTitan?.enabled) {
-        this.vehicleETAs.large = this.calculateDriverETA('large');
+        this.vehicleETAs.cercaTitan = this.calculateDriverETA('cercaTitan');
       }
     }
   }

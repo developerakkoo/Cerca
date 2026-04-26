@@ -87,6 +87,10 @@ export class PaymentPage implements OnInit {
 
   // Error state
   paymentError: string | null = null;
+  /** Set when tab1 quote snapshot disagrees with fresh calculate-fare (blocks checkout). */
+  fareQuoteBlockedMessage: string | null = null;
+  /** Net trip fare from last successful calculate-fare (avoids double-subtracting promo). */
+  private tripFarePayableFromApi: number | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -340,13 +344,10 @@ export class PaymentPage implements OnInit {
       return;
     }
 
-    // Determine service type from vehicle selection
-    // Mapping: Cerca Zip → hatchback, Cerca Glide → sedan, Cerca Titan → suv
-    const service = this.pendingRideDetails?.selectedVehicle === 'small' 
-      ? 'hatchback'  // Cerca Zip tier
-      : this.pendingRideDetails?.selectedVehicle === 'medium'
-      ? 'sedan'      // Cerca Glide tier
-      : 'suv';       // Cerca Titan tier
+    // Canonical tier keys (backend / coupons)
+    const v = this.pendingRideDetails?.selectedVehicle;
+    const service =
+      v === 'cercaZip' ? 'cercaZip' : v === 'cercaGlide' ? 'cercaGlide' : 'cercaTitan';
 
     const loading = await this.loadingCtrl.create({
       message: 'Validating promo code...',
@@ -370,17 +371,14 @@ export class PaymentPage implements OnInit {
       if (response && response.success && response.data) {
         this.promoApplied = true;
         this.validatedPromoCode = this.promoCode.trim().toUpperCase();
-        this.discountAmount = response.data.discountAmount;
         this.promoMessage = response.message || 'Promo code applied successfully!';
-        this.calculateTotal();
-        this.checkWalletBalance(); // Recheck wallet balance after discount
+        this.calculateFare();
       } else {
         this.promoApplied = false;
         this.validatedPromoCode = null;
         this.discountAmount = 0;
         this.promoMessage = response?.message || 'Invalid promo code';
-        this.calculateTotal();
-        this.checkWalletBalance(); // Recheck wallet balance after removing discount
+        this.calculateFare();
       }
     } catch (error) {
       await loading.dismiss();
@@ -389,15 +387,18 @@ export class PaymentPage implements OnInit {
       this.validatedPromoCode = null;
       this.discountAmount = 0;
       this.promoMessage = 'Failed to validate promo code. Please try again.';
-      this.calculateTotal();
-      this.checkWalletBalance();
+      this.calculateFare();
     }
   }
 
   calculateTotal() {
     // Ride portion only (what we send as fare for the new booking)
-    this.rideFarePayable = Math.max(0, this.finalFare - this.discountAmount);
-    this.rideFarePayable = Math.round(this.rideFarePayable * 100) / 100;
+    if (this.tripFarePayableFromApi != null && Number.isFinite(this.tripFarePayableFromApi)) {
+      this.rideFarePayable = Math.round(this.tripFarePayableFromApi * 100) / 100;
+    } else {
+      this.rideFarePayable = Math.max(0, this.finalFare - this.discountAmount);
+      this.rideFarePayable = Math.round(this.rideFarePayable * 100) / 100;
+    }
     // Checkout total includes pending driver-cancel settlements
     this.totalAmount =
       Math.round((this.rideFarePayable + this.cancellationOutstandingTotal) * 100) /
@@ -417,6 +418,11 @@ export class PaymentPage implements OnInit {
     if (!this.pendingRideDetails) {
       await this.showToast('Ride details not found', 'danger');
       this.router.navigate(['/tabs/tabs/tab1']);
+      return;
+    }
+
+    if (this.fareQuoteBlockedMessage) {
+      await this.showToast(this.fareQuoteBlockedMessage, 'warning');
       return;
     }
 
@@ -745,13 +751,9 @@ export class PaymentPage implements OnInit {
       // Use actual distance from pending ride details or fallback to default
       const estimatedDistance = this.pendingRideDetails?.distanceInKm || 5.2;
 
-      // Determine service type from vehicle selection
-      // Mapping: Cerca Zip → hatchback, Cerca Glide → sedan, Cerca Titan → suv
-      const service = this.pendingRideDetails?.selectedVehicle === 'small' 
-        ? 'hatchback'  // Cerca Zip tier
-        : this.pendingRideDetails?.selectedVehicle === 'medium'
-        ? 'sedan'      // Cerca Glide tier
-        : 'suv';       // Cerca Titan tier
+      const v = this.pendingRideDetails?.selectedVehicle;
+      const service =
+        v === 'cercaZip' ? 'cercaZip' : v === 'cercaGlide' ? 'cercaGlide' : 'cercaTitan';
 
       // Log fare information before sending
       console.log('[Fare Tracking] Sending ride request:', {
@@ -828,7 +830,7 @@ export class PaymentPage implements OnInit {
       return;
     }
 
-    const vehicle = this.pendingRideDetails.selectedVehicle || 'small';
+    const vehicle = this.pendingRideDetails.selectedVehicle || 'cercaZip';
 
     // Call backend API for fare calculation
     this.fareService.calculateFare(
@@ -840,7 +842,7 @@ export class PaymentPage implements OnInit {
         latitude: this.pendingRideDetails.dropoffLocation.latitude,
         longitude: this.pendingRideDetails.dropoffLocation.longitude
       },
-      vehicle as 'small' | 'medium' | 'large',
+      vehicle as 'cercaZip' | 'cercaGlide' | 'cercaTitan',
       this.validatedPromoCode || undefined,
       this.userId || undefined
     ).subscribe({
@@ -853,20 +855,47 @@ export class PaymentPage implements OnInit {
           this.distanceFare = breakdown.distanceFare;
           this.timeFare = breakdown.timeFare;
           this.subtotal = breakdown.subtotal;
-          this.finalFare = breakdown.fareAfterMinimum;
+          // Payable trip total after promo (matches driver collection / ride.fare contract)
+          this.finalFare = breakdown.finalFare;
           this.estimatedDuration = response.data.estimatedDuration;
           this.minimumFareApplied = breakdown.fareAfterMinimum > breakdown.subtotal;
 
+          this.tripFarePayableFromApi = breakdown.finalFare;
+          if (this.validatedPromoCode && (breakdown.discount || 0) > 0) {
+            this.discountAmount = breakdown.discount;
+          }
+
+          const snap = this.pendingRideDetails?.fareQuoteSnapshot;
+          if (
+            snap &&
+            snap.quotedFinalFare != null &&
+            Number.isFinite(Number(snap.quotedFinalFare)) &&
+            !this.promoApplied
+          ) {
+            const q = Number(snap.quotedFinalFare);
+            const a = Number(breakdown.finalFare);
+            if (Number.isFinite(q) && Number.isFinite(a) && Math.abs(q - a) > 0.05) {
+              this.fareQuoteBlockedMessage = `The fare changed since you chose your trip (was ₹${q.toFixed(0)}, now ₹${a.toFixed(0)}). Go back to refresh and confirm.`;
+            } else {
+              this.fareQuoteBlockedMessage = null;
+            }
+          } else {
+            this.fareQuoteBlockedMessage = null;
+          }
+
           // Recalculate total with current discount
           this.calculateTotal();
+          this.checkWalletBalance();
         } else {
           console.error('Failed to calculate fare from backend');
+          this.fareQuoteBlockedMessage = null;
           // Fallback to frontend calculation if backend fails
           this.calculateFareFallback();
         }
       },
       error: (error) => {
         console.error('Error calculating fare from backend:', error);
+        this.fareQuoteBlockedMessage = null;
         // Fallback to frontend calculation if backend fails
         this.calculateFareFallback();
       }
@@ -883,22 +912,22 @@ export class PaymentPage implements OnInit {
       return;
     }
 
-    const vehicle = this.pendingRideDetails.selectedVehicle || 'small';
+    const vehicle = this.pendingRideDetails.selectedVehicle || 'cercaZip';
     const distance = this.pendingRideDetails.distanceInKm || 0;
 
     // Get base fare and perMinuteRate from vehicle service
     let vehicleBasePrice = 0;
     let perMinuteRate = 0;
     switch (vehicle) {
-      case 'small':
+      case 'cercaZip':
         vehicleBasePrice = this.vehicleServices.cercaZip?.price || 299;
         perMinuteRate = this.vehicleServices.cercaZip?.perMinuteRate || 2;
         break;
-      case 'medium':
+      case 'cercaGlide':
         vehicleBasePrice = this.vehicleServices.cercaGlide?.price || 499;
         perMinuteRate = this.vehicleServices.cercaGlide?.perMinuteRate || 3;
         break;
-      case 'large':
+      case 'cercaTitan':
         vehicleBasePrice = this.vehicleServices.cercaTitan?.price || 699;
         perMinuteRate = this.vehicleServices.cercaTitan?.perMinuteRate || 4;
         break;
@@ -931,8 +960,12 @@ export class PaymentPage implements OnInit {
     this.subtotal = Math.round(this.subtotal * 100) / 100;
     this.finalFare = Math.round(this.finalFare * 100) / 100;
 
+    this.tripFarePayableFromApi = null;
+    this.fareQuoteBlockedMessage = null;
+
     // Recalculate total with current discount
     this.calculateTotal();
+    this.checkWalletBalance();
   }
 
   private async showToast(message: string, color: string = 'dark') {

@@ -41,7 +41,7 @@ export class ModalComponent implements OnInit, OnDestroy {
   @Output() destinationInputChange = new EventEmitter<string>();
 
   activeInput: 'pickup' | 'destination' | null = null;
-  selectedVehicle: string = 'small';
+  selectedVehicle: string = 'cercaZip';
   vehicleServices: VehicleServices | null = null;
   isLoadingServices = false;
   private pickupSubscription: Subscription | null = null;
@@ -270,6 +270,14 @@ export class ModalComponent implements OnInit, OnDestroy {
         await loading.dismiss();
         console.error('Failed to geocode destination address');
         // Fallback to current location with offset (for backward compatibility)
+        const dLat = currentLocation.lat + 0.02;
+        const dLng = currentLocation.lng + 0.02;
+        const distanceInKm = this.calculateDistance(
+          currentLocation.lat,
+          currentLocation.lng,
+          dLat,
+          dLng
+        );
         this.userService.setPendingRideDetails({
           pickupAddress: this.pickupInput,
           dropoffAddress: this.destinationInput,
@@ -279,9 +287,11 @@ export class ModalComponent implements OnInit, OnDestroy {
             longitude: currentLocation.lng,
           },
           dropoffLocation: {
-            latitude: currentLocation.lat + 0.02,
-            longitude: currentLocation.lng + 0.02,
+            latitude: dLat,
+            longitude: dLng,
           },
+          distanceInKm,
+          estimatedDuration: Math.max(1, Math.round(distanceInKm * 2)),
         });
       } else {
         // Calculate distance between pickup and destination
@@ -321,6 +331,14 @@ export class ModalComponent implements OnInit, OnDestroy {
       await loading.dismiss();
       console.error('Error geocoding destination:', error);
       // Fallback to current location with offset
+      const dLat = currentLocation.lat + 0.02;
+      const dLng = currentLocation.lng + 0.02;
+      const distanceInKm = this.calculateDistance(
+        currentLocation.lat,
+        currentLocation.lng,
+        dLat,
+        dLng
+      );
       this.userService.setPendingRideDetails({
         pickupAddress: this.pickupInput,
         dropoffAddress: this.destinationInput,
@@ -330,9 +348,11 @@ export class ModalComponent implements OnInit, OnDestroy {
           longitude: currentLocation.lng,
         },
         dropoffLocation: {
-          latitude: currentLocation.lat + 0.02,
-          longitude: currentLocation.lng + 0.02,
+          latitude: dLat,
+          longitude: dLng,
         },
+        distanceInKm,
+        estimatedDuration: Math.max(1, Math.round(distanceInKm * 2)),
       });
 
       // Navigate to payment page even if geocoding fails

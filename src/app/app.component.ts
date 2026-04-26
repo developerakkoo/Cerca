@@ -224,12 +224,14 @@ export class AppComponent implements OnDestroy {
     this.resumeSubscription = this.platform.resume.subscribe(() => {
       console.log('📱 App resumed - checking user status');
       this.checkUserStatus(userId);
-      this.socketService.ensureConnected({ userId, userType: 'rider' }).catch((error) => {
-        console.error('Failed to reconnect socket on resume:', error);
-      });
-      this.rideService.syncRideStateFromBackend().catch((error) => {
-        console.error('Failed to sync ride on resume:', error);
-      });
+      void (async () => {
+        try {
+          await this.socketService.ensureConnected({ userId, userType: 'rider' });
+          await this.rideService.syncRideStateFromBackend();
+        } catch (error) {
+          console.error('Failed to reconnect or sync ride on resume:', error);
+        }
+      })();
     });
   }
 

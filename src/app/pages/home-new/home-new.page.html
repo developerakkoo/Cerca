@@ -65,8 +65,8 @@
         <!-- Small -->
         <div class="vehicle-option" 
              *ngIf="vehicleServices.cercaZip?.enabled" 
-             [class.selected]="selectedVehicle === 'small'"
-             (click)="selectedVehicle = 'small'">
+             [class.selected]="selectedVehicle === 'cercaZip'"
+             (click)="selectedVehicle = 'cercaZip'">
           <div class="vehicle-icon">
             <img [src]="vehicleServices.cercaZip?.imagePath || 'assets/cars/cerca-small.png'" 
                  alt="Cerca Zip"
@@ -74,22 +74,22 @@
           </div>
           <div class="vehicle-info">
             <div class="vehicle-title">{{ vehicleServices.cercaZip?.name || 'Cerca Zip' }}</div>
-            <div class="vehicle-subtitle">{{ vehicleETAs.small || '2-4 min' }} away</div>
+            <div class="vehicle-subtitle">{{ vehicleETAs.cercaZip || '2-4 min' }} away</div>
           </div>
           <div class="vehicle-right">
             <div class="vehicle-cost">
               <span *ngIf="calculatedFares?.cercaZip">₹{{ calculatedFares?.cercaZip?.finalFare }}</span>
               <span *ngIf="!calculatedFares?.cercaZip">₹{{ vehicleServices.cercaZip?.price || 299 }}</span>
             </div>
-            <ion-radio value="small" mode="md"></ion-radio>
+            <ion-radio value="cercaZip" mode="md"></ion-radio>
           </div>
         </div>
 
         <!-- Medium -->
         <div class="vehicle-option" 
              *ngIf="vehicleServices.cercaGlide?.enabled"
-             [class.selected]="selectedVehicle === 'medium'"
-             (click)="selectedVehicle = 'medium'">
+             [class.selected]="selectedVehicle === 'cercaGlide'"
+             (click)="selectedVehicle = 'cercaGlide'">
           <div class="vehicle-icon">
             <img [src]="vehicleServices.cercaGlide?.imagePath || 'assets/cars/Cerca-medium.png'" 
                  alt="Cerca Glide"
@@ -97,22 +97,22 @@
           </div>
           <div class="vehicle-info">
             <div class="vehicle-title">{{ vehicleServices.cercaGlide?.name || 'Cerca Glide' }}</div>
-            <div class="vehicle-subtitle">{{ vehicleETAs.medium || '3-5 min' }} away</div>
+            <div class="vehicle-subtitle">{{ vehicleETAs.cercaGlide || '3-5 min' }} away</div>
           </div>
           <div class="vehicle-right">
             <div class="vehicle-cost">
               <span *ngIf="calculatedFares?.cercaGlide">₹{{ calculatedFares?.cercaGlide?.finalFare }}</span>
               <span *ngIf="!calculatedFares?.cercaGlide">₹{{ vehicleServices.cercaGlide?.price || 499 }}</span>
             </div>
-            <ion-radio value="medium" mode="md"></ion-radio>
+            <ion-radio value="cercaGlide" mode="md"></ion-radio>
           </div>
         </div>
 
         <!-- Large -->
         <div class="vehicle-option" 
              *ngIf="vehicleServices.cercaTitan?.enabled"
-             [class.selected]="selectedVehicle === 'large'"
-             (click)="selectedVehicle = 'large'">
+             [class.selected]="selectedVehicle === 'cercaTitan'"
+             (click)="selectedVehicle = 'cercaTitan'">
           <div class="vehicle-icon">
             <img [src]="vehicleServices.cercaTitan?.imagePath || 'assets/cars/cerca-large.png'" 
                  alt="Cerca Titan"
@@ -120,14 +120,14 @@
           </div>
           <div class="vehicle-info">
             <div class="vehicle-title">{{ vehicleServices.cercaTitan?.name || 'Cerca Titan' }}</div>
-            <div class="vehicle-subtitle">{{ vehicleETAs.large || '4-6 min' }} away</div>
+            <div class="vehicle-subtitle">{{ vehicleETAs.cercaTitan || '4-6 min' }} away</div>
           </div>
           <div class="vehicle-right">
             <div class="vehicle-cost">
               <span *ngIf="calculatedFares?.cercaTitan">₹{{ calculatedFares?.cercaTitan?.finalFare }}</span>
               <span *ngIf="!calculatedFares?.cercaTitan">₹{{ vehicleServices.cercaTitan?.price || 699 }}</span>
             </div>
-            <ion-radio value="large" mode="md"></ion-radio>
+            <ion-radio value="cercaTitan" mode="md"></ion-radio>
           </div>
         </div>
 
