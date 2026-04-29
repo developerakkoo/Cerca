@@ -62,7 +62,7 @@
     <div class="vehicle-cards-wrapper" *ngIf="!isLoadingServices && vehicleServices && !isCalculatingFares">
       <ion-radio-group [(ngModel)]="selectedVehicle" (ionChange)="onVehicleSelect($event)">
         
-        <!-- Small -->
+        <!-- Cerca Zip -->
         <div class="vehicle-option" 
              *ngIf="vehicleServices.cercaZip?.enabled" 
              [class.selected]="selectedVehicle === 'cercaZip'"
@@ -85,7 +85,7 @@
           </div>
         </div>
 
-        <!-- Medium -->
+        <!-- Cerca Glide -->
         <div class="vehicle-option" 
              *ngIf="vehicleServices.cercaGlide?.enabled"
              [class.selected]="selectedVehicle === 'cercaGlide'"
@@ -108,7 +108,7 @@
           </div>
         </div>
 
-        <!-- Large -->
+        <!-- Cerca Titan -->
         <div class="vehicle-option" 
              *ngIf="vehicleServices.cercaTitan?.enabled"
              [class.selected]="selectedVehicle === 'cercaTitan'"

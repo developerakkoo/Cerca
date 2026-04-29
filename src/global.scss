@@ -200,104 +200,231 @@ ion-modal.choose-trip-modal::part(content) {
   --color: var(--ion-color-medium);
 }
 
-/* Driver ended trip — in-progress cancel settlement (matches Cerca / share-ride alert) */
+/* Driver ended trip — polished, modern settlement alert */
 .driver-cancel-settlement-alert {
-  --backdrop-opacity: 0.55;
-  --max-width: 92%;
-  --width: min(400px, 92vw);
+  --backdrop-opacity: 0.62;
+  --max-width: 94%;
+  --width: min(420px, 94vw);
   --background: var(--ion-color-light);
 }
 
-.driver-cancel-settlement-alert .alert-wrapper {
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(var(--ion-color-dark-rgb), 0.18);
+/* Ionic internals: keep selectors resilient across webview variations */
+.driver-cancel-settlement-alert .alert-wrapper,
+.driver-cancel-settlement-alert::part(content) {
+  border-radius: 22px;
+  box-shadow: 0 18px 44px rgba(12, 22, 45, 0.24);
   border: 1px solid rgba(var(--ion-color-primary-rgb), 0.12);
   overflow: hidden;
+  background: #ffffff;
 }
 
 .driver-cancel-settlement-alert .alert-head {
-  padding: 20px 20px 10px;
+  padding: 22px 20px 8px;
   text-align: center;
-  background: linear-gradient(
-    180deg,
-    rgba(var(--ion-color-primary-rgb), 0.1) 0%,
-    transparent 100%
-  );
+  background:
+    radial-gradient(circle at top right, rgba(var(--ion-color-primary-rgb), 0.16) 0, rgba(var(--ion-color-primary-rgb), 0) 54%),
+    linear-gradient(180deg, rgba(var(--ion-color-primary-rgb), 0.07) 0%, rgba(var(--ion-color-primary-rgb), 0) 100%);
 }
 
 .driver-cancel-settlement-alert .alert-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--ion-color-primary);
-  letter-spacing: -0.02em;
+  font-size: 1.3rem;
+  font-weight: 750;
+  color: var(--ion-color-dark);
+  letter-spacing: -0.01em;
 }
 
 .driver-cancel-settlement-alert .alert-sub-title {
   margin-top: 8px;
   padding: 0 4px;
-  font-size: 0.875rem;
-  font-weight: 400;
+  font-size: 0.84rem;
   line-height: 1.45;
   color: var(--ion-color-medium);
   text-align: center;
-  max-height: 5.5em;
+  max-height: 4.6em;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .driver-cancel-settlement-alert .alert-message {
   margin: 0;
-  padding: 14px 20px 18px;
-  text-align: left;
-  font-size: 0.9375rem;
-  line-height: 1.55;
+  padding: 0 18px 14px;
   color: var(--ion-color-dark);
-  white-space: pre-line;
+}
+
+.driver-cancel-settlement-alert .settlement-modal {
+  display: grid;
+  gap: 12px;
+}
+
+.driver-cancel-settlement-alert .settlement-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(var(--ion-color-medium-rgb), 0.08);
+  border: 1px solid rgba(var(--ion-color-medium-rgb), 0.18);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.driver-cancel-settlement-alert .settlement-reason-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ion-color-medium);
+}
+
+.driver-cancel-settlement-alert .settlement-reason-value {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--ion-color-dark);
   word-break: break-word;
-  background: var(--ion-item-background, #ffffff);
-  border-top: 1px solid rgba(var(--ion-color-medium-rgb), 0.15);
+}
+
+.driver-cancel-settlement-alert .settlement-breakdown {
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.driver-cancel-settlement-alert .settlement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px dashed rgba(var(--ion-color-medium-rgb), 0.22);
+  font-size: 0.9rem;
+}
+
+.driver-cancel-settlement-alert .settlement-row:last-child {
+  border-bottom: none;
+}
+
+.driver-cancel-settlement-alert .settlement-row span {
+  color: var(--ion-color-medium-shade);
+}
+
+.driver-cancel-settlement-alert .settlement-row strong {
+  color: var(--ion-color-dark);
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.driver-cancel-settlement-alert .settlement-row-muted span,
+.driver-cancel-settlement-alert .settlement-row-muted strong {
+  color: var(--ion-color-medium);
+}
+
+.driver-cancel-settlement-alert .settlement-due {
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.driver-cancel-settlement-alert .settlement-due.is-due {
+  background: linear-gradient(180deg, rgba(255, 147, 41, 0.14), rgba(255, 147, 41, 0.08));
+  border: 1px solid rgba(255, 147, 41, 0.45);
+}
+
+.driver-cancel-settlement-alert .settlement-due.is-due span {
+  font-size: 0.88rem;
+  color: #8b4a00;
+  font-weight: 600;
+}
+
+.driver-cancel-settlement-alert .settlement-due.is-due strong {
+  font-size: 1.12rem;
+  color: #8b4a00;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.driver-cancel-settlement-alert .settlement-due.is-cleared {
+  background: linear-gradient(180deg, rgba(46, 168, 79, 0.16), rgba(46, 168, 79, 0.08));
+  border: 1px solid rgba(46, 168, 79, 0.5);
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.driver-cancel-settlement-alert .settlement-due.is-cleared span {
+  font-size: 0.9rem;
+  color: #165c2d;
+  font-weight: 700;
+}
+
+.driver-cancel-settlement-alert .settlement-due.is-cleared small {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #1e6f39;
 }
 
 .driver-cancel-settlement-alert .alert-button-group {
-  display: flex;
-  flex-direction: column;
-  padding: 10px 16px 18px;
+  display: grid;
   gap: 10px;
-  background: var(--ion-color-light);
-  border-top: 1px solid rgba(var(--ion-color-medium-rgb), 0.12);
+  padding: 10px 16px 18px;
+  background: #fbfcff;
+  border-top: 1px solid rgba(var(--ion-color-medium-rgb), 0.14);
 }
 
 .driver-cancel-settlement-alert .alert-button {
-  border-radius: 12px;
   margin: 0 !important;
-  min-height: 48px;
-  font-weight: 600;
-  font-size: 0.9375rem;
+  min-height: 50px;
+  border-radius: 14px;
   text-transform: none;
   letter-spacing: 0;
+  font-weight: 700;
+  font-size: 0.94rem;
 }
 
 .driver-cancel-settlement-alert .settlement-alert-btn-primary {
   --background: var(--ion-color-primary);
   --background-activated: var(--ion-color-primary-shade);
-  --color: var(--ion-color-primary-contrast);
+  --color: #fff;
+  --box-shadow: 0 8px 18px rgba(var(--ion-color-primary-rgb), 0.33);
 }
 
 .driver-cancel-settlement-alert .settlement-alert-btn-secondary {
   --background: var(--ion-color-secondary);
   --background-activated: var(--ion-color-secondary-shade);
-  --color: var(--ion-color-secondary-contrast);
+  --color: #fff;
 }
 
 .driver-cancel-settlement-alert .settlement-alert-btn-outline {
-  --background: transparent;
-  --background-activated: rgba(var(--ion-color-primary-rgb), 0.08);
+  --background: #fff;
+  --background-activated: rgba(var(--ion-color-primary-rgb), 0.07);
   --color: var(--ion-color-primary);
-  border: 2px solid rgba(var(--ion-color-primary-rgb), 0.35);
+  border: 1.5px solid rgba(var(--ion-color-primary-rgb), 0.34);
 }
 
 .driver-cancel-settlement-alert .settlement-alert-btn-close {
-  --background: var(--ion-color-light-shade);
-  --background-activated: var(--ion-color-medium-tint);
-  --color: var(--ion-color-medium);
+  --background: transparent;
+  --background-activated: rgba(var(--ion-color-medium-rgb), 0.12);
+  --color: var(--ion-color-medium-shade);
+  font-weight: 600;
+}
+
+/* Variant with no pending due amount */
+.driver-cancel-settlement-alert.driver-cancel-settlement-alert--zero-due .settlement-alert-btn-primary {
+  --background: var(--ion-color-success);
+  --background-activated: var(--ion-color-success-shade);
+  --box-shadow: 0 8px 18px rgba(var(--ion-color-success-rgb), 0.28);
+}
+
+@media (max-width: 360px) {
+  .driver-cancel-settlement-alert {
+    --width: min(96vw, 380px);
+  }
+
+  .driver-cancel-settlement-alert .alert-title {
+    font-size: 1.18rem;
+  }
+
+  .driver-cancel-settlement-alert .settlement-row {
+    padding: 9px 10px;
+  }
 }

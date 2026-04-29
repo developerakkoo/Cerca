@@ -185,58 +185,8 @@ export class RideService {
    */
   private async resumePendingDriverCancelSettlementIfAny(): Promise<void> {
     try {
-      const rideId = await this.storage.get('pendingDriverCancelSettlementRideId');
-      const userId = await this.storage.get('userId');
-      if (!rideId || !userId) return;
-
-      const token = await this.storage.get('token');
-      const url = `${environment.apiUrl}/users/${userId}/outstanding-driver-cancel-settlements`;
-      const res = await firstValueFrom(
-        this.http.get<{
-          success?: boolean;
-          data?: {
-            items?: Array<{
-              rideId: string;
-              additionalDue: number;
-              riderPenaltyAmount?: number;
-              driverPartialAmount?: number;
-              riderTotalCharge?: number;
-              prepaidTotal?: number;
-              refundDue?: number;
-            }>;
-          };
-        }>(url, {
-          headers: token
-            ? { Authorization: `Bearer ${token}` }
-            : undefined,
-        })
-      );
-      const items = res?.data?.items || [];
-      const match = items.find((i) => String(i.rideId) === String(rideId));
-      if (!match) {
-        await this.storage.remove('pendingDriverCancelSettlementRideId');
-        return;
-      }
-
-      const ride = {
-        _id: match.rideId,
-        rider: userId,
-        cancelledBy: 'driver' as const,
-        driverInProgressCancelSettlement: {
-          riderPenaltyAmount: match.riderPenaltyAmount,
-          driverPartialAmount: match.driverPartialAmount,
-          riderTotalCharge: match.riderTotalCharge,
-          prepaidTotal: match.prepaidTotal,
-          additionalDue: match.additionalDue,
-          refundDue: match.refundDue,
-          riderPaymentStatus: 'pending',
-        },
-      } as Ride;
-
-      await this.presentDriverCancelSettlementModal(
-        ride,
-        'Driver ended the trip (pending payment)'
-      );
+      // Policy hardening: settlement details remain driver-only.
+      await this.storage.remove('pendingDriverCancelSettlementRideId');
     } catch (e) {
       console.warn('resumePendingDriverCancelSettlementIfAny:', e);
     }
@@ -251,28 +201,12 @@ export class RideService {
     this.rideStatus$.next('cancelled');
     this.clearRide();
 
-    const isDriverInTripCancel =
-      ride?.cancelledBy === 'driver' && ride?.driverInProgressCancelSettlement;
-
-    if (isDriverInTripCancel) {
-      const st = ride.driverInProgressCancelSettlement;
-      const additional = Number(st?.additionalDue) || 0;
-      if (additional > 0 && ride._id) {
-        await this.storage.set('pendingDriverCancelSettlementRideId', ride._id);
-      } else {
-        await this.storage.remove('pendingDriverCancelSettlementRideId');
-      }
-
-      await this.presentDriverCancelSettlementModal(ride, reason);
-
-      if (!this.router.url.includes('cab-searching')) {
-        this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
-      }
-      return;
-    }
+    await this.storage.remove('pendingDriverCancelSettlementRideId');
 
     const message = reason?.includes('No drivers found')
       ? 'No drivers found nearby. Ride cancelled.'
+      : ride?.cancelledBy === 'driver'
+      ? 'Ride was ended by driver.'
       : 'Ride cancelled';
     this.showToast(message);
 
@@ -1922,23 +1856,54 @@ export class RideService {
       n == null ? '—' : `₹${Number(n).toFixed(2)}`;
 
     const additional = Number(st.additionalDue) || 0;
+    const isZeroDue = additional <= 0;
     const header = 'Driver ended the trip';
     const reasonText = (reason || '').trim() || 'Not specified';
     const subHeader =
       reasonText.length > 160
         ? `Reason: ${reasonText.slice(0, 157)}…`
         : `Reason: ${reasonText}`;
-    // Plain text + newlines (Ionic alert does not render <br/> unless innerHTML is enabled).
-    const message = [
-      `Cancellation penalty: ${fmt(st.riderPenaltyAmount)}`,
-      `Trip charge (partial distance): ${fmt(st.driverPartialAmount)}`,
-      `Total due for this event: ${fmt(st.riderTotalCharge)}`,
-      `Already paid (prepaid): ${fmt(st.prepaidTotal)}`,
-      '',
-      additional > 0
-        ? `You still need to pay: ${fmt(additional)}`
-        : 'No extra online charge. Any refund will be processed automatically.',
-    ].join('\n');
+    const esc = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    const safeReason = esc(reasonText);
+    const message = `
+      <div class="settlement-modal">
+        <div class="settlement-reason" title="${safeReason}">
+          <span class="settlement-reason-label">Reason</span>
+          <span class="settlement-reason-value">${safeReason}</span>
+        </div>
+        <div class="settlement-breakdown">
+          <div class="settlement-row">
+            <span>Cancellation penalty</span>
+            <strong>${fmt(st.riderPenaltyAmount)}</strong>
+          </div>
+          <div class="settlement-row">
+            <span>Trip charge (partial distance)</span>
+            <strong>${fmt(st.driverPartialAmount)}</strong>
+          </div>
+          <div class="settlement-row">
+            <span>Total due for this event</span>
+            <strong>${fmt(st.riderTotalCharge)}</strong>
+          </div>
+          <div class="settlement-row settlement-row-muted">
+            <span>Already paid (prepaid)</span>
+            <strong>${fmt(st.prepaidTotal)}</strong>
+          </div>
+        </div>
+        <div class="settlement-due ${isZeroDue ? 'is-cleared' : 'is-due'}">
+          ${
+            isZeroDue
+              ? `<span>No extra online charge.</span><small>Any refund will be processed automatically.</small>`
+              : `<span>You still need to pay</span><strong>${fmt(additional)}</strong>`
+          }
+        </div>
+      </div>
+    `;
 
     const userId = await this.storage.get('userId');
     const rideId = ride._id;
@@ -2049,7 +2014,10 @@ export class RideService {
       header,
       subHeader,
       message,
-      cssClass: 'driver-cancel-settlement-alert',
+      cssClass: [
+        'driver-cancel-settlement-alert',
+        isZeroDue ? 'driver-cancel-settlement-alert--zero-due' : 'driver-cancel-settlement-alert--due',
+      ],
       buttons,
     });
     await alert.present();

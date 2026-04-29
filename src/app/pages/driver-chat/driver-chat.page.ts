@@ -11,8 +11,6 @@ import { ModalController, NavParams } from '@ionic/angular';
 import { RideService, Ride } from 'src/app/services/ride.service';
 import { SocketService } from 'src/app/services/socket.service';
 import { Subscription } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { environment } from 'src/environments/environment';
 import { Storage } from '@ionic/storage-angular';
 
 interface ChatMessage {
@@ -51,7 +49,6 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
     private navParams: NavParams,
     private rideService: RideService,
     private socketService: SocketService,
-    private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private storage: Storage
   ) {}
@@ -332,8 +329,17 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
       })
       .filter((msg): msg is ChatMessage => msg !== null && msg !== undefined);
 
-    // Merge with existing messages (preserve optimistic messages without IDs)
-    const mergedMessages = [...this.messages.filter(m => !m._id), ...processedMessages];
+    // Merge with existing confirmed messages and reconcile optimistic entries.
+    const existingById = new Map(
+      this.messages.filter(m => !!m._id).map(m => [m._id as string, m])
+    );
+    for (const msg of processedMessages) {
+      if (msg._id) {
+        existingById.set(msg._id, { ...(existingById.get(msg._id) || {}), ...msg });
+      }
+    }
+    const optimisticOnly = this.messages.filter(m => !m._id);
+    const mergedMessages = [...optimisticOnly, ...Array.from(existingById.values())];
     
     // Sort by createdAt timestamp
     mergedMessages.sort((a, b) => {
@@ -715,31 +721,6 @@ export class DriverChatPage implements OnInit, OnDestroy, AfterViewChecked {
         console.error('   Error type:', error?.constructor?.name);
         console.error('   Error message:', error instanceof Error ? error.message : String(error));
       }
-
-    // Also send via REST API for persistence
-    console.log('🌐 [DriverChatPage] Sending message via REST API...');
-    try {
-      const sentMessage = await this.rideService.sendMessageViaAPI(messageText);
-      console.log('✅ [DriverChatPage] Message sent via API successfully');
-      console.log('📦 [DriverChatPage] API response:', sentMessage);
-      
-      // Update optimistic message with actual message data if available
-      if (sentMessage && sentMessage._id) {
-        console.log('🔄 [DriverChatPage] Updating optimistic message with server data...');
-        console.log('   Server message ID:', sentMessage._id);
-        this.updateMessageWithId(sentMessage);
-        console.log('✅ [DriverChatPage] Optimistic message updated');
-        // Scroll after updating message
-        setTimeout(() => this.scrollToBottom(true), 100);
-      } else {
-        console.warn('⚠️ [DriverChatPage] API response missing _id, cannot update optimistic message');
-      }
-    } catch (error) {
-      console.error('❌ [DriverChatPage] Error sending message via API:', error);
-      console.error('   Error type:', error?.constructor?.name);
-      console.error('   Error message:', error instanceof Error ? error.message : String(error));
-      // Message was still sent via socket, so don't remove from UI
-    }
 
     this.newMessage = '';
     console.log('✅ [DriverChatPage] sendMessage() completed');

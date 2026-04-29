@@ -56,6 +56,26 @@ const DEFAULT_VEHICLE_SERVICES: VehicleServices = {
   }
 };
 
+const VEHICLE_TIER_KEYS: Array<keyof VehicleServices> = ['cercaZip', 'cercaGlide', 'cercaTitan'];
+
+function isLegacyZipDisplayName(n: string, compact: string): boolean {
+  return (
+    n === 'small' ||
+    n === 'cerca small' ||
+    compact === 'cercasmall' ||
+    n === 'hatchback' ||
+    n === 'auto'
+  );
+}
+
+function isLegacyGlideDisplayName(n: string, compact: string): boolean {
+  return n === 'medium' || n === 'cerca medium' || compact === 'cercamedium' || n === 'sedan';
+}
+
+function isLegacyTitanDisplayName(n: string, compact: string): boolean {
+  return n === 'large' || n === 'cerca large' || compact === 'cercalarge' || n === 'suv';
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -89,15 +109,17 @@ export class SettingsService {
     return this.getCachedServices().pipe(
       switchMap((cached) => {
         if (cached) {
-          return of(cached);
+          const normalized = this.normalizeVehicleServiceNames(cached);
+          this.vehicleServicesSubject.next(normalized);
+          void this.cacheServices(normalized);
+          return of(normalized);
         }
-        
+
         // Fetch from API
         return this.http.get<VehicleServices>(`${environment.apiUrl}/admin/settings/vehicle-services`).pipe(
+          map((raw) => this.normalizeVehicleServiceNames(raw)),
           tap((services) => {
-            // Update cache
-            this.cacheServices(services);
-            // Update subject
+            void this.cacheServices(services);
             this.vehicleServicesSubject.next(services);
           }),
           catchError((error) => {
@@ -185,12 +207,41 @@ export class SettingsService {
       if (expiry && Date.now() < expiry) {
         const cached = await this.storage.get(this.cacheKey);
         if (cached) {
-          this.vehicleServicesSubject.next(cached);
+          const normalized = this.normalizeVehicleServiceNames(cached);
+          this.vehicleServicesSubject.next(normalized);
+          void this.cacheServices(normalized);
         }
       }
     } catch (error) {
       console.error('Error loading cached services:', error);
     }
+  }
+
+  /**
+   * Remap legacy Small/Medium/Large (and related) display names from API/cache
+   * to Cerca Zip / Cerca Glide / Cerca Titan.
+   */
+  private normalizeVehicleServiceNames(
+    raw: Partial<VehicleServices> | VehicleServices | null | undefined
+  ): VehicleServices {
+    const base = DEFAULT_VEHICLE_SERVICES;
+    const out = {} as VehicleServices;
+    for (const key of VEHICLE_TIER_KEYS) {
+      const merged: VehicleService = { ...base[key], ...(raw?.[key] || {}) };
+      const name = String(merged.name ?? '').trim();
+      const n = name.toLowerCase().replace(/\s+/g, ' ');
+      const compact = n.replace(/\s/g, '');
+      let displayName = merged.name;
+      if (key === 'cercaZip' && isLegacyZipDisplayName(n, compact)) {
+        displayName = base.cercaZip.name;
+      } else if (key === 'cercaGlide' && isLegacyGlideDisplayName(n, compact)) {
+        displayName = base.cercaGlide.name;
+      } else if (key === 'cercaTitan' && isLegacyTitanDisplayName(n, compact)) {
+        displayName = base.cercaTitan.name;
+      }
+      out[key] = { ...merged, name: displayName };
+    }
+    return out;
   }
 
   /**

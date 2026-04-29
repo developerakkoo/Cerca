@@ -879,11 +879,12 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
               const latestRide = this.currentRide;
               console.log('💳 Checking payment requirement - paymentMethod:', latestRide?.paymentMethod, 'paymentStatus:', latestRide?.paymentStatus, 'fare:', latestRide?.fare);
               
-              // Check if payment is needed (RAZORPAY with pending status)
-              if (latestRide && 
-                  latestRide.paymentMethod === 'RAZORPAY' && 
-                  latestRide.paymentStatus === 'pending') {
-                // Navigate to payment screen
+              const shouldShowPaymentScreen = !!latestRide &&
+                (latestRide.fare || 0) > 0 &&
+                latestRide.paymentStatus !== 'completed';
+
+              // Always show payment screen on completion while payment remains unsettled.
+              if (shouldShowPaymentScreen && latestRide) {
                 console.log('💳 Payment required - navigating to payment screen');
                 this.router.navigate(['/ride-payment', latestRide._id], {
                   state: {
@@ -894,8 +895,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
                   },
                   replaceUrl: true // Prevent back navigation to this page
                 });
-              } else if (latestRide && 
-                         latestRide.paymentMethod === 'WALLET' && 
+              } else if (latestRide &&
+                         latestRide.paymentMethod === 'WALLET' &&
                          latestRide.paymentStatus === 'completed') {
                 // WALLET payment completed - show confirmation
                 console.log('💳 Wallet payment completed - showing confirmation');
