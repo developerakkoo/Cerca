@@ -8,6 +8,7 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { SharedModule } from './module/shared/shared.module';
+import { DriverCancelSettlementModalModule } from './components/ride/driver-cancel-settlement-modal/driver-cancel-settlement-modal.module';
 import { GeocodingService } from './services/geocoding.service';
 import { IonicStorageModule, Storage } from '@ionic/storage-angular';
 import { TranslateLoader, TranslateService } from '@ngx-translate/core';
@@ -48,6 +49,7 @@ export function createTranslateLoader(http: HttpClient) {
   imports: [
     BrowserModule,
     IonicModule.forRoot(),
+    DriverCancelSettlementModalModule,
     AppRoutingModule,
     HttpClientModule,
     SocketIoModule.forRoot(config),

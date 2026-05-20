@@ -8,6 +8,8 @@ import {
   LoadingController,
   ToastController,
   AlertController,
+  ViewWillEnter,
+  ViewWillLeave,
 } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { UserService } from '../../services/user.service';
@@ -15,10 +17,22 @@ import { RideService } from '../../services/ride.service';
 import { PaymentService } from '../../services/payment.service';
 import { WalletService } from '../../services/wallet.service';
 import { CouponService } from '../../services/coupon.service';
-import { SettingsService, PricingConfigurations, VehicleServices } from '../../services/settings.service';
+import {
+  SettingsService,
+  PricingConfigurations,
+  VehicleServices,
+  PaymentFeatures,
+} from '../../services/settings.service';
 import { FareService } from '../../services/fare.service';
 import { Storage } from '@ionic/storage-angular';
 import { environment } from 'src/environments/environment';
+import { PaymentDisputeService } from '../../services/payment-dispute.service';
+import { calculateFallbackInstantFare } from '../../utils/fare-pricing.util';
+import { GoogleMapLifecycleService } from '../../services/google-map-lifecycle.service';
+import {
+  formatInrDisplay,
+  formatInrWithSymbol,
+} from '../../utils/money-display.util';
 
 @Component({
   selector: 'app-payment',
@@ -26,7 +40,7 @@ import { environment } from 'src/environments/environment';
   styleUrls: ['./payment.page.scss'],
   standalone: false,
 })
-export class PaymentPage implements OnInit {
+export class PaymentPage implements OnInit, ViewWillEnter, ViewWillLeave {
   // Fare breakdown
   baseFare: number = 0; // Vehicle service base price
   distanceFare: number = 0; // Distance × perKmRate
@@ -39,10 +53,17 @@ export class PaymentPage implements OnInit {
   rideFarePayable: number = 0;
   /** Pending driver in-progress cancel — additionalDue sum from backend. */
   cancellationOutstandingTotal: number = 0;
+  /** Pending payment dispute dues from completed rides */
+  paymentDisputeOutstandingTotal: number = 0;
+  paymentDisputeBlocked = false;
+  paymentDisputeBlockedReason: string | null = null;
   outstandingItems: Array<{
     rideId: string;
     additionalDue: number;
     summary?: string;
+    allowedSettlementMethods?: Array<'wallet' | 'razorpay' | 'cash'>;
+    isPostRideOnlineBooking?: boolean;
+    paymentMethod?: string;
   }> = [];
   estimatedDuration: number = 0; // Estimated duration in minutes
   
@@ -62,6 +83,8 @@ export class PaymentPage implements OnInit {
   pricingConfig: PricingConfigurations | null = null;
   vehicleServices: VehicleServices | null = null;
   minimumFareApplied: boolean = false;
+  /** From GET /admin/settings/public — drives wallet/Razorpay timing copy and prepaid Razorpay */
+  paymentFeatures: PaymentFeatures | null = null;
 
   // Pending ride details
   private pendingRideDetails: any = null;
@@ -106,8 +129,25 @@ export class PaymentPage implements OnInit {
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private alertCtrl: AlertController,
-    private http: HttpClient
+    private http: HttpClient,
+    private paymentDisputeService: PaymentDisputeService,
+    private mapLifecycle: GoogleMapLifecycleService
   ) {}
+
+  get insufficientBalanceTopUpDisplay(): string {
+    return formatInrDisplay(
+      Math.max(0, this.totalAmount - this.walletBalance)
+    );
+  }
+
+  async ionViewWillEnter(): Promise<void> {
+    await this.mapLifecycle.suspendAll();
+    document.documentElement.classList.add('opaque-app-shell');
+  }
+
+  ionViewWillLeave(): void {
+    document.documentElement.classList.remove('opaque-app-shell');
+  }
 
   async ngOnInit() {
     // Load user ID
@@ -163,6 +203,28 @@ export class PaymentPage implements OnInit {
     this.loadSettings();
 
     await this.loadOutstandingDriverCancelSettlements();
+    await this.loadPaymentDisputeDues();
+  }
+
+  private async loadPaymentDisputeDues(): Promise<void> {
+    if (!this.userId) return;
+    try {
+      const opts = await this.authHeaders();
+      const headers: Record<string, string> = {};
+      if (opts.headers) {
+        opts.headers.keys().forEach((k) => {
+          const v = opts.headers!.get(k);
+          if (v) headers[k] = v;
+        });
+      }
+      const dues = await this.paymentDisputeService.getPendingDues(this.userId, headers);
+      this.paymentDisputeOutstandingTotal = dues.totalPendingDues || 0;
+      this.paymentDisputeBlocked = dues.bookingBlocked || false;
+      this.paymentDisputeBlockedReason = dues.bookingBlockedReason;
+      this.calculateTotal();
+    } catch (e) {
+      console.warn('loadPaymentDisputeDues:', e);
+    }
   }
 
   private async authHeaders(): Promise<{ headers: HttpHeaders } | Record<string, never>> {
@@ -213,9 +275,9 @@ export class PaymentPage implements OnInit {
   }
 
   /**
-   * Pay all pending driver-cancel settlements from wallet before booking.
+   * Settle pending driver-cancel charges using the correct method per ride.
    */
-  private async settleOutstandingWalletFirst(): Promise<boolean> {
+  private async settleOutstandingDriverCancelSettlements(): Promise<boolean> {
     if (this.cancellationOutstandingTotal <= 0 || this.outstandingItems.length === 0) {
       return true;
     }
@@ -223,53 +285,133 @@ export class PaymentPage implements OnInit {
       return false;
     }
 
-    const balanceRes = await this.walletService
-      .getWalletBalance(this.userId)
-      .toPromise();
-    const bal =
-      balanceRes?.success && balanceRes.data
-        ? balanceRes.data.walletBalance
-        : 0;
-    if (bal < this.cancellationOutstandingTotal) {
-      await this.showToast(
-        `Add ₹${(this.cancellationOutstandingTotal - bal).toFixed(2)} to your wallet to cover previous trip cancellation charges (₹${this.cancellationOutstandingTotal.toFixed(2)}).`,
-        'warning'
-      );
-      return false;
-    }
+    const toPay = this.outstandingItems.filter((i) => (i.additionalDue || 0) > 0);
+    const opts = await this.authHeaders();
+    const base = `${environment.apiUrl}/api/rides`;
 
     const loading = await this.loadingCtrl.create({
-      message: 'Paying previous cancellation charges...',
+      message: 'Paying previous trip charges...',
       spinner: 'crescent',
     });
     await loading.present();
 
-    const opts = await this.authHeaders();
     try {
-      const toPay = this.outstandingItems.filter((i) => (i.additionalDue || 0) > 0);
       for (const item of toPay) {
-        await firstValueFrom(
-          this.http.post(
-            `${environment.apiUrl}/api/rides/${item.rideId}/driver-cancel-settlement/pay-wallet`,
-            { userId: this.userId },
-            opts
-          )
+        const due = Number(item.additionalDue) || 0;
+        const methods = item.allowedSettlementMethods || [];
+        const isPostRide = item.isPostRideOnlineBooking === true;
+
+        if (methods.includes('razorpay') && due >= 10) {
+          const orderRes = await firstValueFrom(
+            this.http.post<{ data?: { orderId?: string; amount?: number } }>(
+              `${base}/${item.rideId}/driver-cancel-settlement/pay-order`,
+              { userId: this.userId },
+              opts
+            )
+          );
+          const d = orderRes?.data;
+          if (!d?.orderId || d.amount == null) {
+            throw new Error('Could not start online payment');
+          }
+          const pay = await this.paymentService.openRazorpayCheckout(
+            d.orderId,
+            d.amount,
+            { description: 'Previous trip cancellation charge' }
+          );
+          await firstValueFrom(
+            this.http.post(
+              `${base}/${item.rideId}/driver-cancel-settlement/verify-razorpay`,
+              {
+                userId: this.userId,
+                razorpay_payment_id: pay.razorpay_payment_id,
+              },
+              opts
+            )
+          );
+          continue;
+        }
+
+        if (methods.includes('wallet') && !isPostRide) {
+          const balanceRes = await this.walletService
+            .getWalletBalance(this.userId)
+            .toPromise();
+          const bal =
+            balanceRes?.success && balanceRes.data
+              ? balanceRes.data.walletBalance
+              : 0;
+          if (bal < due) {
+            await loading.dismiss();
+            await this.promptDriverCancelSettlementPage(
+              item.rideId,
+              `Add ${formatInrWithSymbol(due - bal)} to your wallet or pay online.`
+            );
+            return false;
+          }
+          await firstValueFrom(
+            this.http.post(
+              `${base}/${item.rideId}/driver-cancel-settlement/pay-wallet`,
+              { userId: this.userId },
+              opts
+            )
+          );
+          continue;
+        }
+
+        await loading.dismiss();
+        await this.promptDriverCancelSettlementPage(
+          item.rideId,
+          'Please clear your previous trip charge before booking another ride.'
         );
+        return false;
       }
+
       await loading.dismiss();
       await this.loadOutstandingDriverCancelSettlements();
       await this.refreshWalletBalance();
-      await this.showToast('Previous cancellation charges paid.', 'success');
+      await this.showToast('Previous trip charges cleared.', 'success');
       return true;
     } catch (err: any) {
       await loading.dismiss();
+      const code = err?.error?.code || err?.code;
+      if (code === 'PAYMENT_MODE_ONLINE_REQUIRED') {
+        const first = toPay[0];
+        if (first) {
+          await this.promptDriverCancelSettlementPage(first.rideId);
+          return false;
+        }
+      }
       const msg =
         err?.error?.message ||
         err?.message ||
-        'Could not pay previous cancellation charges.';
+        'Could not pay previous trip charges.';
       await this.showToast(msg, 'danger');
       return false;
     }
+  }
+
+  private async promptDriverCancelSettlementPage(
+    rideId: string,
+    message?: string
+  ): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Previous trip charge',
+      message:
+        message ||
+        'Please pay the charge from your last trip before booking a new one.',
+      buttons: [
+        { text: 'Later', role: 'cancel' },
+        {
+          text: 'Pay now',
+          handler: () => {
+            void this.router.navigate([
+              '/driver-cancel-settlement',
+              rideId,
+            ]);
+          },
+        },
+      ],
+    });
+    await alert.present();
   }
 
   private async loadUserId() {
@@ -316,6 +458,18 @@ export class PaymentPage implements OnInit {
         };
         this.calculateFare();
       }
+    });
+
+    this.settingsService.getPaymentFeatures().subscribe({
+      next: (pf) => {
+        this.paymentFeatures = pf;
+      },
+      error: () => {
+        this.paymentFeatures = {
+          prepaidWalletEnabled: true,
+          prepaidRazorpayEnabled: false,
+        };
+      },
     });
   }
 
@@ -451,8 +605,28 @@ export class PaymentPage implements OnInit {
       // Continue with payment using cached balance
     }
 
+    if (this.paymentDisputeOutstandingTotal > 0 || this.paymentDisputeBlocked) {
+      const alert = await this.alertCtrl.create({
+        header: 'Pending payment required',
+        message:
+          this.paymentDisputeBlockedReason ||
+          'Please clear previous ride payment before booking another ride.',
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          {
+            text: 'Pay now',
+            handler: () => {
+              this.router.navigate(['/pending-dues']);
+            },
+          },
+        ],
+      });
+      await alert.present();
+      return;
+    }
+
     if (this.cancellationOutstandingTotal > 0) {
-      const settled = await this.settleOutstandingWalletFirst();
+      const settled = await this.settleOutstandingDriverCancelSettlements();
       if (!settled) {
         return;
       }
@@ -477,36 +651,76 @@ export class PaymentPage implements OnInit {
   }
 
   /**
-   * Handle Pay Online payment (Razorpay post-ride)
+   * Handle Pay Online (Razorpay): post-ride by default; prepaid full fare when Settings.paymentFeatures.prepaidRazorpayEnabled
    */
   private async handlePayOnlinePayment() {
-    const loading = await this.loadingCtrl.create({
-      message: 'Requesting ride...',
-      spinner: 'crescent',
-    });
-    await loading.present();
+    const prepaidOnline = this.paymentFeatures?.prepaidRazorpayEnabled === true;
+    const ridePay = this.rideFarePayable;
+
+    if (!prepaidOnline) {
+      const loading = await this.loadingCtrl.create({
+        message: 'Requesting ride...',
+        spinner: 'crescent',
+      });
+      await loading.present();
+
+      try {
+        await this.requestRideAfterPayment('RAZORPAY');
+        await loading.dismiss();
+      } catch (error: any) {
+        await loading.dismiss();
+        console.error('❌ Pay Online ride request failed:', error);
+
+        let errorMessage = 'Failed to request ride. Please try again.';
+        if (error?.message) {
+          if (error.message.toLowerCase().includes('network') || error.message.toLowerCase().includes('connection')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+          } else if (error.message.toLowerCase().includes('already have an active ride')) {
+            errorMessage = 'You already have an active ride. Please cancel it first.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+
+        await this.showToast(errorMessage, 'danger');
+        this.paymentError = errorMessage;
+      }
+      return;
+    }
 
     try {
-      // Request ride with RAZORPAY payment method but no paymentId (pay after ride)
-      await this.requestRideAfterPayment('RAZORPAY');
-      await loading.dismiss();
-    } catch (error: any) {
-      await loading.dismiss();
-      console.error('❌ Pay Online ride request failed:', error);
-      
-      let errorMessage = 'Failed to request ride. Please try again.';
-      if (error?.message) {
-        if (error.message.toLowerCase().includes('network') || error.message.toLowerCase().includes('connection')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
-        } else if (error.message.toLowerCase().includes('already have an active ride')) {
-          errorMessage = 'You already have an active ride. Please cancel it first.';
-        } else {
-          errorMessage = error.message;
+      await this.paymentService.processPayment(
+        ridePay,
+        async (paymentResponse) => {
+          console.log('✅ Razorpay prepaid ride payment:', paymentResponse);
+          await this.requestRideAfterPayment('RAZORPAY', {
+            razorpayPaymentId: paymentResponse.razorpay_payment_id,
+            razorpayAmountPaid: ridePay,
+          });
+        },
+        async (error: any) => {
+          console.error('❌ Razorpay prepaid payment failed:', error);
+          let errorMessage = 'Payment cancelled or failed. Please try again.';
+          if (error?.error?.description) {
+            errorMessage = error.error.description;
+          } else if (error?.message) {
+            errorMessage = error.message;
+          }
+          await this.showToast(errorMessage, 'danger');
+        },
+        {
+          name: 'Cerca',
+          description: `Ride fare ${formatInrWithSymbol(ridePay)}`,
+          prefill: {},
+          notes: {
+            purpose: 'prepaid_ride_payment',
+            rideAmount: ridePay.toString(),
+          },
         }
-      }
-      
-      await this.showToast(errorMessage, 'danger');
-      this.paymentError = errorMessage;
+      );
+    } catch (error: any) {
+      console.error('❌ Error initiating prepaid Razorpay:', error);
+      await this.showToast(error?.message || 'Failed to start payment.', 'danger');
     }
   }
 
@@ -514,10 +728,14 @@ export class PaymentPage implements OnInit {
    * Handle wallet payment when balance is sufficient
    */
   private async handleWalletPayment() {
+    const prepaidWallet = this.paymentFeatures?.prepaidWalletEnabled !== false;
+    const walletTimingMsg = prepaidWallet
+      ? `${formatInrWithSymbol(this.totalAmount)} will be deducted from your wallet when you confirm booking (held for this ride). Final fare may adjust at trip end.`
+      : `${formatInrWithSymbol(this.totalAmount)} will be deducted from your wallet when the ride completes.`;
     // Show confirmation modal first
     const confirmAlert = await this.alertCtrl.create({
       header: 'Confirm Wallet Payment',
-      message: `₹${this.totalAmount.toFixed(2)} will be deducted from your wallet when the ride completes. Do you want to proceed?`,
+      message: `${walletTimingMsg} Do you want to proceed?`,
       buttons: [
         {
           text: 'Cancel',
@@ -562,14 +780,16 @@ export class PaymentPage implements OnInit {
         }
       }
 
-      // Don't deduct here - payment happens at ride completion
-      // Just create the ride
+      // Server deducts pure WALLET at booking when prepaidWalletEnabled (default)
       await this.requestRideAfterPayment('WALLET');
       await loading.dismiss();
       
-      // Show success toast
+      const prepaidWallet = this.paymentFeatures?.prepaidWalletEnabled !== false;
+      const toastMsg = prepaidWallet
+        ? `Ride booked. ${formatInrWithSymbol(this.totalAmount)} deducted from wallet for this booking.`
+        : `Ride booked. ${formatInrWithSymbol(this.totalAmount)} will be deducted from wallet at ride completion.`;
       const toast = await this.toastCtrl.create({
-        message: `Ride booked. ₹${this.totalAmount.toFixed(2)} will be deducted from wallet at ride completion.`,
+        message: toastMsg,
         duration: 3000,
         color: 'success',
         position: 'top'
@@ -875,7 +1095,7 @@ export class PaymentPage implements OnInit {
             const q = Number(snap.quotedFinalFare);
             const a = Number(breakdown.finalFare);
             if (Number.isFinite(q) && Number.isFinite(a) && Math.abs(q - a) > 0.05) {
-              this.fareQuoteBlockedMessage = `The fare changed since you chose your trip (was ₹${q.toFixed(0)}, now ₹${a.toFixed(0)}). Go back to refresh and confirm.`;
+              this.fareQuoteBlockedMessage = `The fare changed since you chose your trip (was ${formatInrWithSymbol(q)}, now ${formatInrWithSymbol(a)}). Go back to refresh and confirm.`;
             } else {
               this.fareQuoteBlockedMessage = null;
             }
@@ -942,23 +1162,19 @@ export class PaymentPage implements OnInit {
       this.estimatedDuration = 1; // Minimum 1 minute
     }
 
-    // Calculate fare components
-    this.baseFare = vehicleBasePrice;
-    this.distanceFare = distance * this.pricingConfig.perKmRate;
-    this.timeFare = this.estimatedDuration * perMinuteRate;
-    this.subtotal = this.baseFare + this.distanceFare + this.timeFare;
-    
-    // Apply minimum fare check
-    const minimumFare = this.pricingConfig.minimumFare;
-    this.finalFare = Math.max(this.subtotal, minimumFare);
-    this.minimumFareApplied = this.finalFare > this.subtotal;
-    
-    // Round to 2 decimal places
-    this.baseFare = Math.round(this.baseFare * 100) / 100;
-    this.distanceFare = Math.round(this.distanceFare * 100) / 100;
-    this.timeFare = Math.round(this.timeFare * 100) / 100;
-    this.subtotal = Math.round(this.subtotal * 100) / 100;
-    this.finalFare = Math.round(this.finalFare * 100) / 100;
+    const fallback = calculateFallbackInstantFare({
+      basePrice: vehicleBasePrice,
+      distanceKm: distance,
+      durationMin: this.estimatedDuration,
+      perMinuteRate,
+      pricing: this.pricingConfig,
+    });
+    this.baseFare = fallback.baseFare;
+    this.distanceFare = fallback.distanceFare;
+    this.timeFare = fallback.timeFare;
+    this.subtotal = fallback.subtotal;
+    this.finalFare = fallback.finalFare;
+    this.minimumFareApplied = fallback.minimumFareApplied;
 
     this.tripFarePayableFromApi = null;
     this.fareQuoteBlockedMessage = null;

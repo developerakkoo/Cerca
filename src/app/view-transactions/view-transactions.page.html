@@ -42,7 +42,7 @@
         </ion-label>
         <div slot="end" class="transaction-amounts">
           <ion-note [color]="isCreditTransaction(transaction.transactionType) ? 'success' : 'danger'" class="amount">
-            {{ isCreditTransaction(transaction.transactionType) ? '+' : '-' }}₹{{ transaction.amount.toFixed(2) }}
+            {{ isCreditTransaction(transaction.transactionType) ? '+' : '-' }}{{ transaction.amount | inrWhole:true }}
           </ion-note>
           
         </div>

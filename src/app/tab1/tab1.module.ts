@@ -10,6 +10,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { SharedModule } from '../module/shared/shared.module';
 import { HomeNewPageModule } from '../pages/home-new/home-new.module';
+import { DriverCancelSettlementModalModule } from '../components/ride/driver-cancel-settlement-modal/driver-cancel-settlement-modal.module';
 
 @NgModule({
   imports: [
@@ -20,7 +21,11 @@ import { HomeNewPageModule } from '../pages/home-new/home-new.module';
     ExploreContainerComponentModule,
     Tab1PageRoutingModule,
     SharedModule,
-    HomeNewPageModule
+    HomeNewPageModule,
+    // Cold-start fallback host: if the rider app launches with a pending
+    // driver-cancel settlement and they're on tab1 (no active ride yet), the
+    // inline <ion-modal> on tab1 still surfaces the styled modal.
+    DriverCancelSettlementModalModule
   ],
   declarations: [Tab1Page],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]

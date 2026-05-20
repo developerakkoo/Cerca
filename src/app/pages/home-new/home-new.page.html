@@ -78,8 +78,8 @@
           </div>
           <div class="vehicle-right">
             <div class="vehicle-cost">
-              <span *ngIf="calculatedFares?.cercaZip">₹{{ calculatedFares?.cercaZip?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaZip">₹{{ vehicleServices.cercaZip?.price || 299 }}</span>
+              <span *ngIf="calculatedFares?.cercaZip">{{ calculatedFares.cercaZip.finalFare | inrWhole:true }}</span>
+              <span *ngIf="!calculatedFares?.cercaZip">{{ (vehicleServices.cercaZip?.price || 299) | inrWhole:true }}</span>
             </div>
             <ion-radio value="cercaZip" mode="md"></ion-radio>
           </div>
@@ -101,8 +101,8 @@
           </div>
           <div class="vehicle-right">
             <div class="vehicle-cost">
-              <span *ngIf="calculatedFares?.cercaGlide">₹{{ calculatedFares?.cercaGlide?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaGlide">₹{{ vehicleServices.cercaGlide?.price || 499 }}</span>
+              <span *ngIf="calculatedFares?.cercaGlide">{{ calculatedFares.cercaGlide.finalFare | inrWhole:true }}</span>
+              <span *ngIf="!calculatedFares?.cercaGlide">{{ (vehicleServices.cercaGlide?.price || 499) | inrWhole:true }}</span>
             </div>
             <ion-radio value="cercaGlide" mode="md"></ion-radio>
           </div>
@@ -124,8 +124,8 @@
           </div>
           <div class="vehicle-right">
             <div class="vehicle-cost">
-              <span *ngIf="calculatedFares?.cercaTitan">₹{{ calculatedFares?.cercaTitan?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaTitan">₹{{ vehicleServices.cercaTitan?.price || 699 }}</span>
+              <span *ngIf="calculatedFares?.cercaTitan">{{ calculatedFares.cercaTitan.finalFare | inrWhole:true }}</span>
+              <span *ngIf="!calculatedFares?.cercaTitan">{{ (vehicleServices.cercaTitan?.price || 699) | inrWhole:true }}</span>
             </div>
             <ion-radio value="cercaTitan" mode="md"></ion-radio>
           </div>

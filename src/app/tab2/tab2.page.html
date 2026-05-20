@@ -190,10 +190,10 @@
               expand="block" 
               mode="ios" 
               color="primary"
-              (click)="navigateToPayment(booking._id, booking.fare, booking)"
+              (click)="navigateToPayment(booking._id, getPayableAmount(booking), booking)"
               class="pay-now-btn">
               <ion-icon name="card-outline" slot="start"></ion-icon>
-              Pay ₹{{ booking.fare.toFixed(2) }}
+              Pay {{ getPayableAmount(booking) | inrWhole:true }}
             </ion-button>
           </div>
         </ion-card-content>

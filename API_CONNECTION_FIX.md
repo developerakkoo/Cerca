@@ -162,7 +162,7 @@ app.use(cors({
 For production, use a proper domain:
 ```typescript
 // environment.prod.ts
-apiUrl: 'https://api.myserverdevops.com'
+apiUrl: 'https://api.cercacars.online'
 ```
 
 With HTTPS and proper CORS restrictions.

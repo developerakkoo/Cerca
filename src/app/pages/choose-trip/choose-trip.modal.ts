@@ -18,6 +18,7 @@ import {
 } from '@ionic/angular';
 import { VehicleServices } from '../../services/settings.service';
 import { FareBreakdown } from '../../services/fare.service';
+import { formatInrWithSymbol } from '../../utils/money-display.util';
 
 export type VehicleTier = 'cercaZip' | 'cercaGlide' | 'cercaTitan';
 
@@ -446,7 +447,7 @@ export class ChooseTripModal implements OnInit, OnDestroy, OnChanges {
     }
     const name = this.getVehicleName(v);
     const price = this.getPrice(v);
-    return `Book ${name} • ₹${price} →`;
+    return `Book ${name} • ${formatInrWithSymbol(price)} →`;
   }
 
   onVehicleImgError(event: Event, tier: VehicleTier): void {

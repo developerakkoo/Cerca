@@ -3,8 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HeaderComponent } from 'src/app/components/header/header.component';
 import { IonicModule } from '@ionic/angular';
 import { ModalComponent } from 'src/app/components/modal/modal.component';
-
-
+import { MoneyDisplayModule } from 'src/app/pipes/money-display.module';
 
 @NgModule({
   declarations: [],
@@ -12,8 +11,9 @@ import { ModalComponent } from 'src/app/components/modal/modal.component';
     IonicModule,
     CommonModule,
     HeaderComponent,
-    ModalComponent
+    ModalComponent,
+    MoneyDisplayModule,
   ],
-  exports: [HeaderComponent,ModalComponent]
+  exports: [HeaderComponent, ModalComponent, MoneyDisplayModule],
 })
 export class SharedModule { }

@@ -1,0 +1,22 @@
+<ion-content class="settlement-page" [fullscreen]="true">
+  <div *ngIf="isLoading" class="ion-padding ion-text-center">
+    <ion-spinner></ion-spinner>
+    <p>Loading trip charges...</p>
+  </div>
+
+  <ion-card *ngIf="loadError && !isLoading" color="danger" class="ion-margin">
+    <ion-card-content>
+      <p>{{ loadError }}</p>
+      <ion-button expand="block" routerLink="/tabs/tabs/tab1">Go home</ion-button>
+    </ion-card-content>
+  </ion-card>
+
+  <app-driver-cancel-settlement-modal
+    *ngIf="settlementRequest && !isLoading && !loadError"
+    [reason]="settlementRequest.reason"
+    [settlement]="settlementRequest.settlement"
+    [bookingPaymentMethod]="settlementRequest.bookingPaymentMethod"
+    [isPostRideOnlineBooking]="settlementRequest.isPostRideOnlineBooking"
+    (modalDismiss)="onSettlementAction($event)"
+  ></app-driver-cancel-settlement-modal>
+</ion-content>

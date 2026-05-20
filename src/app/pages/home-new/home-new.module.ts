@@ -6,6 +6,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { HomeNewPage } from './home-new.page';
 import { HomeNewPageRoutingModule } from './home-new-routing.module';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { MoneyDisplayModule } from 'src/app/pipes/money-display.module';
 
 @NgModule({
   imports: [
@@ -13,6 +14,7 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
     CommonModule,
     FormsModule,
     TranslateModule,
+    MoneyDisplayModule,
     HomeNewPageRoutingModule
   ],
   declarations: [HomeNewPage],

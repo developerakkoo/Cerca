@@ -35,6 +35,17 @@ const routes: Routes = [
     loadChildren: () => import('./pages/ride-payment/ride-payment.module').then( m => m.RidePaymentPageModule)
   },
   {
+    path: 'driver-cancel-settlement/:rideId',
+    loadChildren: () =>
+      import('./pages/driver-cancel-settlement/driver-cancel-settlement.module').then(
+        (m) => m.DriverCancelSettlementPageModule
+      ),
+  },
+  {
+    path: 'pending-dues',
+    loadChildren: () => import('./pages/pending-dues/pending-dues.module').then( m => m.PendingDuesPageModule)
+  },
+  {
     path: 'active-ordere',
     loadChildren: () => import('./pages/active-ordere/active-ordere.module').then( m => m.ActiveOrderePageModule)
   },

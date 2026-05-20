@@ -8,6 +8,7 @@ import { SocketService } from './services/socket.service';
 import { RideService } from './services/ride.service';
 import { ThemeService } from './services/theme.service';
 import { SystemSettingsService } from './services/system-settings.service';
+import { FcmService } from './services/fcm.service';
 import { Subscription, interval } from 'rxjs';
 import { AlertController } from '@ionic/angular';
 import { App } from '@capacitor/app';
@@ -38,7 +39,8 @@ export class AppComponent implements OnDestroy {
     private rideService: RideService,
     private themeService: ThemeService,
     private systemSettingsService: SystemSettingsService,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private fcmService: FcmService,
   ) {}
 
   async ngOnInit() {
@@ -137,6 +139,11 @@ export class AppComponent implements OnDestroy {
             console.log('✅ Socket.IO initialization sequence complete');
             console.log('========================================');
 
+            // Register the device with FCM (Android only; iOS deferred).
+            this.fcmService.initialize(userId).catch((err) => {
+              console.error('❌ FCM initialization failed:', err);
+            });
+
             // Start periodic status check
             this.startPeriodicStatusCheck(userId);
 
@@ -172,6 +179,9 @@ export class AppComponent implements OnDestroy {
 
         // Disconnect socket for logged-out users
         await this.socketService.disconnect();
+
+        // Tear down FCM listeners and forget the device token.
+        await this.fcmService.dispose();
 
         // Stop periodic status check
         this.stopPeriodicStatusCheck();

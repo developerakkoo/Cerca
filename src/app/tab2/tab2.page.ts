@@ -266,25 +266,26 @@ export class Tab2Page implements OnInit, OnDestroy {
    * Check if payment is pending for a completed ride
    */
   isPaymentPending(booking: Ride): boolean {
-    return (
-      booking.status === 'completed' &&
-      booking.paymentMethod === 'RAZORPAY' &&
-      booking.paymentStatus === 'pending'
-    );
+    return this.rideService.shouldCollectOnlinePayment(booking);
   }
 
   /**
    * Navigate to payment page for a specific ride
    */
-  navigateToPayment(rideId: string, fare: number, booking: Ride) {
+  getPayableAmount(booking: Ride): number {
+    return this.rideService.resolvePayableFare(booking);
+  }
+
+  async navigateToPayment(rideId: string, _fare: number, booking: Ride) {
+    const payable = this.rideService.resolvePayableFare(booking);
     this.router.navigate(['/ride-payment', rideId], {
       state: {
-        fare: fare,
+        fare: payable,
         pickupAddress: booking.pickupAddress || '',
         dropoffAddress: booking.dropoffAddress || '',
         duration: booking.actualDuration || 0
       },
-      replaceUrl: true // Prevent back navigation to this page
+      replaceUrl: true
     });
   }
 

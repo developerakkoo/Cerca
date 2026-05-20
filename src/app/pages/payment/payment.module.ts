@@ -8,6 +8,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { PaymentPageRoutingModule } from './payment-routing.module';
 
 import { PaymentPage } from './payment.page';
+import { MoneyDisplayModule } from 'src/app/pipes/money-display.module';
 
 @NgModule({
   imports: [
@@ -15,6 +16,7 @@ import { PaymentPage } from './payment.page';
     FormsModule,
     IonicModule,
     TranslateModule,
+    MoneyDisplayModule,
     PaymentPageRoutingModule
   ],
   declarations: [PaymentPage]

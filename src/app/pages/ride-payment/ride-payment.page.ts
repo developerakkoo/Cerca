@@ -1,14 +1,19 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute, Router, NavigationStart, NavigationEnd } from '@angular/router';
-import { Platform, LoadingController, ToastController } from '@ionic/angular';
+import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
+import {
+  Platform,
+  LoadingController,
+  ToastController,
+  ViewWillEnter,
+  ViewWillLeave,
+} from '@ionic/angular';
 import { PaymentService } from '../../services/payment.service';
-import { RideService, Ride } from '../../services/ride.service';
+import { RideService } from '../../services/ride.service';
 import { Storage } from '@ionic/storage-angular';
-import { HttpClient } from '@angular/common/http';
-import { environment } from 'src/environments/environment';
 import { Location } from '@angular/common';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { filter } from 'rxjs/operators';
+import { GoogleMapLifecycleService } from '../../services/google-map-lifecycle.service';
 
 @Component({
   selector: 'app-ride-payment',
@@ -16,18 +21,20 @@ import { filter } from 'rxjs/operators';
   styleUrls: ['./ride-payment.page.scss'],
   standalone: false,
 })
-export class RidePaymentPage implements OnInit, OnDestroy {
+export class RidePaymentPage implements OnInit, OnDestroy, ViewWillEnter, ViewWillLeave {
   rideId: string = '';
   userId: string | null = null;
   fare: number = 0;
   pickupAddress: string = '';
   dropoffAddress: string = '';
   duration: number = 0;
-  /** From completed ride fare breakdown (pickup wait at start OTP). */
   pickupWaitCharge: number = 0;
   paymentSuccess: boolean = false;
   switchedToCash: boolean = false;
   switchingToCash: boolean = false;
+
+  isLoadingPaymentContext = true;
+  loadError: string | null = null;
 
   private backButtonSubscription?: Subscription;
   private routerSubscription?: Subscription;
@@ -42,17 +49,23 @@ export class RidePaymentPage implements OnInit, OnDestroy {
     private storage: Storage,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
-    private http: HttpClient
+    private mapLifecycle: GoogleMapLifecycleService
   ) {}
 
+  async ionViewWillEnter(): Promise<void> {
+    await this.mapLifecycle.suspendAll();
+    document.documentElement.classList.add('opaque-app-shell');
+    this.location.replaceState(this.router.url);
+  }
+
+  ionViewWillLeave(): void {
+    document.documentElement.classList.remove('opaque-app-shell');
+  }
+
   async ngOnInit() {
-    // Replace history state to prevent browser back navigation
     this.location.replaceState(this.router.url);
 
-    // Get rideId from route params
     this.rideId = this.route.snapshot.paramMap.get('rideId') || '';
-    
-    // Get userId from storage
     this.userId = await this.storage.get('userId');
 
     if (!this.rideId) {
@@ -67,107 +80,102 @@ export class RidePaymentPage implements OnInit, OnDestroy {
       return;
     }
 
-    // Check if payment is already completed
+    this.setupBackButtonPrevention();
+    this.setupRouterPrevention();
+
+    await this.loadPaymentContext();
+  }
+
+  async loadPaymentContext() {
+    this.isLoadingPaymentContext = true;
+    this.loadError = null;
+
     try {
-      const ride = await this.http.get<Ride>(
-        `${environment.apiUrl}/api/rides/${this.rideId}`
-      ).toPromise();
-      
-      if (ride) {
-        this.pickupWaitCharge =
-          ride.fareBreakdown?.pickupWaitCharge ??
-          ride.pickupWait?.totalPickupWaitCharge ??
-          0;
-      }
+      const summary = await this.rideService.fetchRidePaymentSummary(
+        this.rideId,
+        String(this.userId)
+      );
 
-      if (ride && ride.paymentStatus === 'completed') {
-        // Payment already completed, redirect to active order page
-        this.paymentSuccess = true;
-        setTimeout(() => {
-          this.router.navigate(['/active-ordere'], {
-            queryParams: { showRating: 'true' },
-            replaceUrl: true
-          });
-        }, 1000);
-        return;
-      }
-    } catch (error) {
-      console.warn('Failed to check ride payment status:', error);
-    }
+      if (summary) {
+        if (summary.paymentStatus === 'completed') {
+          this.paymentSuccess = true;
+          setTimeout(() => {
+            this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+          }, 600);
+          return;
+        }
 
-    // Get ride details from route state or query params
-    const navigation = this.router.getCurrentNavigation();
-    const state = navigation?.extras?.state as any || {};
-    
-    this.fare = state['fare'] || parseFloat(this.route.snapshot.queryParamMap.get('fare') || '0');
-    this.pickupAddress = state['pickupAddress'] || this.route.snapshot.queryParamMap.get('pickup') || '';
-    this.dropoffAddress = state['dropoffAddress'] || this.route.snapshot.queryParamMap.get('dropoff') || '';
-    this.duration = state['duration'] || parseInt(this.route.snapshot.queryParamMap.get('duration') || '0', 10);
+        this.fare = summary.amountDue;
+        this.pickupAddress = summary.pickupAddress;
+        this.dropoffAddress = summary.dropoffAddress;
+        this.duration = summary.actualDuration;
+        this.pickupWaitCharge = summary.pickupWaitCharge;
 
-    // If no fare, try to get from current ride in service
-    if (!this.fare) {
-      this.rideService.getCurrentRide().subscribe((ride) => {
-        if (ride && ride._id === this.rideId) {
-          this.fare = ride.fare || 0;
+        if (!summary.canPayOnline || this.fare <= 0) {
+          this.loadError =
+            'Unable to load a valid fare for this ride. Please try again or contact support.';
+        }
+      } else {
+        const ride = await this.rideService.fetchRideById(this.rideId);
+        if (ride) {
+          if (ride.paymentStatus === 'completed') {
+            this.paymentSuccess = true;
+            setTimeout(() => {
+              this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+            }, 600);
+            return;
+          }
+          this.fare = this.rideService.resolvePayableFare(ride);
           this.pickupAddress = ride.pickupAddress || '';
           this.dropoffAddress = ride.dropoffAddress || '';
           this.duration = ride.actualDuration || 0;
+          this.pickupWaitCharge =
+            ride.fareBreakdown?.pickupWaitCharge ??
+            ride.pickupWait?.totalPickupWaitCharge ??
+            0;
+          if (this.fare <= 0) {
+            this.loadError =
+              'Unable to load a valid fare for this ride. Please try again or contact support.';
+          }
+        } else {
+          this.loadError = 'Could not load ride details. Check your connection and retry.';
         }
-      });
+      }
+    } catch (error) {
+      console.warn('loadPaymentContext failed:', error);
+      this.loadError = 'Could not load payment details. Please retry.';
+    } finally {
+      this.isLoadingPaymentContext = false;
     }
-
-    // Setup back button prevention
-    this.setupBackButtonPrevention();
-
-    // Setup router navigation prevention
-    this.setupRouterPrevention();
   }
 
-  ionViewWillEnter() {
-    // Replace history state again when view enters
-    this.location.replaceState(this.router.url);
-  }
-
-  /**
-   * Setup hardware back button prevention
-   */
   private setupBackButtonPrevention() {
     if (this.platform.is('android')) {
-      // Use highest priority to override all other handlers
       this.backButtonSubscription = this.platform.backButton.subscribeWithPriority(9999, () => {
         if (!this.paymentSuccess && !this.switchedToCash) {
-          // Prevent back navigation - show message
           this.showToast('Please complete payment to continue', 'warning');
         } else {
-          // Allow navigation after payment success
           this.location.back();
         }
       });
     }
   }
 
-  /**
-   * Setup router navigation prevention
-   */
   private setupRouterPrevention() {
-    // Prevent navigation away from payment page until payment is completed
     this.routerSubscription = this.router.events
       .pipe(filter(event => event instanceof NavigationStart))
       .subscribe((event: any) => {
         const currentUrl = this.router.url;
         const targetUrl = event.url;
-        
-        // Allow navigation if payment is successful or user switched to cash
+
         if (this.paymentSuccess || this.switchedToCash) {
           return;
         }
 
-        // Allow navigation if it's the same route (refresh)
         if (targetUrl === currentUrl) {
           return;
         }
 
-        // Prevent navigation away from payment page
         if (currentUrl.includes('/ride-payment') && !targetUrl.includes('/ride-payment')) {
           event.preventDefault();
           this.showToast('Please complete payment to continue', 'warning');
@@ -176,7 +184,6 @@ export class RidePaymentPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    // Clean up subscriptions
     if (this.backButtonSubscription) {
       this.backButtonSubscription.unsubscribe();
     }
@@ -186,7 +193,7 @@ export class RidePaymentPage implements OnInit, OnDestroy {
   }
 
   async payNow() {
-    if (this.paymentSuccess) {
+    if (this.paymentSuccess || this.loadError) {
       return;
     }
 
@@ -202,26 +209,18 @@ export class RidePaymentPage implements OnInit, OnDestroy {
         this.fare,
         async (response) => {
           this.paymentSuccess = true;
-          
-          // Show success animation
           await this.showToast('Payment successful!', 'success');
-          
-          // Refresh ride state from backend to get updated paymentStatus
+
           try {
-            const updatedRide = await this.http.get<Ride>(
-              `${environment.apiUrl}/api/rides/${this.rideId}`
-            ).toPromise();
-            
+            const updatedRide = await this.rideService.fetchRideById(this.rideId);
             if (updatedRide) {
               await this.rideService.applyServerRide(updatedRide);
-              console.log('✅ Ride state refreshed after payment - paymentStatus:', updatedRide.paymentStatus);
+              await this.rideService.clearPaymentNavigationGuard(this.rideId);
             }
           } catch (refreshError) {
-            console.warn('⚠️ Failed to refresh ride state:', refreshError);
-            // Continue anyway - webhook will update it
+            console.warn('Failed to refresh ride state:', refreshError);
           }
-          
-          // Unsubscribe from back button handler to allow navigation
+
           if (this.backButtonSubscription) {
             this.backButtonSubscription.unsubscribe();
           }
@@ -229,27 +228,25 @@ export class RidePaymentPage implements OnInit, OnDestroy {
             this.routerSubscription.unsubscribe();
           }
 
-          // Navigate back to active-order page to show rating modal
           setTimeout(() => {
-            this.router.navigate(['/active-ordere'], {
-              queryParams: { showRating: 'true' },
-              replaceUrl: true
-            });
-          }, 2000);
+            this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+          }, 600);
         },
         async (error) => {
           console.error('Payment failed:', error);
-          // Error toast is shown by payment service
         }
       );
     } catch (error: any) {
       console.error('Payment error:', error);
-      await this.showToast(error?.message || error?.error?.description || 'Payment cancelled or failed.', 'danger');
+      await this.showToast(
+        error?.message || error?.error?.description || 'Payment cancelled or failed.',
+        'danger'
+      );
     }
   }
 
   async payInCash() {
-    if (this.paymentSuccess || this.switchedToCash || !this.rideId) {
+    if (this.paymentSuccess || this.switchedToCash || !this.rideId || this.loadError) {
       return;
     }
     this.switchingToCash = true;
@@ -274,14 +271,12 @@ export class RidePaymentPage implements OnInit, OnDestroy {
         this.routerSubscription.unsubscribe();
       }
       await this.showToast('Pay in cash selected. Please pay the driver.', 'success');
-      this.router.navigate(['/active-ordere'], {
-        queryParams: { showRating: 'true' },
-        replaceUrl: true
-      });
+      this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
     } catch (error: any) {
       await loading.dismiss();
       this.switchingToCash = false;
-      const msg = error?.error?.message || error?.message || 'Could not switch to cash. Please try again.';
+      const msg =
+        error?.error?.message || error?.message || 'Could not switch to cash. Please try again.';
       await this.showToast(msg, 'danger');
     }
   }

@@ -1,0 +1,110 @@
+<ion-header class="ion-no-border settlement-header">
+  <ion-toolbar>
+    <ion-title>Driver ended the trip</ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" (click)="dismissCancel()" aria-label="Close">
+        <ion-icon slot="icon-only" name="close-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="settlement-content" [fullscreen]="true">
+  <div class="settlement-inner">
+    <div class="settlement-callout" *ngIf="hasDetailedPerKm">
+      <strong>Distance-based pricing:</strong>
+      Partial trip charge uses {{ fmt(settlement.perKmRateUsed) }}/km
+      ({{ rateSrcLabel }}) over <strong>{{ partialKmStr }} km</strong> travelled,
+      plus any cancellation fees below.
+    </div>
+    <div class="settlement-callout" *ngIf="!hasDetailedPerKm">
+      <strong>Distance-based pricing:</strong>
+      Charges below include a per-kilometre component for the distance covered,
+      plus any cancellation fees.
+    </div>
+
+    <div class="settlement-reason">
+      <span class="settlement-reason-label">Reason</span>
+      <p class="settlement-reason-value">{{ displayReason }}</p>
+    </div>
+
+    <ion-list class="settlement-breakdown" lines="none">
+      <ion-item class="settlement-row">
+        <ion-label>Cancellation penalty</ion-label>
+        <ion-note slot="end">{{ fmt(settlement.riderPenaltyAmount) }}</ion-note>
+      </ion-item>
+      <ion-item class="settlement-row">
+        <ion-label>Trip charge (partial distance)</ion-label>
+        <ion-note slot="end">{{ fmt(settlement.driverPartialAmount) }}</ion-note>
+      </ion-item>
+      <ion-item class="settlement-row">
+        <ion-label>Total due for this event</ion-label>
+        <ion-note slot="end">{{ fmt(settlement.riderTotalCharge) }}</ion-note>
+      </ion-item>
+      <ion-item class="settlement-row settlement-row-muted">
+        <ion-label>Already paid (prepaid)</ion-label>
+        <ion-note slot="end">{{ fmt(settlement.prepaidTotal) }}</ion-note>
+      </ion-item>
+    </ion-list>
+
+    <div
+      class="settlement-due"
+      [class.is-due]="!isZeroDue"
+      [class.is-cleared]="isZeroDue"
+    >
+      <ng-container *ngIf="isZeroDue">
+        <span>No extra online charge.</span>
+        <small>Any refund will be processed automatically.</small>
+      </ng-container>
+      <ng-container *ngIf="!isZeroDue">
+        <span>You still need to pay</span>
+        <strong>{{ fmt(additional) }}</strong>
+      </ng-container>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer class="ion-no-border settlement-footer">
+  <ion-toolbar>
+    <div class="settlement-actions">
+      <ng-container *ngIf="isZeroDue">
+        <ion-button
+          expand="block"
+          class="btn-primary btn-primary-done"
+          (click)="dismissAction('acknowledge')"
+        >
+          Done
+        </ion-button>
+      </ng-container>
+      <ng-container *ngIf="!isZeroDue">
+        <ion-button
+          *ngIf="showPayOnline"
+          expand="block"
+          class="btn-primary"
+          (click)="dismissAction('online')"
+        >
+          Pay online
+        </ion-button>
+        <ion-button
+          *ngIf="showPayWallet"
+          expand="block"
+          [class]="showPayOnline ? 'btn-secondary' : 'btn-primary'"
+          (click)="dismissAction('wallet')"
+        >
+          Pay with wallet
+        </ion-button>
+        <ion-button
+          expand="block"
+          fill="outline"
+          class="btn-outline"
+          (click)="dismissAction('cash')"
+        >
+          Pay driver in cash
+        </ion-button>
+      </ng-container>
+      <ion-button expand="block" fill="clear" class="btn-close" (click)="dismissCancel()">
+        Close
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

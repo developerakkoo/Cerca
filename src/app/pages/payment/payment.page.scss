@@ -1,31 +1,15 @@
 .payment-content {
   --background: var(--ion-color-light-tint);
-  --padding-bottom: 88px;
+  --padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   position: relative;
-  z-index: 10000;
   background: var(--ion-color-light-tint) !important;
-  overflow: hidden;
-  
-  // Ensure content covers any background elements (like Google Map)
-  &::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: var(--ion-color-light-tint);
-    z-index: -1;
-    pointer-events: none;
-  }
-  
+  touch-action: pan-y;
 }
 
 .payment-container {
   padding: 16px;
   max-width: 600px;
   margin: 0 auto;
-  padding-bottom: 88px;
   position: relative;
   z-index: 1;
   background: transparent;
@@ -385,14 +369,12 @@
   }
 }
 
-.payment-action {
-  padding: 16px;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--ion-color-light-tint);
-  z-index: 100;
+.payment-footer ion-toolbar {
+  --padding-top: 8px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  --background: var(--ion-color-light-tint);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -477,8 +459,6 @@
 }
 
 .payment-header {
-  position: relative;
-  z-index: 10001;
   background: var(--ion-color-light-tint) !important;
 }
 
@@ -486,10 +466,6 @@
   .payment-content {
     --background: var(--ion-background-color);
     background: var(--ion-background-color) !important;
-    
-    &::before {
-      background: var(--ion-background-color);
-    }
   }
 
   .payment-header {
@@ -588,8 +564,8 @@
     }
   }
 
-  .payment-action {
-    background: var(--ion-background-color);
+  .payment-footer ion-toolbar {
+    --background: var(--ion-background-color);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
   }
 }

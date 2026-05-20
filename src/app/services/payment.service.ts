@@ -288,15 +288,23 @@ export class PaymentService {
         throw new Error(orderResponse?.message || 'Failed to create payment order');
       }
 
+      const serverAmount = Number(orderResponse.data.amount) || 0;
+      if (serverAmount > 0 && Math.abs(serverAmount - amount) > 0.01) {
+        console.warn(
+          `[processRidePayment] Client amount ₹${amount} differs from server ₹${serverAmount}; using server amount`
+        );
+      }
+      const checkoutAmount = serverAmount > 0 ? serverAmount : amount;
+
       console.log('Ride payment order created:', orderResponse.data);
 
       // Step 2: Open Razorpay checkout with rideId and userId in notes
       const paymentResponse = await this.openRazorpayCheckout(
         orderResponse.data.orderId,
-        orderResponse.data.amount,
+        checkoutAmount,
         {
           name: 'Cerca',
-          description: `Ride payment of ₹${orderResponse.data.amount}`,
+          description: `Ride payment of ₹${checkoutAmount}`,
           notes: {
             rideId: rideId,
             userId: userId,

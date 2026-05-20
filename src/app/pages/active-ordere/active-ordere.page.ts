@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 import { GoogleMap, LatLngBounds, MapType } from '@capacitor/google-maps';
-import { interval, Subscription, firstValueFrom, take } from 'rxjs';
+import { interval, Observable, Subscription, firstValueFrom, take } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 import {
@@ -17,15 +17,19 @@ import {
   RideStatus,
   Location,
   DriverInfo,
+  DriverCancelSettlementRequest,
 } from 'src/app/services/ride.service';
+import type { DriverCancelSettlementAction } from 'src/app/components/ride/driver-cancel-settlement-modal/driver-cancel-settlement-modal.component';
 import { AlertController, Platform, ModalController, ToastController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { RideShareService } from 'src/app/services/ride-share.service';
+import { SocketService } from 'src/app/services/socket.service';
 import {
   computePickupWaitPreview,
   DEFAULT_PICKUP_WAIT_POLICY_PREVIEW,
 } from 'src/app/utils/pickup-wait-preview.util';
 import { SearchPage, SearchModalResult } from '../search/search.page';
+import { formatInrWithSymbol } from 'src/app/utils/money-display.util';
 
 @Component({
   selector: 'app-active-ordere',
@@ -118,6 +122,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   pickupWaitChargePreview = 0;
   pickupWaitFreeRemainingSec: number | null = null;
   private pickupWaitTickerSub?: Subscription;
+  private paymentRequiredBackupSub?: Subscription;
 
   get pickupWaitFreeMinPart(): number {
     if (this.pickupWaitFreeRemainingSec == null) return 0;
@@ -155,6 +160,14 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   fromBookings = false; // Track if navigated from Bookings tab
   isViewOnlyMode = false; // Track if viewing past ride (read-only)
 
+  /**
+   * Inline driver-cancel settlement modal feed (rendered by the host
+   * <ion-modal> in the template). The component is now hosted inline rather
+   * than instantiated via ModalController.create, which guarantees its
+   * template is compiled with the active-ordere lazy chunk.
+   */
+  driverCancelSettlement$: Observable<DriverCancelSettlementRequest | null>;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -165,8 +178,27 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private ngZone: NgZone,
     private toastController: ToastController,
-    private rideShareService: RideShareService
-  ) {}
+    private rideShareService: RideShareService,
+    private socketService: SocketService
+  ) {
+    this.driverCancelSettlement$ = this.rideService.driverCancelSettlement$;
+  }
+
+  /**
+   * Bridge from the inline settlement modal back to RideService. Forwards the
+   * chosen action (or undefined for plain close) and lets the service handle
+   * the HTTP call + toast + storage cleanup.
+   */
+  async closeDriverCancelSettlement(
+    rideId: string,
+    action: DriverCancelSettlementAction | undefined
+  ): Promise<void> {
+    try {
+      await this.rideService.settleDriverCancellation(rideId, action);
+    } catch (err) {
+      console.error('[ActiveOrderePage] settleDriverCancellation failed:', err);
+    }
+  }
 
   async ngOnInit() {
     // Check navigation state to determine source
@@ -455,6 +487,31 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         this.handleRideStatusChange(status);
       });
 
+    this.paymentRequiredBackupSub = this.socketService
+      .on<{
+        rideId: string;
+        amount: number;
+        paymentMethod: string;
+        reason?: string;
+        ride?: Ride;
+      }>('paymentRequired')
+      .subscribe((payload) => {
+        if (!payload?.rideId || this.isViewOnlyMode) {
+          return;
+        }
+        const ride =
+          payload.ride ||
+          (this.currentRide &&
+          String(this.currentRide._id) === String(payload.rideId)
+            ? this.currentRide
+            : null);
+        if (ride) {
+          void this.rideService.handleTerminalTrip(ride, 'active-ordere-paymentRequired', {
+            showCompletionToast: false,
+          });
+        }
+      });
+
     // Subscribe to driver location updates (both driverLocationUpdate and rideLocationUpdate)
     this.driverLocationSubscription = this.rideService
       .getDriverLocation()
@@ -647,6 +704,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     // Unsubscribe from all subscriptions
     this.rideSubscription?.unsubscribe();
     this.rideStatusSubscription?.unsubscribe();
+    this.paymentRequiredBackupSub?.unsubscribe();
     this.driverLocationSubscription?.unsubscribe();
     this.driverETASubscription?.unsubscribe();
     this.backButtonSubscription?.unsubscribe();
@@ -853,6 +911,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         this.statusText = 'Ride Completed';
         // Close the driver modal first
         this.isDriverModalOpen = false;
+
+        if (this.currentRide) {
+          void this.rideService.handleTerminalTrip(
+            this.currentRide,
+            'active-ordere-completed-immediate',
+            { showCompletionToast: false }
+          );
+        }
+
         // Only show rating if we haven't shown it yet
         if (!this.hasShownRating) {
           // Clear any existing timeout
@@ -860,7 +927,6 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
             clearTimeout(this.ratingTimeout);
           }
           
-          // Wait a bit for ride state to fully update, then check payment
           this.ratingTimeout = setTimeout(() => {
             this.ngZone.run(async () => {
               // Refetch ride from API to get latest fare (recalculated with actual duration)
@@ -875,26 +941,19 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
                 }
               }
               
-              // Re-check current ride state to ensure we have latest data
               const latestRide = this.currentRide;
               console.log('💳 Checking payment requirement - paymentMethod:', latestRide?.paymentMethod, 'paymentStatus:', latestRide?.paymentStatus, 'fare:', latestRide?.fare);
               
-              const shouldShowPaymentScreen = !!latestRide &&
-                (latestRide.fare || 0) > 0 &&
-                latestRide.paymentStatus !== 'completed';
+              const navigatedToPayment =
+                latestRide &&
+                (await this.rideService.handleTerminalTrip(
+                  latestRide,
+                  'active-ordere-completed',
+                  { showCompletionToast: false }
+                ));
 
-              // Always show payment screen on completion while payment remains unsettled.
-              if (shouldShowPaymentScreen && latestRide) {
-                console.log('💳 Payment required - navigating to payment screen');
-                this.router.navigate(['/ride-payment', latestRide._id], {
-                  state: {
-                    fare: latestRide.fare,
-                    pickupAddress: latestRide.pickupAddress,
-                    dropoffAddress: latestRide.dropoffAddress,
-                    duration: latestRide.actualDuration || 0
-                  },
-                  replaceUrl: true // Prevent back navigation to this page
-                });
+              if (navigatedToPayment) {
+                console.log('💳 Payment required - navigated via RideService');
               } else if (latestRide &&
                          latestRide.paymentMethod === 'WALLET' &&
                          latestRide.paymentStatus === 'completed') {
@@ -902,7 +961,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
                 console.log('💳 Wallet payment completed - showing confirmation');
                 const fareAmount = latestRide.fare || 0;
                 const toast = await this.toastController.create({
-                  message: `₹${fareAmount.toFixed(2)} deducted from wallet. Thank you!`,
+                  message: `${formatInrWithSymbol(fareAmount)} deducted from wallet. Thank you!`,
                   duration: 3000,
                   color: 'success',
                   position: 'top',
@@ -929,16 +988,18 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
               }
               this.ratingTimeout = undefined;
             });
-          }, 1500); // Wait 1.5 seconds for state to update
+          }, 500);
         }
         break;
       case 'cancelled':
         this.stopPickupWaitTicker();
         this.statusText = 'Ride Cancelled';
-        // Navigate back to home with replaceUrl
-        this.router.navigate(['/tabs/tabs/tab1'], {
-          replaceUrl: true, // Clear navigation stack
-        });
+        // Driver cancel: RideService routes to /driver-cancel-settlement
+        if (this.currentRide?.cancelledBy !== 'driver') {
+          this.router.navigate(['/tabs/tabs/tab1'], {
+            replaceUrl: true,
+          });
+        }
         break;
       default:
         this.statusText = 'Preparing...';
@@ -1821,6 +1882,30 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }, 100);
   }
 
+  /**
+   * Rider cancels the ride before the trip starts. Visibility of the button
+   * is gated on `currentRideStatus` in the template; this method is the
+   * defense-in-depth runtime check in case the status flips between render
+   * and tap. Navigation to /cancel-order opens the reason picker which
+   * actually emits `rideCancelled` via RideService.cancelRide(reason).
+   */
+  async onCancelRide(): Promise<void> {
+    // Allow cancellation only while rider hasn't shared the start OTP yet.
+    // RideStatus options: idle | searching | accepted | arrived | in_progress | completed | cancelled.
+    const allowed: RideStatus[] = ['searching', 'accepted', 'arrived'];
+    if (!allowed.includes(this.currentRideStatus)) {
+      const toast = await this.toastController.create({
+        message: 'You cannot cancel after the trip has started.',
+        duration: 2500,
+        color: 'warning',
+        position: 'top',
+      });
+      await toast.present();
+      return;
+    }
+    this.router.navigate(['/cancel-order']);
+  }
+
   async triggerEmergency() {
     const alert = await this.alertCtrl.create({
       header: '🚨 Emergency Alert',
@@ -1950,7 +2035,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
       const alert = await this.alertCtrl.create({
         header: 'Confirm new destination',
-        message: `Estimated fare: ₹${newFare.toFixed(0)} (was ₹${prevFare.toFixed(0)}). Update destination?`,
+        message: `Estimated fare: ${formatInrWithSymbol(newFare)} (was ${formatInrWithSymbol(prevFare)}). Update destination?`,
         buttons: [
           { text: 'Cancel', role: 'cancel' },
           { text: 'Confirm', role: 'confirm' },

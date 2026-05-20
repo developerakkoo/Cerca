@@ -1,13 +1,22 @@
 <ion-header [translucent]="false" class="ion-no-border">
   <ion-toolbar>
-    <!-- Back button removed - user cannot go back until payment is completed -->
     <ion-title>Pay for Your Ride</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ride-payment-content">
-  <div class="payment-container" *ngIf="!paymentSuccess && !switchedToCash">
-    <!-- Ride Summary Card -->
+  <div *ngIf="isLoadingPaymentContext" class="loading-container ion-padding ion-text-center">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading payment details…</p>
+  </div>
+
+  <div *ngIf="!isLoadingPaymentContext && loadError" class="error-container ion-padding ion-text-center">
+    <ion-icon name="alert-circle-outline" color="danger" style="font-size: 48px;"></ion-icon>
+    <p>{{ loadError }}</p>
+    <ion-button expand="block" (click)="loadPaymentContext()">Retry</ion-button>
+  </div>
+
+  <div *ngIf="!isLoadingPaymentContext && !loadError && !paymentSuccess && !switchedToCash" class="payment-container">
     <div class="ride-summary-card">
       <div class="route-info">
         <div class="location-item pickup">
@@ -44,28 +53,26 @@
       </div>
     </div>
 
-    <!-- Fare Display -->
     <div class="fare-display">
       <p *ngIf="pickupWaitCharge > 0" class="fare-label" style="margin-bottom: 4px;">
-        Pickup wait charge: ₹{{ pickupWaitCharge.toFixed(2) }}
+        Pickup wait charge: {{ pickupWaitCharge | inrWhole:true }}
       </p>
       <p class="fare-label">Total Amount</p>
-      <h1 class="fare-amount">₹{{ fare.toFixed(2) }}</h1>
+      <h1 class="fare-amount">{{ fare | inrWhole:true }}</h1>
     </div>
 
-    <!-- Payment Button -->
     <div class="payment-action">
-      <ion-button 
-        expand="block" 
-        class="pay-button" 
+      <ion-button
+        expand="block"
+        class="pay-button"
         (click)="payNow()"
         [disabled]="fare <= 0">
         <ion-icon name="card-outline" slot="start"></ion-icon>
-        <span>Pay ₹{{ fare.toFixed(2) }}</span>
+        <span>Pay {{ fare | inrWhole:true }}</span>
       </ion-button>
-      <ion-button 
-        expand="block" 
-        fill="outline" 
+      <ion-button
+        expand="block"
+        fill="outline"
         class="pay-cash-button"
         (click)="payInCash()"
         [disabled]="fare <= 0 || switchingToCash">
@@ -74,7 +81,6 @@
       </ion-button>
     </div>
 
-    <!-- Payment Methods Info -->
     <div class="payment-info">
       <ion-item lines="none">
         <ion-icon name="information-circle-outline" slot="start" color="primary"></ion-icon>
@@ -86,12 +92,11 @@
     </div>
   </div>
 
-  <!-- Success State -->
   <div class="success-container" *ngIf="paymentSuccess">
     <div class="success-animation">
       <ion-icon name="checkmark-circle" color="success" class="success-icon"></ion-icon>
       <h2>Payment Successful!</h2>
-      <p>Your payment of ₹{{ fare.toFixed(2) }} has been processed.</p>
+      <p>Your payment of {{ fare | inrWhole:true }} has been processed.</p>
     </div>
   </div>
 </ion-content>

@@ -1,7 +1,7 @@
 # Socket Connection Timeout Troubleshooting Guide
 
 ## Problem
-The user app is experiencing connection timeouts when trying to connect to `api.myserverdevops.com`:
+The user app is experiencing connection timeouts when trying to connect to `api.cercacars.online`:
 - `net::ERR_CONNECTION_TIMED_OUT` errors
 - Socket.IO `xhr poll error` (TransportError)
 - HTTP requests timing out
@@ -16,7 +16,7 @@ The backend server is configured to ONLY accept `websocket` transport, but the c
 **Fix**: Update server to allow both transports.
 
 ### 2. **Server Not Running or Not Accessible**
-The API server at `api.myserverdevops.com` might be:
+The API server at `api.cercacars.online` might be:
 - Not running on port 3000
 - Not accessible from the client's network
 - Blocked by firewall
@@ -58,13 +58,13 @@ tail -f /path/to/api/logs/error.log
 ### Step 2: Test API Endpoint Directly
 ```bash
 # Test HTTP endpoint (should redirect to HTTPS)
-curl -I http://api.myserverdevops.com
+curl -I http://api.cercacars.online
 
 # Test HTTPS endpoint
-curl -I https://api.myserverdevops.com
+curl -I https://api.cercacars.online
 
 # Test Socket.IO endpoint
-curl -I https://api.myserverdevops.com/socket.io/
+curl -I https://api.cercacars.online/socket.io/
 ```
 
 ### Step 3: Check Nginx Status
@@ -85,12 +85,12 @@ sudo systemctl reload nginx
 ### Step 4: Check DNS Resolution
 ```bash
 # From client machine
-nslookup api.myserverdevops.com
+nslookup api.cercacars.online
 # or
-dig api.myserverdevops.com
+dig api.cercacars.online
 
 # Test connectivity
-ping api.myserverdevops.com
+ping api.cercacars.online
 ```
 
 ### Step 5: Check Firewall Rules
@@ -107,7 +107,7 @@ curl http://localhost:3000
 ### Step 6: Test Socket.IO Connection
 ```bash
 # Using curl to test Socket.IO handshake
-curl -v "https://api.myserverdevops.com/socket.io/?EIO=4&transport=polling"
+curl -v "https://api.cercacars.online/socket.io/?EIO=4&transport=polling"
 ```
 
 ## Fixes
@@ -178,7 +178,7 @@ timeout: 60000, // 60 seconds
 3. **Test from Browser Console**:
    ```javascript
    // Test Socket.IO connection
-   const socket = io('https://api.myserverdevops.com', {
+   const socket = io('https://api.cercacars.online', {
      transports: ['polling', 'websocket'],
      query: {
        userId: 'test-user-id',
@@ -213,7 +213,7 @@ timeout: 60000, // 60 seconds
 ### Issue: "SSL certificate error"
 **Solution**: Certificate issues. Fix:
 - Renew SSL certificate: `sudo certbot renew`
-- Check certificate validity: `openssl s_client -connect api.myserverdevops.com:443`
+- Check certificate validity: `openssl s_client -connect api.cercacars.online:443`
 
 ### Issue: "404 Not Found" on Socket.IO endpoint
 **Solution**: Nginx not routing correctly. Fix:

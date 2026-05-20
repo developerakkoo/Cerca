@@ -7,6 +7,7 @@ import { Tab2Page } from './tab2.page';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
 
 import { Tab2PageRoutingModule } from './tab2-routing.module';
+import { MoneyDisplayModule } from 'src/app/pipes/money-display.module';
 
 @NgModule({
   imports: [
@@ -14,6 +15,7 @@ import { Tab2PageRoutingModule } from './tab2-routing.module';
     CommonModule,
     FormsModule,
     TranslateModule,
+    MoneyDisplayModule,
     ExploreContainerComponentModule,
     Tab2PageRoutingModule
   ],

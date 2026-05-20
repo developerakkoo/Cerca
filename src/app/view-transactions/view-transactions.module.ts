@@ -7,12 +7,14 @@ import { IonicModule } from '@ionic/angular';
 import { ViewTransactionsPageRoutingModule } from './view-transactions-routing.module';
 
 import { ViewTransactionsPage } from './view-transactions.page';
+import { MoneyDisplayModule } from 'src/app/pipes/money-display.module';
 
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
+    MoneyDisplayModule,
     ViewTransactionsPageRoutingModule
   ],
   declarations: [ViewTransactionsPage]

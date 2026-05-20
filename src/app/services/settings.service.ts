@@ -20,6 +20,29 @@ export interface VehicleServices {
   cercaTitan: VehicleService;
 }
 
+export interface FarePricingDistanceTiers {
+  tier1: { maxKm: number; ratePerKm: number };
+  tier2: { maxKm: number; ratePerKm: number };
+  tier3: { maxKm: number; ratePerKm: number };
+  beyondTier3RatePerKm: number;
+}
+
+export interface FarePricingTimeBand {
+  id: string;
+  label?: string;
+  start: string;
+  end: string;
+  multiplier: number;
+}
+
+export interface FarePricingConfig {
+  enabled: boolean;
+  timezone: string;
+  distanceTiers: FarePricingDistanceTiers;
+  timeBands: FarePricingTimeBand[];
+  timeMultiplierAppliesTo?: 'distanceAndTime' | 'subtotalExcludingBase';
+}
+
 export interface PricingConfigurations {
   baseFare: number;
   perKmRate: number;
@@ -27,6 +50,13 @@ export interface PricingConfigurations {
   cancellationFees: number;
   platformFees: number;
   driverCommissions: number;
+  farePricing?: FarePricingConfig;
+}
+
+/** Public payment behaviour flags from GET /admin/settings/public */
+export interface PaymentFeatures {
+  prepaidWalletEnabled: boolean;
+  prepaidRazorpayEnabled: boolean;
 }
 
 const DEFAULT_VEHICLE_SERVICES: VehicleServices = {
@@ -356,6 +386,24 @@ export class SettingsService {
     } catch (error) {
       console.error('Error loading cached pricing configurations:', error);
     }
+  }
+
+  /**
+   * Payment feature flags for rider checkout (wallet upfront vs completion, prepaid Razorpay).
+   */
+  getPaymentFeatures(): Observable<PaymentFeatures> {
+    return this.http.get<any>(`${environment.apiUrl}/admin/settings/public`).pipe(
+      map((s) => ({
+        prepaidWalletEnabled: s?.paymentFeatures?.prepaidWalletEnabled !== false,
+        prepaidRazorpayEnabled: !!s?.paymentFeatures?.prepaidRazorpayEnabled,
+      })),
+      catchError(() =>
+        of({
+          prepaidWalletEnabled: true,
+          prepaidRazorpayEnabled: false,
+        })
+      )
+    );
   }
 
   /**

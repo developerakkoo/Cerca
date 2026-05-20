@@ -34,6 +34,7 @@
     "@capacitor/keyboard": "7.0.1",
     "@capacitor/local-notifications": "^7.0.1",
     "@capacitor/network": "^7.0.1",
+    "@capacitor/push-notifications": "^7.0.6",
     "@capacitor/status-bar": "7.0.1",
     "@capgo/capacitor-social-login": "^7.5.9",
     "@ionic/angular": "^8.0.0",

@@ -7,7 +7,7 @@ export const environment = {
   apiKey: 'AIzaSyDQq0QpnwQKzDR99ObP1frWj_uRTQ54pbo',
   mapId: '9b3666d396ff32ac93b8dc29',
   // Production backend
-  apiUrl: 'https://api.myserverdevops.com',
+  apiUrl: 'https://api.cercacars.online',
   // Local backend (for development)  
   // apiUrl: 'http://192.168.1.14:3000',
   // Razorpay configuration

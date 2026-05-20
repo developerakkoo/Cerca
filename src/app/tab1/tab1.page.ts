@@ -12,16 +12,22 @@ import { ToastController, ModalController, LoadingController } from '@ionic/angu
 import { UserService } from '../services/user.service';
 import { GeocodingService } from '../services/geocoding.service';
 import { SettingsService, VehicleServices } from '../services/settings.service';
-import { RideService } from '../services/ride.service';
+import { RideService, DriverCancelSettlementRequest } from '../services/ride.service';
+import type { DriverCancelSettlementAction } from '../components/ride/driver-cancel-settlement-modal/driver-cancel-settlement-modal.component';
 import { FareService, FareBreakdown } from '../services/fare.service';
-import { Subscription } from 'rxjs';
-import { Router } from '@angular/router';
+import { Observable, Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
+import { NavigationEnd, Router } from '@angular/router';
+import { ViewDidLeave, ViewWillEnter } from '@ionic/angular';
 import { SearchPage, SearchModalResult } from '../pages/search/search.page';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { environment } from '../../environments/environment';
 import { Geolocation } from '@capacitor/geolocation';
 import { PermissionService } from '../services/permission.service';
+import { GoogleMapLifecycleService } from '../services/google-map-lifecycle.service';
+
+const TAB1_MAP_OWNER = 'tab1';
 
 @Component({
   selector: 'app-tab1',
@@ -29,7 +35,7 @@ import { PermissionService } from '../services/permission.service';
   styleUrls: ['tab1.page.scss'],
   standalone: false,
 })
-export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
+export class Tab1Page implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter, ViewDidLeave {
   @ViewChild('map') mapRef!: ElementRef;
 
   // Booking properties
@@ -76,6 +82,15 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
   private pickupSubscription: Subscription | null = null;
   private destinationSubscription: Subscription | null = null;
   private vehicleServicesSubscription: Subscription | null = null;
+  private routerSubscription: Subscription | null = null;
+  private routerDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Cold-start fallback host for the driver-cancel settlement modal: if the
+   * rider re-launches the app while a settlement is pending and they aren't
+   * on the active-ordere page, the inline modal on tab1 still surfaces.
+   */
+  driverCancelSettlement$: Observable<DriverCancelSettlementRequest | null>;
 
   constructor(
     private zone: NgZone,
@@ -88,13 +103,89 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
     private loadingCtrl: LoadingController,
     private router: Router,
     private changeDetectorRef: ChangeDetectorRef,
-    private permissionService: PermissionService
-  ) {}
+    private permissionService: PermissionService,
+    private rideService: RideService,
+    private mapLifecycle: GoogleMapLifecycleService
+  ) {
+    this.driverCancelSettlement$ = this.rideService.driverCancelSettlement$;
+  }
+
+  /**
+   * Forwards the inline modal's dismiss action to RideService for HTTP +
+   * storage cleanup. Mirrors ActiveOrderePage.closeDriverCancelSettlement.
+   */
+  async closeDriverCancelSettlement(
+    rideId: string,
+    action: DriverCancelSettlementAction | undefined
+  ): Promise<void> {
+    try {
+      await this.rideService.settleDriverCancellation(rideId, action);
+    } catch (err) {
+      console.error('[Tab1Page] settleDriverCancellation failed:', err);
+    }
+  }
 
   ngOnInit() {
     this.initializeSubscriptions();
     this.loadVehicleServices();
     this.getCurrentLocation();
+    this.setupRouterMapLifecycle();
+  }
+
+  private setupRouterMapLifecycle(): void {
+    this.routerSubscription = this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(() => {
+        if (this.routerDebounceTimeout) {
+          clearTimeout(this.routerDebounceTimeout);
+        }
+        this.routerDebounceTimeout = setTimeout(() => {
+          this.routerDebounceTimeout = null;
+          void this.handleNavigationMapLifecycle();
+        }, 100);
+      });
+  }
+
+  private isTab1Route(url?: string): boolean {
+    const path = url ?? this.router.url;
+    return path.includes('/tabs/tabs/tab1') || path.includes('/tabs/tab1');
+  }
+
+  private async handleNavigationMapLifecycle(): Promise<void> {
+    if (this.isTab1Route()) {
+      if (
+        this.showMapOnLoad &&
+        this.confirmLat &&
+        this.confirmLng &&
+        !this.map
+      ) {
+        const mapRefReady = await this.waitForMapRef();
+        if (mapRefReady) {
+          await this.initializeMap();
+        }
+      }
+      return;
+    }
+    await this.cleanupMap();
+  }
+
+  async ionViewWillEnter(): Promise<void> {
+    this.zone.run(() => {
+      this.showMapOnLoad = true;
+    });
+    if (this.confirmLat && this.confirmLng && !this.map) {
+      const mapRefReady = await this.waitForMapRef();
+      if (mapRefReady) {
+        await this.initializeMap();
+      }
+    }
+  }
+
+  async ionViewDidLeave(): Promise<void> {
+    this.zone.run(() => {
+      this.showMapOnLoad = false;
+    });
+    await this.cleanupMap();
   }
 
   ngAfterViewInit() {
@@ -195,6 +286,12 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this.vehicleServicesSubscription) {
       this.vehicleServicesSubscription.unsubscribe();
+    }
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
+    if (this.routerDebounceTimeout) {
+      clearTimeout(this.routerDebounceTimeout);
     }
     // Clear fare calculation timeout
     if (this.fareCalculationTimeout) {
@@ -453,6 +550,7 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
           gestureHandling: 'greedy',
         },
       });
+      this.mapLifecycle.register(TAB1_MAP_OWNER, this.map);
 
       // Set ready state AFTER map operations complete
       setTimeout(async () => {
@@ -777,13 +875,26 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
     }
 
     if (this.map) {
-      try {
-        await this.map.destroy();
-        this.map = null;
-        this.isMapReady = false;
-      } catch (error) {
-        console.error('Error cleaning up map:', error);
+      const map = this.map;
+      this.map = null;
+      this.isMapReady = false;
+      if (this.mapLifecycle.getMap(TAB1_MAP_OWNER) === map) {
+        await this.mapLifecycle.suspendOwner(TAB1_MAP_OWNER);
+      } else {
+        try {
+          await map.disableTouch();
+        } catch (error) {
+          console.warn('Error disabling map touch:', error);
+        }
+        try {
+          await map.destroy();
+        } catch (error) {
+          console.error('Error cleaning up map:', error);
+        }
+        this.mapLifecycle.unregister(TAB1_MAP_OWNER);
       }
+    } else {
+      this.mapLifecycle.unregister(TAB1_MAP_OWNER);
     }
   }
 
@@ -1062,6 +1173,10 @@ export class Tab1Page implements OnInit, OnDestroy, AfterViewInit {
       });
 
       await loading.dismiss();
+      await this.cleanupMap();
+      this.zone.run(() => {
+        this.showMapOnLoad = false;
+      });
       this.router.navigate(['/payment'], {
         queryParams: { vehicle: this.selectedVehicle },
       });

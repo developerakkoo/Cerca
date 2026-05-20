@@ -29,14 +29,29 @@ export class CancelOrderPage implements OnInit {
   ) {}
 
   ngOnInit() {
-    // Check if there's an active ride
     const ride = this.rideService.getCurrentRideValue();
     if (!ride) {
-      // No active ride, navigate back
       console.warn('No active ride to cancel');
       this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true,
       });
+      return;
+    }
+    // Defense in depth: hide the picker if the ride has already started or
+    // ended. The active-ride page already hides the entry button after the
+    // start OTP is verified, but a deep-link or a stale tab could still land
+    // here. Backend additionally rejects with RIDER_CANCEL_BLOCKED_IN_PROGRESS.
+    const blocked = ['in_progress', 'completed', 'cancelled'];
+    if (blocked.includes(ride.status)) {
+      this.toastController
+        .create({
+          message: 'You cannot cancel after the trip has started.',
+          duration: 2500,
+          color: 'warning',
+          position: 'top',
+        })
+        .then((t) => t.present());
+      this.router.navigate(['/active-ordere'], { replaceUrl: true });
     }
   }
 

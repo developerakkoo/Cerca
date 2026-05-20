@@ -64,7 +64,7 @@
                 <p class="ride-meta">{{ getPickupAndRideSummary(tier) }}</p>
               </div>
               <div class="ride-aside">
-                <p class="ride-price ride-price--primary">₹{{ getPrice(tier) }}</p>
+                <p class="ride-price ride-price--primary">{{ getPrice(tier) | inrWhole:true }}</p>
               </div>
             </div>
           </ng-container>

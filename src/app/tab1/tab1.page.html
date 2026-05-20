@@ -142,8 +142,8 @@
           </div>
           <div class="ride-price-radio">
             <p class="ride-price ride-price--primary">
-              <span *ngIf="calculatedFares?.cercaZip">₹{{ calculatedFares?.cercaZip?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaZip">₹{{ vehicleServices.cercaZip?.price || 299 }}</span>
+              <span *ngIf="calculatedFares?.cercaZip">{{ calculatedFares.cercaZip.finalFare | inrWhole:true }}</span>
+              <span *ngIf="!calculatedFares?.cercaZip">{{ (vehicleServices.cercaZip?.price || 299) | inrWhole:true }}</span>
             </p>
             <ion-radio value="cercaZip" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
           </div>
@@ -170,8 +170,8 @@
           </div>
           <div class="ride-price-radio">
             <p class="ride-price ride-price--primary">
-              <span *ngIf="calculatedFares?.cercaGlide">₹{{ calculatedFares?.cercaGlide?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaGlide">₹{{ vehicleServices.cercaGlide?.price || 499 }}</span>
+              <span *ngIf="calculatedFares?.cercaGlide">{{ calculatedFares.cercaGlide.finalFare | inrWhole:true }}</span>
+              <span *ngIf="!calculatedFares?.cercaGlide">{{ (vehicleServices.cercaGlide?.price || 499) | inrWhole:true }}</span>
             </p>
             <ion-radio value="cercaGlide" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
           </div>
@@ -198,8 +198,8 @@
           </div>
           <div class="ride-price-radio">
             <p class="ride-price ride-price--primary">
-              <span *ngIf="calculatedFares?.cercaTitan">₹{{ calculatedFares?.cercaTitan?.finalFare }}</span>
-              <span *ngIf="!calculatedFares?.cercaTitan">₹{{ vehicleServices.cercaTitan?.price || 699 }}</span>
+              <span *ngIf="calculatedFares?.cercaTitan">{{ calculatedFares.cercaTitan.finalFare | inrWhole:true }}</span>
+              <span *ngIf="!calculatedFares?.cercaTitan">{{ (vehicleServices.cercaTitan?.price || 699) | inrWhole:true }}</span>
             </p>
             <ion-radio value="cercaTitan" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
           </div>
@@ -220,5 +220,29 @@
     </div>
   </div>
   <!-- End Inputs Mode -->
+
+  <!--
+    Cold-start fallback host for the driver-cancel settlement modal. If the
+    rider re-opens the app while a pending settlement is unresolved and they
+    aren't on the active-ordere page yet (e.g. ride already cancelled), this
+    inline <ion-modal> still surfaces the styled card.
+  -->
+  <ion-modal
+    [isOpen]="!!(driverCancelSettlement$ | async)"
+    [class]="(driverCancelSettlement$ | async)?.isZeroDue ? 'driver-cancel-settlement-modal driver-cancel-settlement-modal--zero-due' : 'driver-cancel-settlement-modal driver-cancel-settlement-modal--due'"
+    [backdropDismiss]="false"
+  >
+    <ng-template>
+      <ng-container *ngIf="driverCancelSettlement$ | async as req">
+        <app-driver-cancel-settlement-modal
+          [reason]="req.reason"
+          [settlement]="req.settlement"
+          [bookingPaymentMethod]="req.bookingPaymentMethod"
+          [isPostRideOnlineBooking]="req.isPostRideOnlineBooking"
+          (modalDismiss)="closeDriverCancelSettlement(req.rideId, $event)"
+        ></app-driver-cancel-settlement-modal>
+      </ng-container>
+    </ng-template>
+  </ion-modal>
 
 </ion-content>

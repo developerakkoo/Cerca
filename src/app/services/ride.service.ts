@@ -1,14 +1,17 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject, firstValueFrom, Subscription, from } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import { SocketService } from './socket.service';
 import { Storage } from '@ionic/storage-angular';
 import { Router } from '@angular/router';
-import { AlertController, ToastController } from '@ionic/angular';
-import { HttpClient } from '@angular/common/http';
+import { ToastController } from '@ionic/angular';
+import { type DriverCancelSettlementAction } from 'src/app/components/ride/driver-cancel-settlement-modal/driver-cancel-settlement-modal.component';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { PaymentService } from './payment.service';
+import { WalletService } from './wallet.service';
 import { Geolocation } from '@capacitor/geolocation';
+import { formatInrWithSymbol } from '../utils/money-display.util';
 
 export interface Location {
   latitude: number;
@@ -71,6 +74,11 @@ export interface Ride {
   rideType: 'normal' | 'whole_day' | 'custom';
   paymentMethod: 'CASH' | 'RAZORPAY' | 'WALLET';
   paymentStatus?: 'pending' | 'completed' | 'failed' | 'refunded';
+  razorpayPaymentId?: string | null;
+  walletAmountUsed?: number;
+  /** Server-computed payable amount (user ride list / payment-summary). */
+  amountDue?: number;
+  payableAmountSource?: string;
   startOtp: string;
   stopOtp: string;
   actualStartTime?: Date;
@@ -122,6 +130,9 @@ export interface Ride {
     policyVersion?: string | null;
   };
   driverInProgressCancelSettlement?: {
+    partialDistanceKm?: number;
+    perKmRateUsed?: number;
+    perKmRateSource?: string;
     riderPenaltyAmount?: number;
     driverPartialAmount?: number;
     riderTotalCharge?: number;
@@ -130,9 +141,66 @@ export interface Ride {
     refundDue?: number;
     riderPaymentStatus?: string;
     fineRecipient?: string;
+    allowedSettlementMethods?: Array<'wallet' | 'razorpay' | 'cash'>;
   };
+  /** Rider-safe summary when driver cancels during in_progress (socket / API). */
+  riderInProgressCancelBilling?: RiderInProgressCancelBilling;
+  /** Rider-safe summary when rider cancels before start OTP (per-km + penalty). */
+  riderBeforeStartCancelBilling?: RiderBeforeStartCancelBilling;
+  settlementHiddenForRider?: boolean;
+  /** Persisted when ride completes (e.g. driver_cancel_near_destination). */
+  completionSource?: string;
   /** Increments on each successful PATCH /destination (optimistic concurrency). */
   destinationRevision?: number;
+  razorpayAmountPaid?: number;
+}
+
+/** Billing breakdown for driver in-trip cancel (no coordinates). */
+export interface RiderInProgressCancelBilling {
+  partialDistanceKm?: number;
+  perKmRateUsed?: number;
+  perKmRateSource?: string;
+  driverPartialAmount?: number;
+  riderPenaltyAmount?: number;
+  riderTotalCharge?: number;
+  prepaidTotal?: number;
+  additionalDue?: number;
+  refundDue?: number;
+  riderPaymentStatus?: string;
+  allowedSettlementMethods?: Array<'wallet' | 'razorpay' | 'cash'>;
+  billingNote?: string;
+  settlementVersion?: number;
+}
+
+export interface RiderBeforeStartCancelBilling {
+  travelledDistanceKm?: number;
+  travelledAmount?: number;
+  fixedPenaltyAmount?: number;
+  totalCharge?: number;
+  perKmRateUsed?: number;
+  outstandingDue?: number;
+  riderPaymentStatus?: string;
+  prepaidWallet?: number;
+  prepaidRazorpay?: number;
+  razorpayRefundAmount?: number;
+  billingNote?: string;
+}
+
+/**
+ * State surfaced by RideService whenever the driver cancels mid-trip and the
+ * rider needs to acknowledge / settle. The host page renders this via an inline
+ * <ion-modal>+<ng-template> that hosts <app-driver-cancel-settlement-modal>.
+ * Pushing state instead of dynamically creating the modal avoids the Ionic +
+ * Angular AOT regression where ModalController.create({ component }) leaks the
+ * component template as raw text into the page.
+ */
+export interface DriverCancelSettlementRequest {
+  rideId: string;
+  reason: string;
+  settlement: NonNullable<Ride['driverInProgressCancelSettlement']>;
+  isZeroDue: boolean;
+  bookingPaymentMethod: Ride['paymentMethod'];
+  isPostRideOnlineBooking: boolean;
 }
 
 export type RideStatus =
@@ -156,6 +224,16 @@ export class RideService {
   private unreadCounts$ = new BehaviorSubject<Map<string, number>>(new Map());
   private emergencyLocationIntervalId: ReturnType<typeof setInterval> | null = null;
 
+  /**
+   * Pending driver-cancel settlement (driver ended the trip mid-way). The
+   * active-ride / tab1 pages subscribe and host the modal inline; service
+   * exposes settleDriverCancellation() for the dismiss handler.
+   */
+  private driverCancelSettlementSubject$ =
+    new BehaviorSubject<DriverCancelSettlementRequest | null>(null);
+  public readonly driverCancelSettlement$: Observable<DriverCancelSettlementRequest | null> =
+    this.driverCancelSettlementSubject$.asObservable();
+
   // Store all socket subscriptions for cleanup
   private socketSubscriptions: Subscription[] = [];
 
@@ -165,8 +243,8 @@ export class RideService {
     private router: Router,
     private toastCtrl: ToastController,
     private http: HttpClient,
-    private alertCtrl: AlertController,
-    private paymentService: PaymentService
+    private paymentService: PaymentService,
+    private walletService: WalletService
   ) {
     this.initStorage();
     this.setupSocketListeners();
@@ -178,6 +256,7 @@ export class RideService {
   private async initStorage() {
     await this.storage.create();
     void this.resumePendingDriverCancelSettlementIfAny();
+    void this.resumePendingRidePaymentIfAny();
   }
 
   /**
@@ -185,10 +264,222 @@ export class RideService {
    */
   private async resumePendingDriverCancelSettlementIfAny(): Promise<void> {
     try {
-      // Policy hardening: settlement details remain driver-only.
-      await this.storage.remove('pendingDriverCancelSettlementRideId');
+      const pendingId = await this.storage.get('pendingDriverCancelSettlementRideId');
+      const userId = await this.storage.get('userId');
+      if (!pendingId || !userId) {
+        return;
+      }
+      const params = new HttpParams().set('userId', String(userId));
+      const res = await firstValueFrom(
+        this.http.get<{
+          success?: boolean;
+          data?: {
+            summary?: RiderInProgressCancelBilling | null;
+            cancellationReason?: string | null;
+          };
+        }>(`${environment.apiUrl}/api/rides/${pendingId}/rider-in-progress-cancel-billing`, {
+          params,
+        })
+      );
+      const summary = res?.data?.summary;
+      if (summary) {
+        const stub: Ride = {
+          _id: String(pendingId),
+          rider: String(userId),
+          status: 'cancelled',
+          cancelledBy: 'driver',
+          pickupLocation: { type: 'Point', coordinates: [0, 0] },
+          dropoffLocation: { type: 'Point', coordinates: [0, 0] },
+          pickupAddress: '',
+          dropoffAddress: '',
+          fare: 0,
+          distanceInKm: 0,
+          service: 'sedan',
+          rideType: 'normal',
+          paymentMethod: 'CASH',
+          startOtp: '',
+          stopOtp: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        await this.routeToDriverCancelSettlement(String(pendingId), 'resume', {
+          reason:
+            (res?.data?.cancellationReason as string) || 'Driver ended the trip',
+        });
+      }
     } catch (e) {
       console.warn('resumePendingDriverCancelSettlementIfAny:', e);
+    }
+  }
+
+  /**
+   * After app restart: resume post-ride Pay Online checkout if payment still pending.
+   */
+  private async resumePendingRidePaymentIfAny(): Promise<void> {
+    try {
+      const pendingId = await this.storage.get('pendingRidePaymentRideId');
+      if (!pendingId) {
+        return;
+      }
+      const ride = await this.fetchRideById(String(pendingId));
+      if (ride && this.shouldCollectOnlinePayment(ride)) {
+        await this.routeToPaymentIfRequired(ride, 'resume');
+      } else {
+        await this.storage.remove('pendingRidePaymentRideId');
+      }
+    } catch (e) {
+      console.warn('resumePendingRidePaymentIfAny:', e);
+    }
+  }
+
+  private async fetchRiderInProgressCancelBillingWithRetry(
+    rideId: string,
+    userId: string,
+    attempts = 2
+  ): Promise<RiderInProgressCancelBilling | null> {
+    for (let i = 0; i < attempts; i++) {
+      const billing = await this.fetchRiderInProgressCancelBilling(rideId, userId);
+      if (billing) {
+        return billing;
+      }
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Single entry for terminal trip UX: post-ride payment or driver-cancel settlement.
+   * Returns true when a payment/settlement screen was opened.
+   */
+  async handleTerminalTrip(
+    ride: Ride,
+    source: string,
+    options?: { showCompletionToast?: boolean }
+  ): Promise<boolean> {
+    if (!ride?._id) {
+      return false;
+    }
+
+    const rideId = String(ride._id);
+
+    if (ride.status === 'completed') {
+      await this.storage.remove('pendingDriverCancelSettlementRideId');
+      this.currentRide$.next(ride);
+      this.rideStatus$.next('completed');
+      await this.storeRide(ride);
+
+      const completionSource = (ride as Ride & { completionSource?: string })
+        .completionSource;
+      if (options?.showCompletionToast !== false) {
+        if (completionSource === 'driver_cancel_near_destination') {
+          this.showToast(
+            'Trip closed at full fare to your destination (driver ended the trip near drop-off). Complete payment if required.',
+            'primary'
+          );
+        } else {
+          this.showToast('✅ Ride completed!');
+        }
+      }
+
+      if (this.shouldCollectOnlinePayment(ride)) {
+        await this.storage.set('pendingRidePaymentRideId', rideId);
+      }
+
+      const navigated = await this.routeToPaymentIfRequired(ride, source);
+      if (!navigated) {
+        await this.storage.remove('pendingRidePaymentRideId');
+      }
+      console.log(
+        `[handleTerminalTrip] completed ride=${rideId} source=${source} paymentNav=${navigated}`
+      );
+      return navigated;
+    }
+
+    if (ride.status === 'cancelled' && ride.cancelledBy === 'driver') {
+      let billing: RiderInProgressCancelBilling | null =
+        (ride as Ride & { riderInProgressCancelBilling?: RiderInProgressCancelBilling })
+          .riderInProgressCancelBilling ?? null;
+
+      const userId = await this.storage.get('userId');
+      if (!billing && userId) {
+        billing = await this.fetchRiderInProgressCancelBillingWithRetry(
+          rideId,
+          String(userId)
+        );
+      }
+
+      const showSettlement = billing != null;
+      let navigated = false;
+
+      if (showSettlement && billing) {
+        const additional = Number(billing.additionalDue) || 0;
+        if (additional > 0) {
+          await this.storage.set('pendingDriverCancelSettlementRideId', rideId);
+        } else {
+          await this.storage.remove('pendingDriverCancelSettlementRideId');
+        }
+        navigated = await this.routeToDriverCancelSettlement(rideId, source, {
+          reason: ride.cancellationReason || 'Driver ended the trip',
+        });
+      } else {
+        await this.storage.remove('pendingDriverCancelSettlementRideId');
+      }
+
+      this.currentRide$.next(null);
+      this.rideStatus$.next('cancelled');
+      await this.clearRide();
+
+      console.log(
+        `[handleTerminalTrip] driver-cancel ride=${rideId} source=${source} settlementNav=${navigated}`
+      );
+      return navigated;
+    }
+
+    return false;
+  }
+
+  private mergeRideWithDriverCancelBilling(
+    ride: Ride,
+    billing: RiderInProgressCancelBilling
+  ): Ride {
+    return {
+      ...ride,
+      driverInProgressCancelSettlement: {
+        partialDistanceKm: billing.partialDistanceKm,
+        perKmRateUsed: billing.perKmRateUsed,
+        perKmRateSource: billing.perKmRateSource,
+        riderPenaltyAmount: billing.riderPenaltyAmount,
+        driverPartialAmount: billing.driverPartialAmount,
+        riderTotalCharge: billing.riderTotalCharge,
+        prepaidTotal: billing.prepaidTotal,
+        additionalDue: billing.additionalDue,
+        refundDue: billing.refundDue,
+        riderPaymentStatus: billing.riderPaymentStatus,
+        allowedSettlementMethods: billing.allowedSettlementMethods,
+      },
+    };
+  }
+
+  private async fetchRiderInProgressCancelBilling(
+    rideId: string,
+    userId: string
+  ): Promise<RiderInProgressCancelBilling | null> {
+    try {
+      const params = new HttpParams().set('userId', userId);
+      const res = await firstValueFrom(
+        this.http.get<{
+          success?: boolean;
+          data?: { summary?: RiderInProgressCancelBilling | null };
+        }>(`${environment.apiUrl}/api/rides/${rideId}/rider-in-progress-cancel-billing`, {
+          params,
+        })
+      );
+      return res?.data?.summary ?? null;
+    } catch (e) {
+      console.warn('fetchRiderInProgressCancelBilling:', e);
+      return null;
     }
   }
 
@@ -197,20 +488,67 @@ export class RideService {
     const reason: string =
       payload?.reason ?? ride?.cancellationReason ?? 'Ride cancelled';
     console.log('❌ Ride cancelled:', payload);
-    this.currentRide$.next(null);
-    this.rideStatus$.next('cancelled');
-    this.clearRide();
 
-    await this.storage.remove('pendingDriverCancelSettlementRideId');
+    const driverInProgressSettlement =
+      ride?.cancelledBy === 'driver' && ride?._id;
+    let navigatedToPaymentUi = false;
 
-    const message = reason?.includes('No drivers found')
-      ? 'No drivers found nearby. Ride cancelled.'
-      : ride?.cancelledBy === 'driver'
-      ? 'Ride was ended by driver.'
-      : 'Ride cancelled';
-    this.showToast(message);
+    if (driverInProgressSettlement) {
+      navigatedToPaymentUi = await this.handleTerminalTrip(
+        { ...ride, status: 'cancelled', cancellationReason: reason },
+        'rideCancelled',
+        { showCompletionToast: false }
+      );
+    }
 
-    if (!this.router.url.includes('cab-searching')) {
+    if (!driverInProgressSettlement) {
+      this.currentRide$.next(null);
+      this.rideStatus$.next('cancelled');
+      await this.clearRide();
+    }
+
+    const showSettlement = navigatedToPaymentUi;
+
+    if (!driverInProgressSettlement) {
+      await this.storage.remove('pendingDriverCancelSettlementRideId');
+    }
+
+    const beforeStartBill = (ride as Ride & { riderBeforeStartCancelBilling?: RiderBeforeStartCancelBilling })
+      .riderBeforeStartCancelBilling;
+    if (ride?.cancelledBy === 'rider' && beforeStartBill?.totalCharge != null && beforeStartBill.totalCharge > 0) {
+      const km = Number(beforeStartBill.travelledDistanceKm) || 0;
+      const dist = Number(beforeStartBill.travelledAmount) || 0;
+      const fee = Number(beforeStartBill.fixedPenaltyAmount) || 0;
+      const total = Number(beforeStartBill.totalCharge) || 0;
+      const due = Number(beforeStartBill.outstandingDue) || 0;
+      let msg = `Cancellation charge: ${formatInrWithSymbol(total)} (distance ${formatInrWithSymbol(dist)} + fee ${formatInrWithSymbol(fee)}, ~${km.toFixed(1)} km).`;
+      if (due > 0) {
+        msg += ` Outstanding: ${formatInrWithSymbol(due)} — add money to your wallet.`;
+      }
+      if ((beforeStartBill.razorpayRefundAmount || 0) > 0) {
+        msg += ` ${formatInrWithSymbol(beforeStartBill.razorpayRefundAmount)} refunded to your payment method.`;
+      }
+      this.showToast(msg, 'warning');
+      const uid = await this.storage.get('userId');
+      if (uid) {
+        this.walletService.getWalletBalance(String(uid)).subscribe({
+          error: () => undefined,
+        });
+      }
+    } else if (!showSettlement) {
+      const message = reason?.includes('No drivers found')
+        ? 'No drivers found nearby. Ride cancelled.'
+        : ride?.cancelledBy === 'driver'
+        ? 'Ride was ended by driver.'
+        : 'Ride cancelled';
+      this.showToast(message);
+    }
+
+    if (
+      !showSettlement &&
+      !this.router.url.includes('cab-searching') &&
+      !this.router.url.includes('driver-cancel-settlement')
+    ) {
       this.router.navigate(['/tabs/tabs/tab1'], {
         replaceUrl: true,
       });
@@ -416,18 +754,39 @@ export class RideService {
       console.log('   Payment Method:', ride?.paymentMethod);
       console.log('   Payment Status:', ride?.paymentStatus);
       console.log('   Fare:', ride?.fare);
-      
-      // Update ride state with all fields including paymentStatus
-      this.currentRide$.next(ride);
-      this.rideStatus$.next('completed');
-      this.storeRide(ride);
-      this.showToast('✅ Ride completed!');
-      
-      // Log for debugging
-      console.log('✅ Ride state updated - paymentMethod:', ride.paymentMethod, 'paymentStatus:', ride.paymentStatus);
-      // Active order page will show rating UI automatically (or payment screen if needed)
+
+      void this.storage.remove('pendingDriverCancelSettlementRideId');
+      void this.handleTerminalTrip(ride, 'rideCompleted');
     });
     this.socketSubscriptions.push(rideCompletedSub);
+
+    const paymentRequiredSub = this.socketService
+      .on<{
+        rideId: string;
+        amount: number;
+        paymentMethod: string;
+        reason?: string;
+        ride?: Ride;
+      }>('paymentRequired')
+      .subscribe((payload) => {
+        void (async () => {
+          let ride: Ride | null =
+            payload?.ride ||
+            (this.currentRide$.value &&
+            String(this.currentRide$.value._id) === String(payload?.rideId)
+              ? this.currentRide$.value
+              : null);
+          if (!ride && payload?.rideId) {
+            ride = await this.fetchRideById(payload.rideId);
+          }
+          if (ride) {
+            await this.applyServerRide(ride);
+            await this.storage.set('pendingRidePaymentRideId', String(ride._id));
+            await this.routeToPaymentIfRequired(ride, 'paymentRequired');
+          }
+        })();
+      });
+    this.socketSubscriptions.push(paymentRequiredSub);
 
     // Ride cancelled
     const rideCancelledSub = this.socketService.on<any>('rideCancelled').subscribe((payload) => {
@@ -457,7 +816,7 @@ export class RideService {
           const nf = payload?.pricing && typeof (payload.pricing as { newFare?: number }).newFare === 'number'
             ? (payload.pricing as { newFare: number }).newFare
             : r.fare;
-          this.showToast(`Destination updated. New fare: ₹${Number(nf).toFixed(0)}`);
+          this.showToast(`Destination updated. New fare: ${formatInrWithSymbol(nf)}`);
         }
       });
     this.socketSubscriptions.push(rideDestinationUpdatedSub);
@@ -499,6 +858,20 @@ export class RideService {
           userMessage = 'Please select at least one date for booking.';
         } else if (error.message && error.message.includes('Admin settings not found')) {
           userMessage = 'Service temporarily unavailable. Please try again later.';
+        } else if (error.code === 'RIDER_CANCEL_BLOCKED_IN_PROGRESS') {
+          userMessage =
+            'You cannot cancel after the trip has started. Contact support if you need help.';
+        } else if (
+          error.code === 'RIDER_CANCEL_BLOCKED_IN_PROGRESS_GT_1KM' ||
+          error.code === 'RIDER_CANCEL_BLOCKED_IN_PROGRESS_LT_1KM'
+        ) {
+          userMessage =
+            error.message ||
+            'You cannot cancel while this trip is in progress. Contact support if you need help.';
+        } else if (error.code === 'DRIVER_CANCEL_LOCATION_UNAVAILABLE') {
+          userMessage =
+            error.message ||
+            'Location could not be verified. Enable GPS and try again.';
         }
         
         // If it's a no driver found error, clear ride state
@@ -1252,12 +1625,20 @@ export class RideService {
         if (!token) {
           throw new Error('User not authenticated');
         }
-        return this.http.post<Ride>(url, {}, {
+        return this.http.post<
+          Ride | { success?: boolean; message?: string; data?: Ride }
+        >(url, {}, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
+      }),
+      map((body) => {
+        if (body && typeof body === 'object' && 'data' in body && (body as { data?: Ride }).data?._id) {
+          return (body as { data: Ride }).data;
+        }
+        return body as Ride;
       })
     );
   }
@@ -1836,6 +2217,10 @@ export class RideService {
         } else if (status === 'in_progress') {
           this.router.navigate(['/active-ordere'], { state: { ride } });
         }
+      } else if (ride && status === 'completed') {
+        await this.handleTerminalTrip(ride, 'restoreRide', {
+          showCompletionToast: false,
+        });
       }
     } catch (error) {
       console.error('Error restoring ride:', error);
@@ -1843,190 +2228,378 @@ export class RideService {
   }
 
   /**
-   * Modal / alert when driver cancels during trip — charges and pay online or cash.
+   * Post-ride Pay Online: RAZORPAY with no upfront gateway payment at booking.
+   */
+  isPostRideRazorpay(ride: Ride | null | undefined): boolean {
+    if (!ride) return false;
+    return (
+      ride.paymentMethod === 'RAZORPAY' &&
+      !ride.razorpayPaymentId &&
+      !(Number(ride.walletAmountUsed || 0) > 0.01)
+    );
+  }
+
+  /**
+   * Canonical payable amount for completed post-ride Pay Online (mirrors backend resolver).
+   */
+  resolvePayableFare(ride: Ride | null | undefined): number {
+    if (!ride) return 0;
+    const candidates = [
+      ride.amountDue,
+      ride.fare,
+      ride.fareBreakdown?.finalFare,
+      ride.fareBreakdown?.fareAfterMinimum,
+      (ride as Ride & { fareAtBooking?: number }).fareAtBooking,
+    ];
+    for (const c of candidates) {
+      const n = Number(c);
+      if (Number.isFinite(n) && n > 0) {
+        return Math.round(n * 100) / 100;
+      }
+    }
+    return 0;
+  }
+
+  /** Completed ride still needs Razorpay checkout (post-ride Pay Online). */
+  shouldCollectOnlinePayment(ride: Ride | null | undefined): boolean {
+    if (!ride) return false;
+    return (
+      ride.status === 'completed' &&
+      this.resolvePayableFare(ride) > 0 &&
+      this.isPostRideRazorpay(ride) &&
+      ride.paymentStatus === 'pending'
+    );
+  }
+
+  /**
+   * Fetch payment summary from backend (authoritative amount for ride-payment page).
+   */
+  async fetchRidePaymentSummary(
+    rideId: string,
+    userId: string
+  ): Promise<{
+    amountDue: number;
+    pickupAddress: string;
+    dropoffAddress: string;
+    actualDuration: number;
+    pickupWaitCharge: number;
+    paymentStatus: string;
+    canPayOnline: boolean;
+    paymentMethod: string;
+  } | null> {
+    try {
+      const params = new HttpParams().set('userId', userId);
+      const res = await firstValueFrom(
+        this.http.get<{
+          success?: boolean;
+          data?: {
+            amountDue?: number;
+            pickupAddress?: string;
+            dropoffAddress?: string;
+            actualDuration?: number;
+            pickupWaitCharge?: number;
+            paymentStatus?: string;
+            canPayOnline?: boolean;
+            paymentMethod?: string;
+          };
+        }>(`${environment.apiUrl}/api/rides/${rideId}/payment-summary`, {
+          params,
+        })
+      );
+      const d = res?.data;
+      if (!d) return null;
+      return {
+        amountDue: Number(d.amountDue) || 0,
+        pickupAddress: d.pickupAddress || '',
+        dropoffAddress: d.dropoffAddress || '',
+        actualDuration: Number(d.actualDuration) || 0,
+        pickupWaitCharge: Number(d.pickupWaitCharge) || 0,
+        paymentStatus: d.paymentStatus || 'pending',
+        canPayOnline: Boolean(d.canPayOnline),
+        paymentMethod: d.paymentMethod || 'RAZORPAY',
+      };
+    } catch (e) {
+      console.warn('[fetchRidePaymentSummary]', e);
+      return null;
+    }
+  }
+
+  /**
+   * Navigate to post-ride payment when required. Returns true if navigation occurred.
+   */
+  async routeToPaymentIfRequired(
+    ride: Ride,
+    source: string
+  ): Promise<boolean> {
+    if (!this.shouldCollectOnlinePayment(ride)) {
+      return false;
+    }
+
+    const rideId = String(ride._id);
+    const currentUrl = this.router.url || '';
+    if (currentUrl.includes(`/ride-payment/${rideId}`)) {
+      return true;
+    }
+
+    const guardKey = `paymentNav_${rideId}`;
+    const lastNav = await this.storage.get(guardKey);
+    if (lastNav) {
+      const elapsed = Date.now() - Number(lastNav);
+      if (elapsed < 3000) {
+        console.log(
+          `[routeToPaymentIfRequired] debounced duplicate nav (${source}) ride=${rideId}`
+        );
+        return true;
+      }
+    }
+
+    console.log(
+      `[routeToPaymentIfRequired] navigating to ride-payment (${source}) ride=${rideId}`
+    );
+    await this.storage.set(guardKey, String(Date.now()));
+    const payableFare = this.resolvePayableFare(ride);
+    await this.router.navigate(['/ride-payment', rideId], {
+      state: {
+        fare: payableFare,
+        pickupAddress: ride.pickupAddress,
+        dropoffAddress: ride.dropoffAddress,
+        duration: ride.actualDuration || 0,
+      },
+      replaceUrl: true,
+    });
+    return true;
+  }
+
+  /** Clear payment navigation guard after successful Razorpay settlement. */
+  async clearPaymentNavigationGuard(rideId: string): Promise<void> {
+    await this.storage.remove(`paymentNav_${rideId}`);
+    await this.storage.remove('pendingRidePaymentRideId');
+  }
+
+  /**
+   * Navigate to full-screen driver-cancel settlement (primary UX after driver ends trip early).
+   */
+  async routeToDriverCancelSettlement(
+    rideId: string,
+    source: string,
+    options?: { reason?: string }
+  ): Promise<boolean> {
+    const rideIdStr = String(rideId);
+    const currentUrl = this.router.url || '';
+    if (currentUrl.includes(`/driver-cancel-settlement/${rideIdStr}`)) {
+      return true;
+    }
+
+    const guardKey = `driverCancelNav_${rideIdStr}`;
+    const lastNav = await this.storage.get(guardKey);
+    if (lastNav) {
+      const elapsed = Date.now() - Number(lastNav);
+      if (elapsed < 3000) {
+        console.log(
+          `[routeToDriverCancelSettlement] debounced (${source}) ride=${rideIdStr}`
+        );
+        return true;
+      }
+    }
+
+    console.log(
+      `[routeToDriverCancelSettlement] navigating (${source}) ride=${rideIdStr}`
+    );
+    await this.storage.set(guardKey, String(Date.now()));
+    await this.storage.set('pendingDriverCancelSettlementRideId', rideIdStr);
+
+    await this.router.navigate(['/driver-cancel-settlement', rideIdStr], {
+      replaceUrl: true,
+      state: {
+        reason: options?.reason || 'Driver ended the trip',
+        cancellationReason: options?.reason,
+      },
+    });
+    return true;
+  }
+
+  async clearDriverCancelNavigationGuard(rideId: string): Promise<void> {
+    await this.storage.remove(`driverCancelNav_${rideId}`);
+  }
+
+  /** Fetch ride by id from REST API (used when paymentRequired has no embedded ride). */
+  async fetchRideById(rideId: string): Promise<Ride | null> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<Ride>(`${environment.apiUrl}/api/rides/${rideId}`)
+      );
+      if (response?._id) {
+        await this.applyServerRide(response);
+        return response;
+      }
+      return null;
+    } catch (e) {
+      console.warn('[fetchRideById]', e);
+      return null;
+    }
+  }
+
+  /**
+   * Strip any HTML-ish markup so that no upstream payload (cancellationReason,
+   * server message, etc.) can bleed `<div ...>` strings into the modal.
+   * Angular interpolation already escapes, so this is belt-and-suspenders to
+   * avoid showing awkward literal angle brackets if a payload was crafted that
+   * way.
+   */
+  private toPlainText(v: unknown): string {
+    return String(v ?? '').replace(/<[^>]*>/g, '').trim();
+  }
+
+  /**
+   * Modal / alert when driver cancels during trip — charges and pay online or
+   * cash. The actual modal is hosted inline on the active-ordere / tab1 page;
+   * here we just publish the request state so the host page can react.
    */
   private async presentDriverCancelSettlementModal(
     ride: Ride,
     reason: string
   ): Promise<void> {
     const st = ride.driverInProgressCancelSettlement;
-    if (!st) return;
-
-    const fmt = (n: number | undefined) =>
-      n == null ? '—' : `₹${Number(n).toFixed(2)}`;
+    if (!st || !ride._id) return;
 
     const additional = Number(st.additionalDue) || 0;
     const isZeroDue = additional <= 0;
-    const header = 'Driver ended the trip';
-    const reasonText = (reason || '').trim() || 'Not specified';
-    const subHeader =
-      reasonText.length > 160
-        ? `Reason: ${reasonText.slice(0, 157)}…`
-        : `Reason: ${reasonText}`;
-    const esc = (s: string) =>
-      s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    const safeReason = esc(reasonText);
-    const message = `
-      <div class="settlement-modal">
-        <div class="settlement-reason" title="${safeReason}">
-          <span class="settlement-reason-label">Reason</span>
-          <span class="settlement-reason-value">${safeReason}</span>
-        </div>
-        <div class="settlement-breakdown">
-          <div class="settlement-row">
-            <span>Cancellation penalty</span>
-            <strong>${fmt(st.riderPenaltyAmount)}</strong>
-          </div>
-          <div class="settlement-row">
-            <span>Trip charge (partial distance)</span>
-            <strong>${fmt(st.driverPartialAmount)}</strong>
-          </div>
-          <div class="settlement-row">
-            <span>Total due for this event</span>
-            <strong>${fmt(st.riderTotalCharge)}</strong>
-          </div>
-          <div class="settlement-row settlement-row-muted">
-            <span>Already paid (prepaid)</span>
-            <strong>${fmt(st.prepaidTotal)}</strong>
-          </div>
-        </div>
-        <div class="settlement-due ${isZeroDue ? 'is-cleared' : 'is-due'}">
-          ${
-            isZeroDue
-              ? `<span>No extra online charge.</span><small>Any refund will be processed automatically.</small>`
-              : `<span>You still need to pay</span><strong>${fmt(additional)}</strong>`
-          }
-        </div>
-      </div>
-    `;
+    const reasonText = this.toPlainText(reason) || 'Not specified';
 
+    this.driverCancelSettlementSubject$.next({
+      rideId: String(ride._id),
+      reason: reasonText,
+      settlement: st,
+      isZeroDue,
+      bookingPaymentMethod: ride.paymentMethod,
+      isPostRideOnlineBooking: this.isPostRideRazorpay(ride),
+    });
+  }
+
+  /**
+   * Public API used by the host page when the inline modal dismisses. Performs
+   * the settlement HTTP work (acknowledge / wallet / razorpay / cash) and then
+   * clears the pending state. If the user dismissed without picking an action
+   * and there is a remaining due, we surface an informative toast.
+   */
+  public async settleDriverCancellation(
+    rideId: string,
+    action: DriverCancelSettlementAction | undefined,
+    context?: DriverCancelSettlementRequest | null
+  ): Promise<void> {
+    const current =
+      context ?? this.driverCancelSettlementSubject$.getValue();
+    if (current && current.rideId !== rideId) {
+      console.warn(
+        '[settleDriverCancellation] rideId mismatch, ignoring',
+        current.rideId,
+        rideId
+      );
+      return;
+    }
+    if (!current && action) {
+      throw new Error('Settlement details not loaded');
+    }
+
+    const additional = Number(current?.settlement?.additionalDue) || 0;
     const userId = await this.storage.get('userId');
-    const rideId = ride._id;
     const base = `${environment.apiUrl}/api/rides`;
-
-    const buttons: {
-      text: string;
-      role?: string;
-      cssClass?: string | string[];
-      handler?: () => void | Promise<void>;
-    }[] = [];
 
     const run = async (fn: () => Promise<void>) => {
       try {
         await fn();
         await this.showToast('Updated successfully');
         await this.storage.remove('pendingDriverCancelSettlementRideId');
+        await this.clearDriverCancelNavigationGuard(rideId);
+        this.driverCancelSettlementSubject$.next(null);
+        if (!this.router.url.includes('/tabs/tabs/tab1')) {
+          await this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+        }
       } catch (e: any) {
-        await this.showToast(e?.message || 'Something went wrong', 'danger');
+        const msg =
+          e?.error?.message || e?.message || 'Something went wrong';
+        await this.showToast(msg, 'danger');
+        throw e;
       }
     };
 
-    if (additional <= 0) {
-      buttons.push({
-        text: 'Done',
-        cssClass: 'settlement-alert-btn-primary',
-        handler: () => {
-          void run(async () => {
+    try {
+      switch (action) {
+        case 'acknowledge':
+          await run(async () => {
             await firstValueFrom(
               this.http.post(`${base}/${rideId}/driver-cancel-settlement/acknowledge`, {
                 userId,
               })
             );
           });
-        },
-      });
-    } else {
-      buttons.push({
-        text: 'Pay with wallet',
-        cssClass: 'settlement-alert-btn-primary',
-        handler: () => {
-          void run(async () => {
+          break;
+        case 'wallet': {
+          if (current?.isPostRideOnlineBooking) {
+            await this.showToast(
+              'This trip was booked as Pay Online. Please use Pay online or pay the driver in cash.',
+              'warning'
+            );
+            break;
+          }
+          await run(async () => {
             await firstValueFrom(
               this.http.post(`${base}/${rideId}/driver-cancel-settlement/pay-wallet`, {
                 userId,
               })
             );
           });
-        },
-      });
-      if (additional >= 10) {
-        buttons.push({
-          text: 'Pay online',
-          cssClass: 'settlement-alert-btn-secondary',
-          handler: () => {
-            void run(async () => {
-              const orderRes: { data?: { orderId?: string; amount?: number } } =
-                await firstValueFrom(
-                  this.http.post<{
-                    data?: { orderId?: string; amount?: number };
-                  }>(`${base}/${rideId}/driver-cancel-settlement/pay-order`, {
-                    userId,
-                  })
-                );
-              const d = orderRes?.data;
-              if (!d?.orderId || d.amount == null) {
-                throw new Error('Could not start payment');
-              }
-              const pay = await this.paymentService.openRazorpayCheckout(
-                d.orderId,
-                d.amount,
-                {
-                  description: 'Driver cancelled trip — settlement',
-                }
-              );
+          break;
+        }
+        case 'online':
+          await run(async () => {
+            const orderRes: { data?: { orderId?: string; amount?: number } } =
               await firstValueFrom(
-                this.http.post(`${base}/${rideId}/driver-cancel-settlement/verify-razorpay`, {
+                this.http.post<{
+                  data?: { orderId?: string; amount?: number };
+                }>(`${base}/${rideId}/driver-cancel-settlement/pay-order`, {
                   userId,
-                  razorpay_payment_id: pay.razorpay_payment_id,
                 })
               );
-            });
-          },
-        });
-      }
-      buttons.push({
-        text: 'Pay driver in cash',
-        cssClass: 'settlement-alert-btn-outline',
-        handler: () => {
-          void run(async () => {
+            const d = orderRes?.data;
+            if (!d?.orderId || d.amount == null) {
+              throw new Error('Could not start payment');
+            }
+            const pay = await this.paymentService.openRazorpayCheckout(
+              d.orderId,
+              d.amount,
+              {
+                description: 'Driver cancelled trip — settlement',
+              }
+            );
+            await firstValueFrom(
+              this.http.post(`${base}/${rideId}/driver-cancel-settlement/verify-razorpay`, {
+                userId,
+                razorpay_payment_id: pay.razorpay_payment_id,
+              })
+            );
+          });
+          break;
+        case 'cash':
+          await run(async () => {
             await firstValueFrom(
               this.http.post(`${base}/${rideId}/driver-cancel-settlement/confirm-cash`, {
                 userId,
               })
             );
           });
-        },
-      });
-    }
-
-    buttons.push({
-      text: 'Close',
-      role: 'cancel',
-      cssClass: 'settlement-alert-btn-close',
-    });
-
-    const alert = await this.alertCtrl.create({
-      header,
-      subHeader,
-      message,
-      cssClass: [
-        'driver-cancel-settlement-alert',
-        isZeroDue ? 'driver-cancel-settlement-alert--zero-due' : 'driver-cancel-settlement-alert--due',
-      ],
-      buttons,
-    });
-    await alert.present();
-    const { role } = await alert.onDidDismiss();
-    if (role === 'cancel' && additional > 0) {
-      await this.showToast(
-        'This amount is still due. It will be included on your next ride payment.',
-        'warning'
-      );
+          break;
+        default:
+          if (additional > 0) {
+            await this.showToast(
+              'This amount is still due. Pay from this screen or before your next booking.',
+              'warning'
+            );
+          }
+          break;
+      }
+    } catch {
+      // run() rethrows after toast for page-level handling
     }
   }
 

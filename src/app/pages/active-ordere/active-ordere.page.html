@@ -126,7 +126,7 @@
                 <p>Free wait ended. Charges may apply if the ride has not started.</p>
               </ion-text>
               <ion-text *ngIf="pickupWaitChargePreview > 0" color="warning">
-                <p>Estimated pickup wait so far: ₹{{ pickupWaitChargePreview | number:'1.2-2' }} (final amount when you start the ride)</p>
+                <p>Estimated pickup wait so far: {{ pickupWaitChargePreview | inrWhole:true }} (final amount when you start the ride)</p>
               </ion-text>
             </div>
           </ion-card-content>
@@ -148,6 +148,25 @@
             </ion-label>
           </ion-item>
         </ion-list>
+
+        <!--
+          Cancel ride button: visible only before the start OTP is verified,
+          i.e. while the rider can still bail out without trip charges. The
+          rider app flips currentRideStatus to 'in_progress' on the
+          rideStarted socket event (see RideService.setupSocketListeners), at
+          which point this button is hidden. Backend additionally rejects
+          cancellation after start (RIDER_CANCEL_BLOCKED_IN_PROGRESS).
+        -->
+        <ion-button
+          expand="block"
+          fill="outline"
+          color="danger"
+          *ngIf="!isViewOnlyMode && (currentRideStatus === 'accepted' || currentRideStatus === 'arrived' || currentRideStatus === 'searching')"
+          (click)="onCancelRide()"
+        >
+          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+          Cancel ride
+        </ion-button>
 
         <ion-button
           expand="block"
@@ -224,4 +243,29 @@
       </ion-button>
     </div>
   </div>
+
+  <!--
+    Inline driver-cancel settlement modal host. RideService publishes a
+    DriverCancelSettlementRequest on driverCancelSettlement$ whenever the
+    driver ends the trip mid-way; we host the component here so it compiles
+    inside this page's lazy-loaded chunk (avoids the ModalController.create
+    rendering regression that previously leaked the template as raw text).
+  -->
+  <ion-modal
+    [isOpen]="!!(driverCancelSettlement$ | async)"
+    [class]="(driverCancelSettlement$ | async)?.isZeroDue ? 'driver-cancel-settlement-modal driver-cancel-settlement-modal--zero-due' : 'driver-cancel-settlement-modal driver-cancel-settlement-modal--due'"
+    [backdropDismiss]="false"
+  >
+    <ng-template>
+      <ng-container *ngIf="driverCancelSettlement$ | async as req">
+        <app-driver-cancel-settlement-modal
+          [reason]="req.reason"
+          [settlement]="req.settlement"
+          [bookingPaymentMethod]="req.bookingPaymentMethod"
+          [isPostRideOnlineBooking]="req.isPostRideOnlineBooking"
+          (modalDismiss)="closeDriverCancelSettlement(req.rideId, $event)"
+        ></app-driver-cancel-settlement-modal>
+      </ng-container>
+    </ng-template>
+  </ion-modal>
 </ion-content>

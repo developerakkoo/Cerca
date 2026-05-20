@@ -1,0 +1,65 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tabs/tab2"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Pending payments</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card *ngIf="bookingBlocked" color="warning">
+    <ion-card-content>
+      <p>{{ bookingBlockedReason || 'Please clear previous ride payment before booking another ride.' }}</p>
+    </ion-card-content>
+  </ion-card>
+
+  <div *ngIf="totalPendingDues <= 0" class="ion-text-center ion-padding">
+    <ion-icon name="checkmark-circle" color="success" style="font-size: 64px;"></ion-icon>
+    <h2>No pending dues</h2>
+    <ion-button routerLink="/tabs/tabs/tab1">Book a ride</ion-button>
+  </div>
+
+  <ng-container *ngIf="totalPendingDues > 0">
+    <h2>Total due: {{ totalPendingDues | inrWhole:true }}</h2>
+    <p>Wallet balance: {{ walletBalance | inrWhole:true }}</p>
+
+    <ion-list *ngIf="driverCancelItems.length">
+      <ion-list-header>Previous trip charges (driver ended early)</ion-list-header>
+      <ion-item *ngFor="let item of driverCancelItems">
+        <ion-label>
+          <h3>{{ item.summary || ('Trip ' + (item.rideId | slice:0:8)) }}</h3>
+          <p>{{ item.additionalDue | inrWhole:true }}</p>
+        </ion-label>
+        <ion-button slot="end" fill="outline" (click)="openDriverCancelSettlement(item.rideId)">
+          Pay trip charge
+        </ion-button>
+      </ion-item>
+    </ion-list>
+
+    <ion-list *ngIf="disputeItems.length">
+      <ion-list-header>Payment disputes</ion-list-header>
+      <ion-item *ngFor="let item of disputeItems">
+        <ion-label>
+          <h3>Ride {{ item.rideId | slice:0:8 }}…</h3>
+          <p>{{ item.issueType }} · {{ item.amountRemaining | inrWhole:true }}</p>
+        </ion-label>
+      </ion-item>
+    </ion-list>
+
+    <ng-container *ngIf="disputeTotal > 0">
+      <ion-segment [(ngModel)]="selectedMethod">
+        <ion-segment-button value="wallet">
+          <ion-label>Wallet</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="razorpay">
+          <ion-label>Pay online</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <ion-button expand="block" class="ion-margin-top" (click)="pay()">
+        Pay dispute dues {{ disputeTotal | inrWhole:true }}
+      </ion-button>
+    </ng-container>
+  </ng-container>
+</ion-content>

@@ -1,5 +1,26 @@
 .ride-payment-content {
   --background: var(--ion-color-light);
+  background: var(--ion-color-light) !important;
+  touch-action: pan-y;
+}
+
+:root.ion-palette-dark {
+  .ride-payment-content {
+    --background: var(--ion-background-color);
+    background: var(--ion-background-color) !important;
+  }
+}
+
+.loading-container,
+.error-container {
+  padding: 48px 24px;
+  max-width: 600px;
+  margin: 0 auto;
+
+  p {
+    margin-top: 16px;
+    color: var(--ion-color-medium);
+  }
 }
 
 .payment-container {

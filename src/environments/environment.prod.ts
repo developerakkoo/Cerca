@@ -2,7 +2,7 @@ export const environment = {
   production: true,
   apiKey: 'AIzaSyDQq0QpnwQKzDR99ObP1frWj_uRTQ54pbo',
   mapId: 'a51bf22c4d90e515e2bb6a5f',
-  apiUrl: 'https://api.myserverdevops.com',
+  apiUrl: 'https://api.cercacars.online',
   // apiUrl: 'http://192.168.1.14:3000',
   legal: {
     termsUrl: 'https://cerca.app/terms',
