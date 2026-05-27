@@ -1168,6 +1168,8 @@ export class PaymentPage implements OnInit, ViewWillEnter, ViewWillLeave {
       durationMin: this.estimatedDuration,
       perMinuteRate,
       pricing: this.pricingConfig,
+      vehicleServiceKey: vehicle as 'cercaZip' | 'cercaGlide' | 'cercaTitan',
+      vehicleServices: this.vehicleServices,
     });
     this.baseFare = fallback.baseFare;
     this.distanceFare = fallback.distanceFare;

@@ -2,7 +2,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 import {
   formatInrDisplay,
   formatInrWithSymbol,
-  roundInrDisplay,
+  roundInrToPaise,
 } from '../utils/money-display.util';
 
 @Pipe({
@@ -22,7 +22,7 @@ export class InrWholePipe implements PipeTransform {
   }
 }
 
-/** Expose rounded number for bindings that need a numeric value. */
+/** Expose 2dp number for bindings that need a numeric value. */
 export function inrWholeNumber(value: number | null | undefined): number {
-  return roundInrDisplay(value);
+  return roundInrToPaise(value);
 }

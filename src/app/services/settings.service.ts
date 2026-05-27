@@ -5,6 +5,12 @@ import { catchError, tap, map, switchMap } from 'rxjs/operators';
 import { Storage } from '@ionic/storage-angular';
 import { environment } from 'src/environments/environment';
 
+export interface VehicleDistanceTiers {
+  tier1: { maxKm: number; ratePerKm: number };
+  tier2: { maxKm: number; ratePerKm: number };
+  beyondTier2RatePerKm: number;
+}
+
 export interface VehicleService {
   name: string;
   price: number;
@@ -12,19 +18,13 @@ export interface VehicleService {
   seats: number;
   enabled: boolean;
   imagePath: string;
+  distanceTiers?: VehicleDistanceTiers;
 }
 
 export interface VehicleServices {
   cercaZip: VehicleService;
   cercaGlide: VehicleService;
   cercaTitan: VehicleService;
-}
-
-export interface FarePricingDistanceTiers {
-  tier1: { maxKm: number; ratePerKm: number };
-  tier2: { maxKm: number; ratePerKm: number };
-  tier3: { maxKm: number; ratePerKm: number };
-  beyondTier3RatePerKm: number;
 }
 
 export interface FarePricingTimeBand {
@@ -38,7 +38,6 @@ export interface FarePricingTimeBand {
 export interface FarePricingConfig {
   enabled: boolean;
   timezone: string;
-  distanceTiers: FarePricingDistanceTiers;
   timeBands: FarePricingTimeBand[];
   timeMultiplierAppliesTo?: 'distanceAndTime' | 'subtotalExcludingBase';
 }

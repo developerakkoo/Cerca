@@ -142,7 +142,7 @@
           </div>
           <div class="ride-price-radio">
             <p class="ride-price ride-price--primary">
-              <span *ngIf="calculatedFares?.cercaZip">{{ calculatedFares.cercaZip.finalFare | inrWhole:true }}</span>
+              <span *ngIf="calculatedFares?.cercaZip">{{ calculatedFares?.cercaZip?.finalFare | inrWhole:true }}</span>
               <span *ngIf="!calculatedFares?.cercaZip">{{ (vehicleServices.cercaZip?.price || 299) | inrWhole:true }}</span>
             </p>
             <ion-radio value="cercaZip" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
@@ -170,7 +170,7 @@
           </div>
           <div class="ride-price-radio">
             <p class="ride-price ride-price--primary">
-              <span *ngIf="calculatedFares?.cercaGlide">{{ calculatedFares.cercaGlide.finalFare | inrWhole:true }}</span>
+              <span *ngIf="calculatedFares?.cercaGlide">{{ calculatedFares?.cercaGlide?.finalFare | inrWhole:true }}</span>
               <span *ngIf="!calculatedFares?.cercaGlide">{{ (vehicleServices.cercaGlide?.price || 499) | inrWhole:true }}</span>
             </p>
             <ion-radio value="cercaGlide" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>
@@ -198,7 +198,7 @@
           </div>
           <div class="ride-price-radio">
             <p class="ride-price ride-price--primary">
-              <span *ngIf="calculatedFares?.cercaTitan">{{ calculatedFares.cercaTitan.finalFare | inrWhole:true }}</span>
+              <span *ngIf="calculatedFares?.cercaTitan">{{ calculatedFares?.cercaTitan?.finalFare | inrWhole:true }}</span>
               <span *ngIf="!calculatedFares?.cercaTitan">{{ (vehicleServices.cercaTitan?.price || 699) | inrWhole:true }}</span>
             </p>
             <ion-radio value="cercaTitan" mode="md" class="ride-radio ride-radio--visually-hidden" aria-hidden="true"></ion-radio>

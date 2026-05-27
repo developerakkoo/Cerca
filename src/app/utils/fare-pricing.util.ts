@@ -6,7 +6,12 @@
 import {
   FarePricingConfig,
   PricingConfigurations,
+  VehicleDistanceTiers,
+  VehicleServices,
 } from '../services/settings.service';
+
+const TIER1_MAX_KM = 5;
+const TIER2_MAX_KM = 10;
 
 const roundMoney = (n: number) => Math.round(n * 100) / 100;
 
@@ -53,17 +58,15 @@ export const resolveTimeMultiplier = (
 
 export const calculateTieredDistanceFare = (
   distanceKm: number,
-  tiers: FarePricingConfig['distanceTiers']
+  tiers: VehicleDistanceTiers
 ): number => {
   const d = Math.max(0, distanceKm);
   if (d === 0) return 0;
-  const t1Max = tiers.tier1?.maxKm ?? 10;
-  const t2Max = tiers.tier2?.maxKm ?? 20;
-  const t3Max = tiers.tier3?.maxKm ?? 30;
+  const t1Max = tiers.tier1?.maxKm ?? TIER1_MAX_KM;
+  const t2Max = tiers.tier2?.maxKm ?? TIER2_MAX_KM;
   const r1 = tiers.tier1?.ratePerKm ?? 0;
   const r2 = tiers.tier2?.ratePerKm ?? 0;
-  const r3 = tiers.tier3?.ratePerKm ?? 0;
-  const rBeyond = tiers.beyondTier3RatePerKm ?? r3;
+  const rBeyond = tiers.beyondTier2RatePerKm ?? r2;
   let remaining = d;
   let total = 0;
   const km1 = Math.min(remaining, t1Max);
@@ -72,11 +75,42 @@ export const calculateTieredDistanceFare = (
   const km2 = Math.min(remaining, t2Max - t1Max);
   total += km2 * r2;
   remaining -= km2;
-  const km3 = Math.min(remaining, t3Max - t2Max);
-  total += km3 * r3;
-  remaining -= km3;
   if (remaining > 0) total += remaining * rBeyond;
   return roundMoney(total);
+};
+
+const defaultVehicleDistanceTiers = (
+  vehicleServiceKey: 'cercaZip' | 'cercaGlide' | 'cercaTitan',
+  perKmRate: number
+): VehicleDistanceTiers => {
+  const vehicleRate =
+    vehicleServiceKey === 'cercaZip' ? 10 : vehicleServiceKey === 'cercaGlide' ? 12 : 16;
+  const rate = vehicleRate || perKmRate;
+  return {
+    tier1: { maxKm: TIER1_MAX_KM, ratePerKm: rate },
+    tier2: { maxKm: TIER2_MAX_KM, ratePerKm: rate },
+    beyondTier2RatePerKm: rate,
+  };
+};
+
+export const resolveVehicleDistanceTiers = (
+  vehicleServiceKey: 'cercaZip' | 'cercaGlide' | 'cercaTitan',
+  vehicleServices: VehicleServices | null | undefined,
+  perKmRate: number
+): VehicleDistanceTiers => {
+  const svc = vehicleServices?.[vehicleServiceKey];
+  const raw = svc?.distanceTiers;
+  if (raw?.tier1?.ratePerKm != null || raw?.tier2?.ratePerKm != null || raw?.beyondTier2RatePerKm != null) {
+    const r1 = raw.tier1?.ratePerKm ?? perKmRate;
+    const r2 = raw.tier2?.ratePerKm ?? r1;
+    const rBeyond = raw.beyondTier2RatePerKm ?? r2;
+    return {
+      tier1: { maxKm: TIER1_MAX_KM, ratePerKm: r1 },
+      tier2: { maxKm: TIER2_MAX_KM, ratePerKm: r2 },
+      beyondTier2RatePerKm: rBeyond,
+    };
+  }
+  return defaultVehicleDistanceTiers(vehicleServiceKey, perKmRate);
 };
 
 export interface FallbackFareResult {
@@ -96,13 +130,24 @@ export const calculateFallbackInstantFare = (params: {
   durationMin: number;
   perMinuteRate: number;
   pricing: PricingConfigurations;
+  vehicleServiceKey?: 'cercaZip' | 'cercaGlide' | 'cercaTitan';
+  vehicleServices?: VehicleServices | null;
   at?: Date;
 }): FallbackFareResult => {
-  const { basePrice, distanceKm, durationMin, perMinuteRate, pricing } = params;
+  const {
+    basePrice,
+    distanceKm,
+    durationMin,
+    perMinuteRate,
+    pricing,
+    vehicleServiceKey = 'cercaZip',
+    vehicleServices,
+  } = params;
   const at = params.at ?? new Date();
   const minimumFare = pricing.minimumFare ?? 0;
   const fp = pricing.farePricing;
   const enabled = fp?.enabled === true;
+  const perKmRate = pricing.perKmRate || 0;
 
   let distanceFare: number;
   let timeFare = roundMoney(Math.max(0, durationMin) * Math.max(0, perMinuteRate));
@@ -110,14 +155,19 @@ export const calculateFallbackInstantFare = (params: {
   let timeBandId = 'flat';
 
   if (enabled && fp) {
-    distanceFare = calculateTieredDistanceFare(distanceKm, fp.distanceTiers);
+    const tiers = resolveVehicleDistanceTiers(
+      vehicleServiceKey,
+      vehicleServices,
+      perKmRate
+    );
+    distanceFare = calculateTieredDistanceFare(distanceKm, tiers);
     const band = resolveTimeMultiplier(at, fp.timeBands, fp.timezone || 'Asia/Kolkata');
     timeMultiplier = band.timeMultiplier;
     timeBandId = band.timeBandId;
     distanceFare = roundMoney(distanceFare * timeMultiplier);
     timeFare = roundMoney(timeFare * timeMultiplier);
   } else {
-    distanceFare = roundMoney(distanceKm * (pricing.perKmRate || 0));
+    distanceFare = roundMoney(distanceKm * perKmRate);
   }
 
   const baseFare = roundMoney(basePrice);
