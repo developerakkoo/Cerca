@@ -19,6 +19,7 @@ import {
   DriverInfo,
   DriverCancelSettlementRequest,
 } from 'src/app/services/ride.service';
+import { phoneForDial } from 'src/app/utils/phone-dial';
 import type { DriverCancelSettlementAction } from 'src/app/components/ride/driver-cancel-settlement-modal/driver-cancel-settlement-modal.component';
 import { AlertController, Platform, ModalController, ToastController } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
@@ -1778,8 +1779,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   callDriver() {
-    // Get driver phone number from realDriver (DriverInfo has phone property)
-    const phoneNumber = this.realDriver?.phone;
+    const phoneNumber = phoneForDial(this.realDriver);
     
     if (!phoneNumber) {
       // Show error if phone number is not available

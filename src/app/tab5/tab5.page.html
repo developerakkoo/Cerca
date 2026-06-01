@@ -6,7 +6,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="ion-padding">
+<ion-content [fullscreen]="false" class="settings-content ion-padding">
   <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
         <ion-title size="large">{{'SETTINGS.title' | translate}}</ion-title>
@@ -20,87 +20,94 @@
   </div>
 
   <!-- Profile Section -->
-  <ion-card class="profile-card" *ngIf="!isLoading">
-    <ion-card-content>
-      <div class="profile-header">
-        <ion-avatar class="user-avatar">
-          <div class="avatar-content" *ngIf="user">
-            {{ (user.fullName || user.name || user.phoneNumber || 'U') | slice:0:1 }}
-          </div>
-          <div class="avatar-content" *ngIf="!user">
-            U
-          </div>
-        </ion-avatar>
-        <div class="profile-info">
-          <h2>{{ user?.fullName || user?.name || 'User' }}</h2>
-          <p>{{ user?.email || user?.phoneNumber || 'No email provided' }}</p>
+  <div class="profile-card" *ngIf="!isLoading">
+    <div class="profile-card-banner"></div>
+
+    <ion-avatar class="profile-card-avatar user-avatar">
+      <div class="avatar-content">{{ avatarInitials }}</div>
+    </ion-avatar>
+
+    <div class="profile-card-body">
+      <h2 class="profile-card-name">{{ user?.fullName || user?.name || 'User' }}</h2>
+      <p class="profile-card-email">{{ user?.email || user?.phoneNumber || 'No email provided' }}</p>
+    </div>
+
+    <div class="profile-card-footer" (click)="editProfile()">
+      <span class="profile-card-footer-label">{{ 'SETTINGS.items.Edit' | translate }}</span>
+      <ion-icon name="chevron-forward-outline" class="profile-card-footer-chevron"></ion-icon>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings-groups" *ngIf="!isLoading">
+    <!-- Preferences -->
+    <div class="settings-card">
+      <div class="settings-row" (click)="openGifts()">
+        <div class="settings-icon-box settings-icon-box--gift">
+          <ion-icon name="gift-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label">{{ 'SETTINGS.items.Gifts' | translate }}</span>
+        <ion-icon name="chevron-forward-outline" class="settings-row-chevron"></ion-icon>
+      </div>
+
+      <div class="settings-row settings-row--static">
+        <div class="settings-icon-box">
+          <ion-icon name="notifications-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label">{{ 'SETTINGS.items.Notifications' | translate }}</span>
+        <ion-toggle
+          class="settings-row-control"
+          [(ngModel)]="notificationsEnabled"
+          (ionChange)="toggleNotifications()">
+        </ion-toggle>
+      </div>
+
+      <div class="settings-row settings-row--static settings-row--last">
+        <div class="settings-icon-box">
+          <ion-icon name="language-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label">{{ 'SETTINGS.items.Language' | translate }}</span>
+        <ion-select
+          class="settings-row-control settings-language-select"
+          [(ngModel)]="selectedLanguage"
+          (ionChange)="changeLanguage($event.detail.value)">
+          <ion-select-option *ngFor="let lang of languages" [value]="lang.code">
+            {{ lang.flag }} {{ lang.name }}
+          </ion-select-option>
+        </ion-select>
+      </div>
+    </div>
+
+    <!-- Help -->
+    <div class="settings-card">
+      <div class="settings-row" (click)="openSupport()">
+        <div class="settings-icon-box">
+          <ion-icon name="help-circle-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label">{{ 'SETTINGS.items.Support' | translate }}</span>
+        <div class="settings-row-trailing">
+          <span *ngIf="activeSupportCount > 0" class="support-count-badge">{{ activeSupportCount }}</span>
+          <ion-icon name="chevron-forward-outline" class="settings-row-chevron"></ion-icon>
         </div>
       </div>
-    </ion-card-content>
-  </ion-card>
 
-  <!-- Settings List -->
-  <ion-list class="settings-list">
-    <!-- Edit Profile -->
-    <ion-item class="settings-item" (click)="editProfile()">
-      <ion-icon name="person-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Edit' | translate}}</ion-label>
-      <ion-icon name="chevron-forward" slot="end"></ion-icon>
-    </ion-item>
-
-    <!-- Gifts -->
-    <ion-item class="settings-item" (click)="openGifts()">
-      <ion-icon name="gift-outline" slot="start" color="secondary"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Gifts' | translate}}</ion-label>
-      <ion-icon name="chevron-forward" slot="end"></ion-icon>
-    </ion-item>
-
-    <!-- Notifications -->
-    <ion-item class="settings-item">
-      <ion-icon name="notifications-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Notifications' | translate}}</ion-label>
-      <ion-toggle slot="end" [(ngModel)]="notificationsEnabled" (ionChange)="toggleNotifications()"></ion-toggle>
-    </ion-item>
-
-    <!-- Language -->
-    <ion-item class="settings-item">
-      <ion-icon name="language-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Language' | translate}}</ion-label>
-      <ion-select slot="end" [(ngModel)]="selectedLanguage" (ionChange)="changeLanguage($event.detail.value)">
-        <ion-select-option *ngFor="let lang of languages" [value]="lang.code">
-          {{ lang.flag }} {{ lang.name }}
-        </ion-select-option>
-      </ion-select>
-    </ion-item>
-
-    <!-- Address -->
-    <!-- <ion-item class="settings-item" (click)="manageAddress()">
-      <ion-icon name="location-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Address' | translate}}</ion-label>
-      <ion-icon name="chevron-forward" slot="end"></ion-icon>
-    </ion-item> -->
-
-    <!-- Support -->
-    <ion-item class="settings-item" (click)="openSupport()">
-      <ion-icon name="help-circle-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Support' | translate}}</ion-label>
-      <div slot="end" style="display: flex; align-items: center; gap: 8px;">
-        <ion-badge *ngIf="activeSupportCount > 0" color="primary">{{ activeSupportCount }}</ion-badge>
-        <ion-icon name="chevron-forward"></ion-icon>
+      <div class="settings-row settings-row--last" (click)="openFAQ()">
+        <div class="settings-icon-box">
+          <ion-icon name="information-circle-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label">{{ 'SETTINGS.items.Faq' | translate }}</span>
+        <ion-icon name="chevron-forward-outline" class="settings-row-chevron"></ion-icon>
       </div>
-    </ion-item>
-
-    <!-- FAQ -->
-    <ion-item class="settings-item" (click)="openFAQ()">
-      <ion-icon name="information-circle-outline" slot="start"></ion-icon>
-      <ion-label>{{'SETTINGS.items.Faq' | translate}}</ion-label>
-      <ion-icon name="chevron-forward" slot="end"></ion-icon>
-    </ion-item>
+    </div>
 
     <!-- Logout -->
-    <ion-item lines="none" class="settings-item logout-item" (click)="logout()">
-      <ion-icon name="log-out-outline" slot="start" color="danger"></ion-icon>
-      <ion-label color="danger">{{ 'SETTINGS.items.Logout' | translate }}</ion-label>
-    </ion-item>
-  </ion-list>
+    <div class="settings-card settings-card--logout" (click)="logout()">
+      <div class="settings-row settings-row--last settings-row--logout">
+        <div class="settings-icon-box settings-icon-box--danger">
+          <ion-icon name="log-out-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label settings-row-label--danger">{{ 'SETTINGS.items.Logout' | translate }}</span>
+      </div>
+    </div>
+  </div>
 </ion-content>

@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
-import { RideService, Ride } from '../services/ride.service';
+import { RideService, Ride, DriverInfo } from '../services/ride.service';
+import { phoneForDial } from '../utils/phone-dial';
 import { UserService } from '../services/user.service';
 import { SocketService } from '../services/socket.service';
 import { firstValueFrom, Subscription } from 'rxjs';
@@ -227,6 +228,12 @@ export class Tab2Page implements OnInit, OnDestroy {
     });
   }
 
+  truncateRideId(id: string): string {
+    if (!id) return 'N/A';
+    if (id.length <= 16) return id;
+    return `${id.slice(0, 8)}…${id.slice(-4)}`;
+  }
+
   getStatusColor(status: string): string {
     switch (status) {
       case 'requested':
@@ -290,9 +297,10 @@ export class Tab2Page implements OnInit, OnDestroy {
   }
 
 
-  callDriver(phone?: string) {
-    if (phone) {
-      window.location.href = `tel:${phone}`;
+  callDriver(driver?: DriverInfo | null) {
+    const phoneNumber = phoneForDial(driver);
+    if (phoneNumber) {
+      window.location.href = `tel:${phoneNumber}`;
     } else {
       console.log('Driver phone number not available');
     }

@@ -33,6 +33,7 @@ export interface DriverInfo {
   _id: string;
   name: string;
   phone: string;
+  callPhoneNumber?: string;
   rating: number;
   totalTrips: number;
   profilePic?: string;

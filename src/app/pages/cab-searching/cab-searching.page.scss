@@ -1,165 +1,246 @@
+$radar-navy: var(--ion-color-primary, #333652);
+$radar-navy-mid: #5c5f78;
+$radar-mid: #9a9cab;
+$radar-light: #d4d6e0;
+$radar-size: min(88vw, 340px);
+
+:host {
+  --cab-searching-bg: #ffffff;
+}
+
+.cab-searching-content {
+  --background: var(--cab-searching-bg);
+}
+
+.cab-searching-header ion-toolbar {
+  --background: var(--cab-searching-bg);
+  --color: #1a1a1a;
+}
+
 .searching-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  background: var(--ion-color-light);
+  justify-content: space-between;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 0 0 calc(1.5rem + env(safe-area-inset-bottom, 0));
+  background: var(--cab-searching-bg);
+}
+
+.status-container {
+  text-align: center;
+  padding: 1.25rem 1.5rem 0.5rem;
+  flex-shrink: 0;
+
+  h2 {
+    margin: 0 0 0.35rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -0.02em;
+  }
+
+  .status-subtext {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #6c757d;
+    line-height: 1.4;
+  }
 }
 
 .animation-container {
   position: relative;
-  width: 300px;
-  height: 300px;
+  width: $radar-size;
+  height: $radar-size;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0.5rem 0 1rem;
+  min-height: 280px;
+  max-height: $radar-size;
+}
+
+.radar-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  border: 2px dashed;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  animation: radarFade 2.5s ease-in-out infinite;
+}
+
+.ring-1 {
+  width: 28.2%;
+  height: 28.2%;
+  border-color: $radar-navy;
+  animation-delay: 0s;
+}
+
+.ring-2 {
+  width: 43.5%;
+  height: 43.5%;
+  border-color: $radar-navy-mid;
+  animation-delay: 0.2s;
+}
+
+.ring-3 {
+  width: 58.8%;
+  height: 58.8%;
+  border-color: $radar-mid;
+  animation-delay: 0.4s;
+}
+
+.ring-4 {
+  width: 74.1%;
+  height: 74.1%;
+  border-color: #b8bac8;
+  animation-delay: 0.6s;
+}
+
+.ring-5 {
+  width: 89.4%;
+  height: 89.4%;
+  border-color: $radar-light;
+  animation-delay: 0.8s;
+}
+
+@keyframes radarFade {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 .profile-container {
   position: relative;
-  z-index: 3;
-  width: 120px;
-  height: 120px;
+  z-index: 10;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: white;
-  padding: 5px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  padding: 10px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 12px rgba(51, 54, 82, 0.12);
+  border: 1px solid rgba(51, 54, 82, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .profile-image {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
-.pulse-circle {
+.car-orbit {
   position: absolute;
-  border-radius: 50%;
-  background: rgba(var(--ion-color-success-rgb), 0.1);
-  border: 2px solid var(--ion-color-success);
-  box-shadow: 0 0 0 0 rgba(var(--ion-color-success-rgb), 0.4);
-  transform-origin: center;
-  opacity: 0;
+  top: 50%;
+  left: 50%;
+  margin-top: 0;
+  margin-left: 0;
+  transform-origin: center center;
+  pointer-events: none;
+  z-index: 5;
 }
 
-.circle-1 {
-  width: 200px;
-  height: 200px;
+.car-orbit--a {
+  width: 74.1%;
+  height: 74.1%;
+  transform: translate(-50%, -50%) rotate(52deg);
+  animation: orbitSpinA 24s linear infinite;
 }
 
-.circle-2 {
-  width: 240px;
-  height: 240px;
+.car-orbit--b {
+  width: 89.4%;
+  height: 89.4%;
+  transform: translate(-50%, -50%) rotate(118deg);
+  animation: orbitSpinB 28s linear infinite reverse;
 }
 
-.circle-3 {
-  width: 280px;
-  height: 280px;
-}
-
-.rotating-circle {
+.car-marker {
   position: absolute;
-  border-radius: 50%;
-  border: 2px dashed var(--ion-color-success);
+  top: 0;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
 }
 
-.circle-4 {
-  width: 260px;
-  height: 260px;
-}
-
-.circle-5 {
-  width: 300px;
-  height: 300px;
-}
-
-.status-container {
-  margin-top: 2rem;
-  text-align: center;
-  padding: 0 2rem;
-
-  h2 {
-    color: var(--ion-color-dark);
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
+@keyframes orbitSpinA {
+  from {
+    transform: translate(-50%, -50%) rotate(52deg);
   }
-
-  p {
-    color: var(--ion-color-medium);
-    font-size: 1rem;
-    margin: 0;
+  to {
+    transform: translate(-50%, -50%) rotate(412deg);
   }
 }
 
-.typewriter-text {
-  min-height: 1.5em;
-  display: inline-block;
-  position: relative;
-  
-  &::after {
-    content: '|';
-    position: absolute;
-    right: -2px;
-    animation: blink 0.7s infinite;
+@keyframes orbitSpinB {
+  from {
+    transform: translate(-50%, -50%) rotate(118deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(478deg);
   }
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-// Slide to cancel styles
 .slide-to-cancel-container {
-  position: fixed;
-  bottom: 2rem;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
+  width: 100%;
   padding: 0 1rem;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .slide-to-cancel {
-  width: 100%;
-  max-width: 300px;
-  height: 50px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 25px;
-  display: flex;
-  align-items: center;
   position: relative;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 100%;
+  height: 52px;
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
   overflow: hidden;
+  touch-action: none;
+  user-select: none;
 }
 
-.slide-button {
-  width: 50px;
-  height: 50px;
-  background: var(--ion-color-danger);
-  border-radius: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.slide-handle {
   position: absolute;
   left: 0;
-  transition: transform 0.3s ease;
+  top: 50%;
+  width: 56px;
+  height: 44px;
+  margin-top: -22px;
+  background: $radar-navy;
+  border-radius: 6px;
   z-index: 2;
-
-  ion-icon {
-    color: white;
-    font-size: 24px;
-  }
+  will-change: transform;
 }
 
 .slide-text {
-  width: 100%;
-  text-align: center;
-  color: var(--ion-color-medium);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $radar-navy;
   font-size: 1rem;
-  transition: opacity 0.3s ease;
+  font-weight: 500;
+  text-decoration: underline;
+  pointer-events: none;
+  z-index: 1;
+  padding-left: 56px;
 }
 
 // No Driver Found UI
@@ -168,8 +249,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  background: var(--ion-color-light);
+  min-height: 100%;
+  background: var(--cab-searching-bg);
   padding: 2rem;
   animation: fadeIn 0.4s ease;
 }
@@ -213,11 +294,15 @@
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ion-color-danger) 0%, var(--ion-color-danger-shade) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--ion-color-primary) 0%,
+    var(--ion-color-primary-shade) 100%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(var(--ion-color-danger-rgb), 0.3);
+  box-shadow: 0 8px 24px rgba(var(--ion-color-primary-rgb), 0.3);
   position: relative;
 
   &::before {
@@ -226,13 +311,14 @@
     width: 140px;
     height: 140px;
     border-radius: 50%;
-    border: 2px solid rgba(var(--ion-color-danger-rgb), 0.2);
-    animation: pulse 2s ease-in-out infinite;
+    border: 2px solid rgba(var(--ion-color-primary-rgb), 0.2);
+    animation: noDriverPulse 2s ease-in-out infinite;
   }
 }
 
-@keyframes pulse {
-  0%, 100% {
+@keyframes noDriverPulse {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -303,46 +389,11 @@
   }
 }
 
-// Dark mode adjustments
 :host-context(.dark-theme) {
-  .searching-container {
-    background: var(--ion-color-dark);
-  }
+  --cab-searching-bg: var(--ion-color-dark, #121212);
 
-  .profile-container {
-    background: var(--ion-color-dark);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  .pulse-circle {
-    background: rgba(76, 175, 80, 0.15);
-    border-color: #66BB6A;
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.5);
-  }
-
-  .rotating-circle {
-    border-color: #66BB6A;
-  }
-
-  .status-container {
-    h2 {
-      color: var(--ion-color-light);
-    }
-    p {
-      color: var(--ion-color-medium);
-    }
-  }
-
-  .slide-to-cancel {
-    background: rgba(0, 0, 0, 0.8);
-  }
-
-  .slide-text {
+  .status-container h2 {
     color: var(--ion-color-light);
-  }
-
-  .no-driver-container {
-    background: var(--ion-color-dark);
   }
 
   .message-container h2 {

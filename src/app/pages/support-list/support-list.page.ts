@@ -273,4 +273,10 @@ export class SupportListPage implements OnInit, OnDestroy {
         return 'help-circle-outline'
     }
   }
+
+  truncateIssueId(id: string): string {
+    if (!id) return 'N/A'
+    if (id.length <= 16) return id
+    return `${id.slice(0, 8)}…${id.slice(-4)}`
+  }
 }

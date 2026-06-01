@@ -9,6 +9,7 @@ import {
 import { Subscription } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
+import { phoneForDial } from 'src/app/utils/phone-dial';
 
 interface DriverDetails {
   name: string;
@@ -185,9 +186,9 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
   }
 
   callDriver() {
-    if (this.driver && this.driver.phone) {
-      // Open phone dialer
-      window.location.href = `tel:${this.driver.phone}`;
+    const phoneNumber = phoneForDial(this.driver);
+    if (phoneNumber) {
+      window.location.href = `tel:${phoneNumber}`;
     } else {
       console.warn('Driver phone number not available');
     }

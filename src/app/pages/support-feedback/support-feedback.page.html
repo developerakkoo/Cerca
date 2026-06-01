@@ -7,42 +7,49 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="ion-padding">
+<ion-content [fullscreen]="true" class="support-page-content">
   <div class="feedback-container">
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>Rate Your Support Experience</ion-card-title>
-        <ion-card-subtitle>Your feedback helps us improve our service</ion-card-subtitle>
-      </ion-card-header>
-
-      <ion-card-content>
-        <!-- Rating Section -->
-        <div class="rating-section">
-          <h3>How would you rate your support experience?</h3>
-          <div class="rating-buttons">
-            <ion-button
-              *ngFor="let num of [1,2,3,4,5,6,7,8,9,10]"
-              [color]="rating >= num ? 'primary' : 'medium'"
-              [fill]="rating >= num ? 'solid' : 'outline'"
-              (click)="setRating(num)"
-              class="rating-button"
-            >
-              {{ num }}
-            </ion-button>
-          </div>
-          <p class="rating-label">
-            <span *ngIf="rating === 0">Select a rating</span>
-            <span *ngIf="rating > 0 && rating <= 3">Poor</span>
-            <span *ngIf="rating > 3 && rating <= 5">Fair</span>
-            <span *ngIf="rating > 5 && rating <= 7">Good</span>
-            <span *ngIf="rating > 7 && rating <= 9">Very Good</span>
-            <span *ngIf="rating === 10">Excellent</span>
-          </p>
+    <div class="support-card feedback-form-card">
+      <!-- Header -->
+      <div class="feedback-header">
+        <div class="support-icon-box">
+          <ion-icon name="star-outline"></ion-icon>
         </div>
+        <div class="feedback-header-text">
+          <h2>Rate Your Support Experience</h2>
+          <p>Your feedback helps us improve our service</p>
+        </div>
+      </div>
 
-        <!-- Resolved Status -->
-        <div class="resolved-section">
-          <h3>Was your issue resolved?</h3>
+      <!-- Rating Section -->
+      <div class="feedback-section">
+        <span class="support-section-label">Rating</span>
+        <h3 class="feedback-question">How would you rate your support experience?</h3>
+        <div class="rating-buttons">
+          <button
+            *ngFor="let num of [1,2,3,4,5,6,7,8,9,10]"
+            type="button"
+            class="rating-button"
+            [class.rating-button--selected]="rating >= num"
+            (click)="setRating(num)">
+            {{ num }}
+          </button>
+        </div>
+        <p class="rating-label">
+          <span *ngIf="rating === 0">Select a rating</span>
+          <span *ngIf="rating > 0 && rating <= 3">Poor</span>
+          <span *ngIf="rating > 3 && rating <= 5">Fair</span>
+          <span *ngIf="rating > 5 && rating <= 7">Good</span>
+          <span *ngIf="rating > 7 && rating <= 9">Very Good</span>
+          <span *ngIf="rating === 10">Excellent</span>
+        </p>
+      </div>
+
+      <!-- Resolved Status -->
+      <div class="feedback-section">
+        <span class="support-section-label">Resolution</span>
+        <h3 class="feedback-question">Was your issue resolved?</h3>
+        <div class="support-segment-container feedback-segment">
           <ion-segment [(ngModel)]="resolved">
             <ion-segment-button value="true">
               <ion-label>Yes</ion-label>
@@ -52,29 +59,32 @@
             </ion-segment-button>
           </ion-segment>
         </div>
+      </div>
 
-        <!-- Comment Section -->
-        <div class="comment-section">
-          <h3>Additional Comments (Optional)</h3>
-          <ion-textarea
-            [(ngModel)]="comment"
-            placeholder="Tell us more about your experience..."
-            rows="5"
-            maxlength="500"
-          ></ion-textarea>
-        </div>
+      <!-- Comment Section -->
+      <div class="feedback-section">
+        <span class="support-section-label">Comments</span>
+        <h3 class="feedback-question">Additional Comments (Optional)</h3>
+        <ion-textarea
+          [(ngModel)]="comment"
+          placeholder="Tell us more about your experience..."
+          rows="5"
+          maxlength="500"
+          class="feedback-textarea">
+        </ion-textarea>
+      </div>
 
-        <!-- Submit Button -->
-        <ion-button
-          expand="block"
-          (click)="submitFeedback()"
-          [disabled]="!rating || isSubmitting"
-          class="submit-button"
-        >
-          <span *ngIf="!isSubmitting">Submit Feedback</span>
-          <span *ngIf="isSubmitting">Submitting...</span>
-        </ion-button>
-      </ion-card-content>
-    </ion-card>
+      <!-- Submit Button -->
+      <ion-button
+        expand="block"
+        mode="ios"
+        color="primary"
+        (click)="submitFeedback()"
+        [disabled]="!rating || isSubmitting"
+        class="support-primary-btn submit-button">
+        <span *ngIf="!isSubmitting">Submit Feedback</span>
+        <span *ngIf="isSubmitting">Submitting...</span>
+      </ion-button>
+    </div>
   </div>
 </ion-content>

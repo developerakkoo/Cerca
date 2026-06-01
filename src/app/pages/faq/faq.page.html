@@ -9,7 +9,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="ion-padding">
+<ion-content [fullscreen]="true" class="support-page-content">
   <ion-header collapse="condense" class="ion-no-border">
     <ion-toolbar>
       <ion-title size="large">FAQ</ion-title>
@@ -29,11 +29,13 @@
   </div>
 
   <!-- Empty State -->
-  <div *ngIf="filteredCategories.length === 0" class="empty-state">
-    <ion-icon name="search-outline" size="large" color="medium"></ion-icon>
+  <div *ngIf="filteredCategories.length === 0" class="support-empty-state faq-empty-state">
+    <div class="support-icon-box">
+      <ion-icon name="search-outline"></ion-icon>
+    </div>
     <h3>No results found</h3>
     <p>Try searching with different keywords</p>
-    <ion-button fill="outline" (click)="clearSearch()">
+    <ion-button fill="outline" mode="ios" (click)="clearSearch()" class="support-action-btn">
       Clear Search
     </ion-button>
   </div>
@@ -43,7 +45,9 @@
     <div *ngFor="let category of filteredCategories; let categoryIndex = index" class="faq-category">
       <!-- Category Header -->
       <div class="category-header">
-        <ion-icon [name]="category.icon" class="category-icon"></ion-icon>
+        <div class="support-icon-box">
+          <ion-icon [name]="category.icon"></ion-icon>
+        </div>
         <h2 class="category-title">{{ category.title }}</h2>
       </div>
 
@@ -51,16 +55,16 @@
       <div class="faq-items">
         <div
           *ngFor="let item of category.items; let itemIndex = index"
-          class="faq-item"
+          class="support-card faq-item"
           [class.expanded]="isExpanded(categoryIndex, itemIndex)">
-          
+
           <!-- Question -->
           <div
             class="faq-question"
             (click)="toggleItem(categoryIndex, itemIndex)">
             <span class="question-text">{{ item.question }}</span>
             <ion-icon
-              [name]="isExpanded(categoryIndex, itemIndex) ? 'chevron-up' : 'chevron-down'"
+              [name]="isExpanded(categoryIndex, itemIndex) ? 'chevron-up-outline' : 'chevron-down-outline'"
               class="expand-icon">
             </ion-icon>
           </div>
@@ -78,17 +82,18 @@
 
   <!-- Help Section -->
   <div class="help-section">
-    <ion-card class="help-card">
-      <ion-card-content>
-        <ion-icon name="chatbubbles-outline" class="help-icon"></ion-icon>
+    <div class="support-card help-card">
+      <div class="help-card-body">
+        <div class="support-icon-box">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+        </div>
         <h3>Still need help?</h3>
         <p>Can't find what you're looking for? Contact our support team for assistance.</p>
-        <ion-button expand="block" fill="outline" (click)="contactSupport()">
+        <ion-button expand="block" fill="outline" mode="ios" (click)="contactSupport()" class="support-action-btn help-contact-btn">
           <ion-icon name="mail-outline" slot="start"></ion-icon>
           Contact Support
         </ion-button>
-      </ion-card-content>
-    </ion-card>
+      </div>
+    </div>
   </div>
 </ion-content>
-

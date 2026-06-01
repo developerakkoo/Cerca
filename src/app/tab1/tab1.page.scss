@@ -1,18 +1,29 @@
-// Tab1 Page - Uber-Style Design
-// Modern, premium UI with floating inputs and horizontal scrolling ride cards
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+// Tab1 Page — map-first overlay UI aligned with tab2/tab5 design system
 
 :host {
   --tab1-tab-bar-height: var(--cerca-tab-bar-offset, calc(65px + env(safe-area-inset-bottom, 0px)));
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: transparent !important;
 
-  // Ensure ion-content doesn't intercept map touches
   ion-content {
-    touch-action: none; // Disable Ionic's touch handling
-    overscroll-behavior: none; // Prevent overscroll on iOS
+    touch-action: none;
+    overscroll-behavior: none;
     --background: transparent !important;
     background: transparent !important;
   }
 }
+
+$tab1-gutter: 16px;
+$tab1-primary-text: #1a1a2e;
+$tab1-muted-text: #999;
+$tab1-label-text: #bbb;
+$tab1-divider: #f0f2f7;
+$tab1-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+$tab1-sheet-shadow: 0 -4px 24px rgba(0, 0, 0, 0.10);
+$tab1-primary-tint: rgba(51, 54, 82, 0.06);
+$tab1-selected-border: rgba(51, 54, 82, 0.25);
 
 .tab1-content {
   --background: transparent !important;
@@ -20,11 +31,11 @@
   position: relative;
   height: 100vh;
   overflow: hidden;
-  touch-action: none; // Disable touch actions for map mode
-  -webkit-overflow-scrolling: auto; // Disable iOS momentum scrolling
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
 }
 
-// Map Container - Full screen for confirm mode
+// Map Container
 .map-container {
   position: absolute;
   top: 0;
@@ -34,34 +45,66 @@
   width: 100%;
   height: 100%;
   z-index: 1;
-  touch-action: none !important; // Let native map handle all gestures - CRITICAL for Android
-  -webkit-overflow-scrolling: auto; // Disable iOS momentum scrolling
-  pointer-events: auto !important; // Ensure container allows pointer events - CRITICAL for Android
-  background: transparent !important; // Critical for Android - map renders behind webview
-  -webkit-tap-highlight-color: transparent; // Remove tap highlight on Android
+  touch-action: none !important;
+  -webkit-overflow-scrolling: auto;
+  pointer-events: auto !important;
+  background: transparent !important;
+  -webkit-tap-highlight-color: transparent;
 
   capacitor-google-map {
     width: 100%;
     height: 100%;
     display: block;
-    touch-action: none !important; // Let native map handle all gestures - CRITICAL for Android
-    pointer-events: auto !important; // Explicitly enable pointer events - CRITICAL for Android
-    -webkit-user-select: none; // Prevent text selection on drag
+    touch-action: none !important;
+    pointer-events: auto !important;
+    -webkit-user-select: none;
     user-select: none;
-    background: transparent !important; // Critical for Android
-    -webkit-touch-callout: none; // Prevent iOS callout menu
-    -webkit-tap-highlight-color: transparent; // Remove tap highlight on Android
+    background: transparent !important;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-// Loading Overlay for Map
+// Shared overlay card
+.overlay-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: $tab1-card-shadow;
+  padding: 24px;
+}
+
+.overlay-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: $tab1-divider;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 20px;
+    color: #555;
+  }
+
+  &--danger {
+    background: #fde8e8;
+
+    ion-icon {
+      color: #d32f2f;
+    }
+  }
+}
+
+// Loading Overlay
 .loading-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(240, 242, 247, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,34 +115,41 @@
     flex-direction: column;
     align-items: center;
     gap: 16px;
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      color: $tab1-muted-text;
+    }
   }
 }
 
-// Error Overlay for Map
+// Error Overlay
 .error-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(240, 242, 247, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1001;
+  padding: $tab1-gutter;
 
   .error-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
-    padding: 24px;
+    gap: 16px;
     max-width: 320px;
     text-align: center;
+    width: 100%;
 
     .error-message {
-      color: rgba(0, 0, 0, 0.87);
-      font-size: 16px;
+      color: $tab1-primary-text;
+      font-size: 15px;
       font-weight: 500;
       margin: 0;
       line-height: 1.5;
@@ -108,7 +158,7 @@
     .error-actions {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       width: 100%;
 
       ion-button {
@@ -129,20 +179,20 @@
   transform: translate(-50%, -100%);
   z-index: 150;
   pointer-events: none;
-  
+
   .center-pin {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    
+
     .pin-icon {
       font-size: 48px;
       color: var(--ion-color-primary);
       filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
       z-index: 2;
     }
-    
+
     .pin-shadow {
       position: absolute;
       width: 20px;
@@ -157,47 +207,62 @@
   }
 }
 
-// Address Card in Confirm Mode
+// Address Card — Confirm Mode
 .address-card {
   position: absolute;
   bottom: calc(var(--cerca-tab-bar-offset) + 16px);
-  left: 16px;
-  right: 16px;
+  left: $tab1-gutter;
+  right: $tab1-gutter;
   z-index: 200;
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  pointer-events: auto; // Enable pointer events for button clicks
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: $tab1-card-shadow;
+  pointer-events: auto;
+  overflow: hidden;
 
-  .address-content {
+  .address-card-body {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
-    margin-bottom: 12px;
-    pointer-events: none; // Address text is not clickable
+    padding: 16px;
+  }
 
-    .address-text {
-      flex: 1;
+  .address-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 
-      .address-loading {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: rgba(0, 0, 0, 0.6);
-      }
+    .stop-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: $tab1-label-text;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
 
-      .address-value {
-        color: rgba(0, 0, 0, 0.87);
-        font-size: 15px;
-        line-height: 1.4;
-      }
+    .address-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: $tab1-muted-text;
+      font-size: 13px;
+    }
+
+    .address-value {
+      color: $tab1-primary-text;
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-word;
     }
   }
 
-  .address-card-actions {
-    pointer-events: auto; // Enable button clicks
-    
+  .address-card-footer {
+    border-top: 1px solid $tab1-divider;
+    padding: 12px 16px 16px;
+    pointer-events: auto;
+
     .confirm-button {
       --background: var(--ion-color-primary);
       --color: white;
@@ -210,175 +275,152 @@
   }
 }
 
-// Confirm Button Wrapper
-.confirm-button-wrapper {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 300;
-  padding: 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, rgba(255, 255, 255, 1) 0%, transparent 100%);
-  pointer-events: none;
-
-  .confirm-button {
-    pointer-events: auto;
-    --background: var(--ion-color-primary);
-    --color: white;
-    --border-radius: 12px;
-    height: 52px;
-    font-weight: 600;
-  }
-}
-
-// Floating Input Section - Always at Top
+// Route Input Card
 .floating-inputs {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 16px);
-  left: var(--spacing-md);
-  right: var(--spacing-md);
+  left: $tab1-gutter;
+  right: $tab1-gutter;
   z-index: 100;
+  pointer-events: none;
+}
+
+.route-input-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: $tab1-card-shadow;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.route-input-inner {
+  display: flex;
+  flex-direction: row;
+  padding: 14px 16px;
+  gap: 14px;
+}
+
+.route-indicator {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
+  align-items: center;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
 
-  .input-card {
-    background: white;
-    border-radius: 12px;
-    padding: 4px 4px 4px 12px;
-    display: flex;
-    align-items: center;
-    gap: 0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: auto;
-    min-height: 48px;
-    height: 48px;
-    will-change: transform, box-shadow;
+.route-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
 
-    &:active .input-card-main {
-      transform: scale(0.98);
-    }
+  &--pickup {
+    background: #4caf50;
+  }
 
-    &:active {
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
-    }
-
-    .input-card-main {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 0 8px 4px;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .input-clear-btn {
-      --padding-start: 8px;
-      --padding-end: 8px;
-      margin: 0;
-      flex-shrink: 0;
-      height: 44px;
-      width: 44px;
-      color: rgba(0, 0, 0, 0.45);
-
-      ion-icon {
-        font-size: 22px;
-      }
-
-      &:active {
-        color: rgba(0, 0, 0, 0.75);
-      }
-    }
-
-    .input-icon-wrapper {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-      &.pickup-icon {
-        background: rgba(var(--ion-color-primary-rgb), 0.1);
-        
-        ion-icon {
-          font-size: 20px;
-          color: var(--ion-color-primary);
-          transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-          &.location-ready {
-            color: var(--ion-color-success);
-            animation: iconPulse 2s ease-in-out infinite;
-          }
-
-          &.location-loading {
-            color: var(--ion-color-medium);
-          }
-        }
-      }
-
-      &.destination-icon {
-        background: rgba(var(--ion-color-medium-rgb), 0.1);
-        
-        ion-icon {
-          font-size: 20px;
-          color: var(--ion-color-medium);
-        }
-      }
-    }
-
-    .input-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-width: 0;
-
-      .input-placeholder {
-        font-size: 16px;
-        color: rgba(0, 0, 0, 0.6);
-        font-weight: 400;
-        line-height: 1.5;
-      }
-
-      .input-value {
-        font-size: 16px;
-        color: rgba(0, 0, 0, 0.87);
-        font-weight: 500;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        line-height: 1.5;
-      }
-    }
+  &--dropoff {
+    background: transparent;
+    border: 2px solid #ef5350;
+    box-sizing: border-box;
   }
 }
 
-// Ride Cards Section (Tab1 map sheet — same visual language as choose-trip modal)
-$ride-ink: #0e2a47;
-$ride-ink-tint: rgba(14, 42, 71, 0.06);
-$ride-gutter: 20px;
+.route-line {
+  width: 2px;
+  height: 22px;
+  background: #e0e3ec;
+  margin: 4px 0;
+  flex-shrink: 0;
+}
 
+.route-stops {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-stop-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+.route-stop {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+  cursor: pointer;
+
+  &:active {
+    opacity: 0.7;
+  }
+}
+
+.route-divider {
+  height: 1px;
+  background: $tab1-divider;
+  margin: 8px 0;
+}
+
+.stop-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: $tab1-label-text;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.stop-placeholder {
+  font-size: 13px;
+  color: $tab1-muted-text;
+  line-height: 1.4;
+}
+
+.stop-address {
+  font-size: 13px;
+  color: $tab1-primary-text;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-clear-btn {
+  --padding-start: 6px;
+  --padding-end: 6px;
+  margin: 0;
+  flex-shrink: 0;
+  height: 36px;
+  width: 36px;
+  color: $tab1-muted-text;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:active {
+    color: $tab1-primary-text;
+  }
+}
+
+// Ride Selection Bottom Sheet
 .ride-cards-section {
   position: absolute;
   bottom: var(--cerca-tab-bar-offset);
   left: 0;
   right: 0;
-  background: #fff;
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: $tab1-sheet-shadow;
   z-index: 200;
-  padding: $ride-gutter;
-  padding-bottom: calc(#{$ride-gutter} + env(safe-area-inset-bottom, 0px));
+  padding: 0 20px 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   height: auto;
   max-height: min(90dvh, calc(100dvh - var(--cerca-tab-bar-offset) - 32px));
   display: flex;
@@ -387,243 +429,233 @@ $ride-gutter: 20px;
   overflow: hidden;
   transform: translateY(100%);
   align-items: stretch;
+}
 
-  .section-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: rgba(0, 0, 0, 0.87);
-    margin: 0 0 12px;
+.sheet-handle {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0 8px;
+  flex-shrink: 0;
+
+  .handle-bar {
+    width: 40px;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+  }
+}
+
+.sheet-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $tab1-primary-text;
+  margin: 0 0 12px;
+  padding: 0;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.ride-cards-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0 40px;
+  min-height: 120px;
+  flex: 0 0 auto;
+
+  p {
+    margin-top: 16px;
+    font-size: 14px;
+    color: $tab1-muted-text;
+  }
+}
+
+.ride-cards-container {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-height: min(60vh, calc(100dvh - 220px));
+
+  ion-radio-group.ride-tier-radio-group {
+    width: 100%;
     padding: 0;
-    letter-spacing: -0.01em;
-    line-height: 1.25;
-    flex-shrink: 0;
-  }
 
-  .ride-cards-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 32px $ride-gutter 40px;
-    color: var(--ion-color-medium);
-    min-height: 140px;
-    flex: 0 0 auto;
-
-    p {
-      margin-top: 16px;
-      font-size: 15px;
-      font-weight: 500;
-    }
-  }
-
-  .ride-cards-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    flex: 0 1 auto;
-    min-height: 0;
-    width: 100%;
-    padding: 0 0 4px;
-    max-height: min(60vh, calc(100dvh - 220px));
-
-    ion-radio-group.ride-tier-radio-group {
-      width: 100%;
-      padding: 0;
-
-      // Ionic wraps options in a light-DOM wrapper — gap must live here
-      .radio-group-wrapper {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        width: 100%;
-      }
-    }
-
-    .ride-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 16px;
-      border: 2px solid rgba(0, 0, 0, 0.08);
-      width: 100%;
-      min-height: 96px;
-      height: auto;
+    .radio-group-wrapper {
       display: flex;
-      flex-direction: row;
-      align-items: stretch;
-      justify-content: space-between;
-      gap: 16px;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-      transition:
-        border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-        box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-        background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-        transform 0.15s ease;
-      cursor: pointer;
-      flex-shrink: 0;
-      position: relative;
-      outline: none;
-      animation: fadeInStagger 0.28s ease-out forwards;
-
-      &:focus-visible {
-        box-shadow: 0 0 0 3px rgba(14, 42, 71, 0.25);
-      }
-
-      &:active {
-        transform: scale(0.985);
-      }
-
-      &.selected {
-        border-color: $ride-ink;
-        background: $ride-ink-tint;
-        box-shadow: 0 4px 16px rgba(14, 42, 71, 0.18);
-      }
-
-      .vehicle-image-wrapper {
-        width: 64px;
-        height: 64px;
-        min-width: 64px;
-        align-self: center;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        background: rgba(0, 0, 0, 0.04);
-        border-radius: 12px;
-        padding: 8px;
-
-        img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          transition: transform var(--transition-fast);
-        }
-      }
-
-      .ride-info {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 6px;
-        flex: 1;
-        min-width: 0;
-
-        .ride-name {
-          font-weight: 600;
-          color: rgba(0, 0, 0, 0.9);
-          font-size: 16px;
-          letter-spacing: -0.01em;
-          line-height: 1.3;
-          margin: 0;
-        }
-
-        .ride-eta {
-          font-size: 13px;
-          color: rgba(0, 0, 0, 0.72);
-          font-weight: 500;
-          margin: 0;
-          line-height: 1.4;
-        }
-      }
-
-      .ride-price-radio {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        justify-content: flex-start;
-        align-self: flex-start;
-        flex-shrink: 0;
-        padding-top: 2px;
-        gap: 0;
-        min-width: 72px;
-
-        .ride-price {
-          margin: 0;
-          line-height: 1.2;
-        }
-
-        .ride-price--primary {
-          font-weight: 700;
-          font-size: 22px;
-          color: $ride-ink;
-          letter-spacing: -0.02em;
-        }
-
-        // Keep in DOM for ion-radio-group / ngModel; card is the visible control
-        .ride-radio--visually-hidden {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
-          border: 0;
-          opacity: 0;
-          pointer-events: none;
-        }
-      }
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
     }
   }
 
-  .book-now-wrapper {
-    margin-top: 4px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    flex: 0 0 auto;
-    flex-shrink: 0;
+  .ride-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 16px;
+    border: 1px solid $tab1-divider;
     width: 100%;
+    min-height: 96px;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: $tab1-card-shadow;
+    transition:
+      border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+      background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.15s ease;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    outline: none;
+    animation: fadeInStagger 0.28s ease-out forwards;
 
-    .book-now-btn {
-      width: 100%;
-      height: 54px;
-      background: var(--ion-color-primary);
-      border: none;
-      border-radius: 14px;
+    &:focus-visible {
+      box-shadow: 0 0 0 3px rgba(51, 54, 82, 0.25);
+    }
+
+    &:active {
+      transform: scale(0.99);
+    }
+
+    &.selected {
+      border-color: $tab1-selected-border;
+      background: #f8f9fb;
+      box-shadow: $tab1-card-shadow;
+    }
+
+    .vehicle-image-wrapper {
+      width: 64px;
+      height: 64px;
+      min-width: 64px;
+      align-self: center;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.2s ease;
-      box-shadow: 0 6px 18px rgba(var(--ion-color-primary-rgb), 0.35);
+      flex-shrink: 0;
+      background: $tab1-divider;
+      border-radius: 12px;
+      padding: 8px;
 
-      &:active {
-        transform: scale(0.99);
-        background: var(--ion-color-primary-shade);
-        box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.28);
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
       }
+    }
 
-      .btn-text {
-        font-size: 15px;
+    .ride-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+
+      .ride-name {
         font-weight: 600;
-        color: #fff;
-        letter-spacing: 0.01em;
+        color: $tab1-primary-text;
+        font-size: 15px;
+        line-height: 1.3;
+        margin: 0;
       }
 
-      ion-icon {
-        font-size: 20px;
-        color: #fff;
+      .ride-eta {
+        font-size: 13px;
+        color: $tab1-muted-text;
+        font-weight: 400;
+        margin: 0;
+        line-height: 1.4;
       }
+    }
+
+    .ride-price-radio {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: flex-start;
+      align-self: flex-start;
+      flex-shrink: 0;
+      padding-top: 2px;
+      min-width: 72px;
+
+      .ride-price {
+        margin: 0;
+        line-height: 1.2;
+      }
+
+      .ride-price--primary {
+        font-weight: 700;
+        font-size: 20px;
+        color: $tab1-primary-text;
+        letter-spacing: -0.02em;
+      }
+
+      .ride-radio--visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+  }
+}
+
+.book-now-wrapper {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid $tab1-divider;
+  flex: 0 0 auto;
+  width: 100%;
+
+  .book-now-btn {
+    width: 100%;
+    height: 48px;
+    background: var(--ion-color-primary);
+    border: none;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+
+    &:active {
+      transform: scale(0.99);
+      background: var(--ion-color-primary-shade);
+    }
+
+    .btn-text {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    ion-icon {
+      font-size: 20px;
+      color: #fff;
     }
   }
 }
 
 // Animations
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes slideUpModal {
   from {
     transform: translateY(100%);
@@ -646,21 +678,10 @@ $ride-gutter: 20px;
   }
 }
 
-@keyframes iconPulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 0.8;
-  }
-}
-
-// Responsive Design - Small screens
+// Responsive — small screens
 @media (max-width: 400px) {
   .ride-cards-section {
-    padding: 16px;
+    padding: 0 16px 16px;
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 
     .ride-cards-container .ride-card {
@@ -675,17 +696,17 @@ $ride-gutter: 20px;
       }
 
       .ride-info .ride-name {
-        font-size: 15px;
+        font-size: 14px;
       }
 
       .ride-price-radio .ride-price--primary {
-        font-size: 20px;
+        font-size: 18px;
       }
     }
   }
 }
 
-// Responsive Design - Medium/large screens
+// Responsive — tablet
 @media (min-width: 768px) {
   .floating-inputs {
     max-width: 600px;
@@ -700,5 +721,12 @@ $ride-gutter: 20px;
     left: 50%;
     margin-left: -300px;
     right: auto;
+  }
+
+  .address-card {
+    max-width: 600px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
   }
 }

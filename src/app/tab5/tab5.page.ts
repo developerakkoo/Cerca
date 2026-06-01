@@ -32,6 +32,18 @@ export class Tab5Page implements OnInit, OnDestroy {
     { code: 'mr', name: 'Marathi', flag: '🇮🇳' },
   ];
 
+  get avatarInitials(): string {
+    const name = this.user?.fullName || this.user?.name || '';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return (this.user?.phoneNumber || 'U').slice(0, 1).toUpperCase();
+  }
+
   constructor(
     private animationCtrl: AnimationController,
     private platform: Platform,
@@ -76,15 +88,15 @@ export class Tab5Page implements OnInit, OnDestroy {
   }
 
   private animateItems() {
-    const elements = document.querySelectorAll('.settings-item');
+    const elements = document.querySelectorAll('.settings-card');
     elements.forEach((element, index) => {
       const animation = this.animationCtrl.create()
         .addElement(element)
         .duration(300)
         .easing('ease-out')
-        .fromTo('transform', 'translateX(-20px)', 'translateX(0)')
+        .fromTo('transform', 'translateY(12px)', 'translateY(0)')
         .fromTo('opacity', '0', '1')
-        .delay(index * 100);
+        .delay(index * 80);
 
       animation.play();
     });

@@ -12,16 +12,16 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="chat-content">
-  <!-- Status Banner -->
-  <div *ngIf="issue" class="status-banner" [ngClass]="'status-' + issue.status">
-    <ion-badge [color]="getStatusColor(issue.status)">
+<ion-content [fullscreen]="true" class="support-page-content chat-content">
+  <!-- Status Pill -->
+  <div *ngIf="issue" class="chat-status-bar">
+    <span class="support-status-badge" [class]="'badge-' + getStatusColor(issue.status)">
       {{ getStatusText(issue.status) }}
-    </ion-badge>
+    </span>
   </div>
 
   <!-- Loading State -->
-  <div *ngIf="isLoading" class="loading-container">
+  <div *ngIf="isLoading" class="support-loading">
     <ion-spinner></ion-spinner>
     <p>Loading chat...</p>
   </div>
@@ -29,14 +29,23 @@
   <!-- Messages Container -->
   <div *ngIf="!isLoading" #messageContainer class="messages-container">
     <!-- Empty State -->
-    <div *ngIf="messages.length === 0" class="empty-state">
-      <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+    <div *ngIf="messages.length === 0" class="support-empty-state chat-empty-state">
+      <div class="support-icon-box">
+        <ion-icon name="chatbubbles-outline"></ion-icon>
+      </div>
       <h2>No messages yet</h2>
       <p>Start the conversation with our support team</p>
     </div>
 
     <!-- Messages -->
-    <div *ngFor="let message of messages" class="message-wrapper" [ngClass]="{'user-message': isUserMessage(message), 'admin-message': !isUserMessage(message) && !isSystemMessage(message), 'system-message': isSystemMessage(message)}">
+    <div
+      *ngFor="let message of messages"
+      class="message-wrapper"
+      [ngClass]="{
+        'user-message': isUserMessage(message),
+        'admin-message': !isUserMessage(message) && !isSystemMessage(message),
+        'system-message': isSystemMessage(message)
+      }">
       <div class="message-bubble">
         <p class="message-text">{{ message.message }}</p>
         <span class="message-time">{{ message.createdAt | date:'shortTime' }}</span>
@@ -56,7 +65,7 @@
 
   <!-- Input Area -->
   <div *ngIf="issue && issue.status === 'CHAT_ACTIVE'" class="input-area">
-    <ion-item lines="none" class="message-input-item">
+    <div class="input-container">
       <ion-textarea
         [(ngModel)]="newMessage"
         placeholder="Type your message..."
@@ -68,32 +77,41 @@
         class="message-input"
       ></ion-textarea>
       <ion-button
-        slot="end"
         (click)="sendMessage()"
         [disabled]="!newMessage.trim() || isSending"
-        class="send-button"
-      >
+        fill="clear"
+        class="send-button">
         <ion-icon name="send-outline"></ion-icon>
       </ion-button>
-    </ion-item>
+    </div>
   </div>
 
   <!-- Waiting State -->
   <div *ngIf="issue && issue.status === 'WAITING_FOR_ADMIN'" class="waiting-state">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Waiting for a support agent to connect...</p>
+    <div class="support-card waiting-card">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Waiting for a support agent to connect...</p>
+    </div>
   </div>
 
   <!-- Feedback Prompt -->
   <div *ngIf="issue && issue.status === 'FEEDBACK_PENDING'" class="feedback-prompt">
-    <ion-card>
-      <ion-card-content>
+    <div class="support-card feedback-card">
+      <div class="feedback-card-body">
+        <div class="support-icon-box">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+        </div>
         <h3>Chat Resolved</h3>
         <p>Please provide your feedback to help us improve.</p>
-        <ion-button expand="block" (click)="provideFeedback(issueId)">
+        <ion-button
+          expand="block"
+          mode="ios"
+          color="primary"
+          (click)="provideFeedback(issueId)"
+          class="support-primary-btn">
           Provide Feedback
         </ion-button>
-      </ion-card-content>
-    </ion-card>
+      </div>
+    </div>
   </div>
 </ion-content>

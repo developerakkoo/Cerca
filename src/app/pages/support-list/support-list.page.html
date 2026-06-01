@@ -15,67 +15,101 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="ion-padding">
+<ion-content [fullscreen]="false" class="support-page-content">
   <!-- Filter Segment -->
-  <ion-segment [(ngModel)]="selectedFilter" (ionChange)="onFilterChange($event)" class="filter-segment">
-    <ion-segment-button value="all">
-      <ion-label>All</ion-label>
-    </ion-segment-button>
-    <ion-segment-button value="active">
-      <ion-label>Active</ion-label>
-    </ion-segment-button>
-    <ion-segment-button value="resolved">
-      <ion-label>Resolved</ion-label>
-    </ion-segment-button>
-  </ion-segment>
+  <div class="support-segment-container">
+    <ion-segment [(ngModel)]="selectedFilter" (ionChange)="onFilterChange($event)">
+      <ion-segment-button value="all">
+        <ion-label>All</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="active">
+        <ion-label>Active</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="resolved">
+        <ion-label>Resolved</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </div>
 
   <!-- Loading State -->
-  <div *ngIf="isLoading" class="loading-container">
+  <div *ngIf="isLoading" class="support-loading">
     <ion-spinner></ion-spinner>
     <p>Loading support issues...</p>
   </div>
 
   <!-- Issues List -->
-  <div *ngIf="!isLoading && filteredIssues.length > 0" class="issues-list">
-    <ion-card *ngFor="let issue of filteredIssues" (click)="openIssue(issue)" class="issue-card">
-      <ion-card-header>
-        <div class="issue-header">
-          <div class="issue-info">
-            <ion-icon [name]="getIssueTypeIcon(issue.issueType)" class="issue-icon"></ion-icon>
-            <div>
-              <h3>{{ issue.issueType }}</h3>
-              <p class="issue-id">ID: {{ issue._id }}</p>
-            </div>
+  <div *ngIf="!isLoading && filteredIssues.length > 0" class="support-list">
+    <div
+      *ngFor="let issue of filteredIssues; let i = index"
+      (click)="openIssue(issue)"
+      class="support-card issue-card"
+      [style.animation-delay]="(i * 0.1) + 's'">
+
+      <!-- Card Header -->
+      <div class="support-card-header">
+        <div class="support-header-left">
+          <div class="support-icon-box">
+            <ion-icon [name]="getIssueTypeIcon(issue.issueType)"></ion-icon>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <ion-badge *ngIf="getUnreadCount(issue._id) > 0" color="danger" style="font-size: 12px;">
-              {{ getUnreadCount(issue._id) }}
-            </ion-badge>
-            <ion-badge [color]="getStatusColor(issue.status)">
-              {{ getStatusText(issue.status) }}
-            </ion-badge>
+          <div class="support-header-text">
+            <span class="support-header-title">{{ issue.issueType }}</span>
+            <span class="support-header-subtitle">{{ issue.createdAt | date:'mediumDate' }}</span>
           </div>
         </div>
-      </ion-card-header>
-      <ion-card-content>
-        <div class="issue-meta">
-          <p><ion-icon name="time-outline"></ion-icon> {{ issue.createdAt | date:'short' }}</p>
-          <p *ngIf="issue.resolvedAt">
-            <ion-icon name="checkmark-circle-outline"></ion-icon> Resolved: {{ issue.resolvedAt | date:'short' }}
-          </p>
+        <div class="support-header-badges">
+          <span *ngIf="getUnreadCount(issue._id) > 0" class="support-unread-badge">
+            {{ getUnreadCount(issue._id) }}
+          </span>
+          <span class="support-status-badge" [class]="'badge-' + getStatusColor(issue.status)">
+            {{ getStatusText(issue.status) }}
+          </span>
         </div>
-      </ion-card-content>
-    </ion-card>
+      </div>
+
+      <!-- Meta Section -->
+      <div class="support-meta-section">
+        <div class="support-meta-row">
+          <span class="support-section-label">Created</span>
+          <span class="support-meta-value">
+            <ion-icon name="time-outline"></ion-icon>
+            {{ issue.createdAt | date:'short' }}
+          </span>
+        </div>
+        <div *ngIf="issue.resolvedAt" class="support-meta-row">
+          <span class="support-section-label">Resolved</span>
+          <span class="support-meta-value">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            {{ issue.resolvedAt | date:'short' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Card Footer -->
+      <div class="support-card-footer">
+        <div class="support-footer-id">
+          <span class="support-section-label">ID</span>
+          <span class="support-footer-id-value">{{ truncateIssueId(issue._id) }}</span>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="support-footer-chevron"></ion-icon>
+      </div>
+    </div>
   </div>
 
   <!-- Empty State -->
-  <div *ngIf="!isLoading && filteredIssues.length === 0" class="empty-state">
-    <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+  <div *ngIf="!isLoading && filteredIssues.length === 0" class="support-empty-state">
+    <div class="support-icon-box">
+      <ion-icon name="chatbubbles-outline"></ion-icon>
+    </div>
     <h2>No Support Issues</h2>
     <p *ngIf="selectedFilter === 'all'">You don't have any support issues yet.</p>
     <p *ngIf="selectedFilter === 'active'">You don't have any active support issues.</p>
     <p *ngIf="selectedFilter === 'resolved'">You don't have any resolved issues.</p>
-    <ion-button *ngIf="selectedFilter === 'all'" (click)="createNewIssue()" color="primary">
+    <ion-button
+      *ngIf="selectedFilter === 'all'"
+      (click)="createNewIssue()"
+      color="primary"
+      mode="ios"
+      class="support-action-btn">
       <ion-icon name="add-outline" slot="start"></ion-icon>
       Create Support Request
     </ion-button>

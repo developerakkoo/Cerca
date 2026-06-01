@@ -1,325 +1,353 @@
-/* Ensure proper background for this page */
-ion-content {
-  --background: var(--ion-color-light) !important;
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400&display=swap');
+
+:host {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-:root.ion-palette-dark {
-  ion-content {
-    --background: var(--ion-background-color) !important;
-  }
+.bookings-content {
+  --background: #f0f2f7;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 0;
+  --padding-bottom: 16px;
 }
 
 /* Theme variables */
 :root {
-  --card-bg: white;
-  --card-shadow: rgba(0, 0, 0, 0.06);
-  --card-hover-shadow: rgba(0, 0, 0, 0.1);
-  --text-primary: var(--ion-color-dark);
-  --text-secondary: var(--ion-color-medium);
-  --segment-bg: var(--ion-color-light);
+  --segment-bg: #ffffff;
   --segment-shadow: rgba(0, 0, 0, 0.05);
+  --text-secondary: #888;
 }
 
 :root.ion-palette-dark {
-  --card-bg: var(--ion-color-dark);
-  --card-shadow: rgba(0, 0, 0, 0.2);
-  --card-hover-shadow: rgba(0, 0, 0, 0.3);
-  --text-primary: var(--ion-color-light);
-  --text-secondary: var(--ion-color-medium);
   --segment-bg: var(--ion-background-color);
   --segment-shadow: rgba(0, 0, 0, 0.2);
+  --text-secondary: var(--ion-color-medium);
 }
 
-/* Minimal Uber-like Booking Cards */
+.rides-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 0 8px;
+}
+
 .booking-card {
-  margin: 12px 16px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  background: white;
+  border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  background: #ffffff;
   overflow: hidden;
-  position: relative;
-  transition: all 0.3s ease;
   animation: cardSlideIn 0.3s ease backwards;
-  min-height: 100px;
-
-  &.active-booking {
-    border: 1px solid rgba(var(--ion-color-primary-rgb), 0.1);
-  }
-
-  &.past-booking {
-    opacity: 0.95;
-    border: 1px solid rgba(var(--ion-color-medium-rgb), 0.1);
-  }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.99);
+    transition: transform 0.15s ease;
+  }
+}
+
+/* ── Card Header ── */
+.card-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px 12px;
+  gap: 12px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.card-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f0f2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 20px;
+    color: #555;
+  }
+}
+
+.header-datetime {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ride-date {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.3;
+}
+
+.ride-time {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.3;
+}
+
+.header-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.status-badge {
+  border-radius: 20px;
+  padding: 5px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-transform: capitalize;
+
+  &.badge-danger {
+    background: #fde8e8;
+    color: #d32f2f;
   }
 
-  // Status Accent Bar
-  .status-accent {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--ion-color-primary);
-    z-index: 1;
-
-    &.status-requested {
-      background: var(--ion-color-warning);
-    }
-
-    &.status-accepted,
-    &.status-in_progress {
-      background: var(--ion-color-success);
-    }
-
-    &.status-completed {
-      background: var(--ion-color-primary);
-    }
-
-    &.status-cancelled {
-      background: var(--ion-color-danger);
-    }
+  &.badge-success {
+    background: #e8f5e9;
+    color: #2e7d32;
   }
 
-  // Card Header
-  .card-header {
-    padding: 16px;
-    background: white;
-    position: relative;
-    z-index: 0;
+  &.badge-primary {
+    background: #e8eaf6;
+    color: #3949ab;
+  }
 
-    .header-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
+  &.badge-warning {
+    background: #fff3e0;
+    color: #e65100;
+  }
 
-    .ride-info {
-      flex: 1;
-    }
+  &.badge-medium {
+    background: #f0f2f7;
+    color: #888;
+  }
+}
 
-    .ride-date-time {
+.payment-pending-badge {
+  border-radius: 20px;
+  padding: 5px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+/* ── Route Section ── */
+.route-section {
+  display: flex;
+  flex-direction: row;
+  padding: 14px 16px;
+  gap: 14px;
+}
+
+.route-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.route-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--pickup {
+    background: #4caf50;
+  }
+
+  &--dropoff {
+    background: transparent;
+    border: 2px solid #ef5350;
+    box-sizing: border-box;
+  }
+}
+
+.route-line {
+  width: 2px;
+  height: 22px;
+  background: #e0e3ec;
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+.route-stops {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-stop {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.route-divider {
+  height: 1px;
+  background: #f0f2f7;
+  margin: 8px 0;
+}
+
+.stop-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #bbb;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.stop-address {
+  font-size: 13px;
+  color: #1a1a2e;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* ── Card Footer ── */
+.card-footer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9fb;
+  border-top: 1px solid #f0f2f7;
+  padding: 10px 16px;
+}
+
+.footer-id {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.footer-id-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #bbb;
+  text-transform: uppercase;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.footer-id-value {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-size: 11px;
+  color: #aaa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer-chevron {
+  font-size: 16px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+/* ── Card Actions ── */
+.card-actions {
+  padding: 12px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #f0f2f7;
+
+  &.payment-action {
+    padding-top: 12px;
+  }
+
+  .disabled-hint {
+    font-size: 12px;
+    color: #999;
+    margin: -4px 0 0;
+    text-align: center;
+  }
+
+  ion-button {
+    --border-radius: 10px;
+    height: 44px;
+    font-weight: 500;
+    font-size: 14px;
+    margin: 0;
+
+    ion-icon {
       font-size: 16px;
-      font-weight: 500;
-      color: var(--ion-color-dark);
-      margin: 0;
-      line-height: 1.4;
+      margin-right: 6px;
     }
 
-    .badge-container {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
+    &.view-details-btn {
+      --color: var(--ion-color-light);
+      --border-color: var(--ion-color-primary);
+      --border-width: 1px;
     }
 
-    .status-badge {
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 14px;
+    &.timer-btn {
+      --background: var(--ion-color-warning);
+      --color: white;
       font-weight: 600;
-      text-transform: capitalize;
-      white-space: nowrap;
 
-      &.badge-success {
-        background: rgba(var(--ion-color-success-rgb), 0.15);
-        color: var(--ion-color-success);
-      }
-
-      &.badge-warning {
-        background: rgba(var(--ion-color-warning-rgb), 0.15);
-        color: var(--ion-color-warning-shade);
-      }
-
-      &.badge-danger {
-        background: rgba(var(--ion-color-danger-rgb), 0.15);
-        color: var(--ion-color-danger);
-      }
-
-      &.badge-primary {
-        background: rgba(var(--ion-color-primary-rgb), 0.15);
-        color: var(--ion-color-primary);
+      &.timer-low {
+        --background: var(--ion-color-danger);
+        animation: timerPulse 1s infinite;
       }
     }
 
-    .payment-pending-badge {
-      padding: 4px 10px;
-      border-radius: 16px;
-      font-size: 12px;
+    &.pay-now-btn {
+      --background: var(--ion-color-primary);
+      --color: white;
       font-weight: 600;
-      background: rgba(var(--ion-color-warning-rgb), 0.2);
-      color: var(--ion-color-warning-shade);
-      white-space: nowrap;
-      border: 1px solid rgba(var(--ion-color-warning-rgb), 0.3);
+      height: 48px;
+    }
+
+    &:active:not([disabled]) {
+      transform: scale(0.98);
+    }
+
+    &[disabled] {
+      opacity: 0.5;
     }
   }
+}
 
-  // Card Content
-  .card-content {
-    padding: 0 16px 16px 16px;
-
-    // Ride Details (for past bookings)
-    .ride-details {
-      margin-bottom: 12px;
-      
-      .detail-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 12px;
-        
-        &:last-child {
-          margin-bottom: 0;
-        }
-        
-        .detail-icon {
-          font-size: 18px;
-          color: var(--ion-color-primary);
-          margin-top: 2px;
-          flex-shrink: 0;
-        }
-        
-        .detail-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          
-          .detail-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--ion-color-medium);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
-          
-          .detail-value {
-            font-size: 14px;
-            color: var(--ion-color-dark);
-            line-height: 1.4;
-            word-break: break-word;
-          }
-        }
-      }
-    }
-
-    // Payment Action (shown when payment is pending)
-    .payment-action {
-      margin-top: 12px;
-      margin-bottom: 0;
-      
-      .pay-now-btn {
-        --background: var(--ion-color-primary);
-        --color: white;
-        font-weight: 600;
-        height: 48px;
-        --border-radius: 8px;
-        margin: 0;
-        
-        ion-icon {
-          font-size: 18px;
-          margin-right: 8px;
-        }
-      }
-    }
-
-    // Action Buttons
-    .action-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .disabled-hint {
-      font-size: 12px;
-      color: var(--ion-color-medium);
-      margin: -var(--spacing-sm) 0 0 0;
-      text-align: center;
-      font-weight: 400;
-    }
-
-    ion-button {
-      --border-radius: 8px;
-      height: 44px;
-      font-weight: 500;
-      font-size: 14px;
-      transition: all 0.2s ease;
-      margin: 0;
-
-      ion-icon {
-        font-size: 16px;
-        margin-right: 6px;
-      }
-
-      &.view-details-btn {
-        --color: var(--ion-color-light);
-        --border-color: var(--ion-color-primary);
-        --border-width: 1px;
-      }
-
-      &.timer-btn {
-        --background: var(--ion-color-warning);
-        --color: white;
-        font-weight: 600;
-
-        &.timer-low {
-          --background: var(--ion-color-danger);
-          animation: timerPulse 1s infinite;
-        }
-      }
-
-      &:active:not([disabled]) {
-        transform: scale(0.98);
-      }
-
-      &[disabled] {
-        opacity: 0.5;
-      }
-    }
-  }
+.call-driver-btn {
+  animation: pulse 2s infinite;
 }
 
 @keyframes cardSlideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-// Status color variations with animations
-ion-text[color="success"] {
-  color: var(--ion-color-success) !important;
-  font-weight: 600;
-  position: relative;
-  padding-left: 20px;
-
-  &::before {
-    content: '•';
-    position: absolute;
-    left: 0;
-    animation: pulse 2s infinite;
-  }
-}
-
-ion-text[color="danger"] {
-  color: var(--ion-color-danger) !important;
-  font-weight: 600;
-  position: relative;
-  padding-left: 20px;
-
-  &::before {
-    content: '•';
-    position: absolute;
-    left: 0;
-    animation: pulse 2s infinite;
   }
 }
 
@@ -333,10 +361,6 @@ ion-text[color="danger"] {
   100% {
     box-shadow: 0 0 0 0 rgba(var(--ion-color-success-rgb), 0);
   }
-}
-
-.call-driver-btn {
-  animation: pulse 2s infinite;
 }
 
 @keyframes timerPulse {
@@ -354,30 +378,22 @@ ion-text[color="danger"] {
   }
 }
 
-
-
-.rides-list {
-  background: transparent;
-  padding: 0;
-  margin: 0;
-}
-
 .load-more-btn {
-  margin: 16px;
+  margin: 8px 0 16px;
   --border-radius: 12px;
   --border-width: 2px;
   --border-color: var(--ion-color-primary);
   --color: var(--ion-color-primary);
   font-weight: 500;
   height: 48px;
-  
+
   ion-icon {
     font-size: 1.2rem;
   }
 }
+
 .segment-container {
-    width: 100%;
-    
+  width: 100%;
   position: relative;
   margin: 16px 0;
   overflow: hidden;
@@ -385,75 +401,3 @@ ion-text[color="danger"] {
   border-radius: 12px;
   box-shadow: 0 2px 8px var(--segment-shadow);
 }
-
-.scrollable-segment {
-  --background: transparent;
-  --color: var(--text-secondary);
-  --color-checked: var(--ion-color-primary);
-  --indicator-color: var(--ion-color-primary);
-  --indicator-height: 3px;
-  --indicator-box-shadow: none;
-  --padding-top: 8px;
-  --padding-bottom: 8px;
-  --padding-start: 16px;
-  --padding-end: 16px;
-  --transition: all 0.3s ease;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  ion-segment-button {
-    --padding-start: 24px;
-    --padding-end: 24px;
-    --color: var(--text-secondary);
-    --color-checked: var(--ion-color-primary);
-    --indicator-color: var(--ion-color-primary);
-    --indicator-height: 3px;
-    --indicator-box-shadow: none;
-    --transition: all 0.3s ease;
-    min-width: 120px;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    text-transform: none;
-    position: relative;
-    overflow: hidden;
-
-    &::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      width: 0;
-      height: 2px;
-      background: var(--ion-color-primary);
-      transition: all 0.3s ease;
-      transform: translateX(-50%);
-    }
-
-    &.segment-button-checked {
-      --color: var(--ion-color-primary);
-      font-weight: 600;
-
-      &::before {
-        width: 100%;
-      }
-    }
-
-    ion-label {
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
-  }
-}
-
-// Add smooth transition for segment content
-ion-segment-view {
-    width: 100%;
-  transition: all 0.3s ease;
-}
-  

@@ -5,6 +5,7 @@ import { Storage } from '@ionic/storage-angular';
 import { Subscription } from 'rxjs';
 import { WalletService, WalletTransaction } from '../services/wallet.service';
 import { PaymentService } from '../services/payment.service';
+import { User, UserService } from '../services/user.service';
 
 @Component({
   selector: 'app-tab3',
@@ -18,7 +19,8 @@ export class Tab3Page implements OnInit, OnDestroy {
   isLoading: boolean = false;
   isRefreshing: boolean = false;
   userId: string | null = null;
-  
+  user: User | null = null;
+
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -26,6 +28,7 @@ export class Tab3Page implements OnInit, OnDestroy {
     private platform: Platform,
     private walletService: WalletService,
     private paymentService: PaymentService,
+    private userService: UserService,
     private storage: Storage,
     private router: Router,
     private alertController: AlertController,
@@ -34,6 +37,14 @@ export class Tab3Page implements OnInit, OnDestroy {
     private toastController: ToastController,
     private cdr: ChangeDetectorRef
   ) {}
+
+  get displayName(): string {
+    return this.user?.fullName || this.user?.name || 'User';
+  }
+
+  get displayEmail(): string {
+    return this.user?.email || this.user?.phoneNumber || '';
+  }
 
   async ngOnInit() {
     await this.loadUserId();
@@ -48,6 +59,12 @@ export class Tab3Page implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     });
     this.subscriptions.push(balanceSub);
+
+    const userSub = this.userService.getUser().subscribe((user: User) => {
+      this.user = user;
+      this.cdr.detectChanges();
+    });
+    this.subscriptions.push(userSub);
   }
 
   async ionViewWillEnter() {
@@ -261,11 +278,6 @@ export class Tab3Page implements OnInit, OnDestroy {
     }
   }
 
-  useMoney() {
-    // Navigate to payment page for ride booking
-    this.router.navigate(['/payment']);
-  }
-
   viewAllTransactions() {
     // Navigate to view all transactions page
     this.router.navigate(['/view-transactions']);
@@ -307,7 +319,7 @@ export class Tab3Page implements OnInit, OnDestroy {
 
   private animateBalance() {
     setTimeout(() => {
-      const element = document.querySelector('.balance-amount');
+      const element = document.querySelector('.wallet-balance-amount');
       if (element) {
         const animation = this.animationCtrl
           .create()
