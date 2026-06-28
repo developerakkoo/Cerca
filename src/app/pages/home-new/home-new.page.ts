@@ -677,7 +677,7 @@ export class HomeNewPage implements OnInit, OnDestroy {
         },
         title: 'Pickup',
         snippet: this.pickupAddress || 'Your location',
-        iconUrl: 'assets/icon/home.png',
+        iconUrl: 'assets/map-marker-pickup.png',
         iconSize: {
           width: 32,
           height: 32,
@@ -718,7 +718,7 @@ export class HomeNewPage implements OnInit, OnDestroy {
         },
         title: 'Pickup',
         snippet: this.pickupAddress,
-        iconUrl: 'assets/icon/home.png',
+        iconUrl: 'assets/map-marker-pickup.png',
         iconSize: {
           width: 32,
           height: 32,

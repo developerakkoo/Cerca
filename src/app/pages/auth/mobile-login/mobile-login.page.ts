@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { UserService } from 'src/app/services/user.service';
 import { LoadingController } from '@ionic/angular';
 import { StorageService } from 'src/app/services/storage.service';
+import { FcmService } from 'src/app/services/fcm.service';
 @Component({
   selector: 'app-mobile-login',
   templateUrl: './mobile-login.page.html',
@@ -19,7 +20,8 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     private formBuilder: FormBuilder,
     private userService: UserService,
     private loadingController: LoadingController,
-    private storageService: StorageService
+    private storageService: StorageService,
+    private fcmService: FcmService,
   ) {
     this.mobileForm = this.formBuilder.group({
       phoneNumber: [
@@ -52,12 +54,17 @@ export class MobileLoginPage implements OnInit, OnDestroy {
         duration: 3000,
       });
       await loading.present();
-      // Navigate to OTP page
       console.log(this.mobileForm.value);
-      this.userService.login({
+      const cachedFcmToken = await this.fcmService.getCachedToken();
+      const loginPayload: Record<string, unknown> = {
         ...this.mobileForm.value,
         privacyPolicyAccepted: true,
-      }).subscribe({
+      };
+      if (cachedFcmToken) {
+        loginPayload['fcmToken'] = cachedFcmToken;
+      }
+
+      this.userService.login(loginPayload).subscribe({
         next: async (res: any) => {
           await loading.dismiss();
           console.log(res['message']);
@@ -105,6 +112,8 @@ export class MobileLoginPage implements OnInit, OnDestroy {
 
           console.log('✅ User state updated - socket should initialize now');
           console.log('========================================');
+
+          await this.fcmService.initialize(res['userId']);
 
           // Navigate based on isNewUser flag
           if (isNewUser) {

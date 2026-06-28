@@ -180,8 +180,12 @@ export class AppComponent implements OnDestroy {
         // Disconnect socket for logged-out users
         await this.socketService.disconnect();
 
-        // Tear down FCM listeners and forget the device token.
-        await this.fcmService.dispose();
+        // Only tear down FCM on explicit logout (credentials cleared), not transient
+        // startup emissions from loadUserFromStorage before restoreSession completes.
+        const stillHasCredentials = await this.userService.hasStoredCredentials();
+        if (!stillHasCredentials) {
+          await this.fcmService.dispose();
+        }
 
         // Stop periodic status check
         this.stopPeriodicStatusCheck();
@@ -238,6 +242,7 @@ export class AppComponent implements OnDestroy {
         try {
           await this.socketService.ensureConnected({ userId, userType: 'rider' });
           await this.rideService.syncRideStateFromBackend();
+          await this.fcmService.ensureSynced();
         } catch (error) {
           console.error('Failed to reconnect or sync ride on resume:', error);
         }
@@ -263,6 +268,9 @@ export class AppComponent implements OnDestroy {
       }
       this.socketService.onNetworkReachable().catch((error) => {
         console.error('Failed to reconnect socket after network recovery:', error);
+      });
+      this.fcmService.ensureSynced().catch((error) => {
+        console.error('Failed to sync FCM token after network recovery:', error);
       });
     });
   }

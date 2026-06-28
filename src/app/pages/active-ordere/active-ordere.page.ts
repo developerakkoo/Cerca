@@ -106,6 +106,9 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private trailPolylineIds: string[] = [];
   private lastTrailDrawAt = 0;
   private static readonly TRAIL_REDRAW_MIN_MS = 2000;
+  private static readonly MAP_PRIMARY_COLOR = '#333652';
+  private static readonly PICKUP_MARKER_ICON = 'assets/map-marker-pickup.png';
+  private static readonly DROPOFF_MARKER_ICON = 'assets/map-marker-dropoff.png';
   // QA: poor GPS, tunnel, long ride (trail cap 200), background/resume, terminal ride (no broadcast)
 
   pickupLocation = '';
@@ -1468,16 +1471,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
       console.log('✅ Active order map created');
 
-      // Add user marker
+      // Add pickup marker
       const userMarkerResult = await this.map.addMarker({
         coordinate: mapCenter,
-        title: 'Your Location',
-        snippet: 'You are here',
+        title: 'Pickup',
+        snippet: this.pickupLocation || 'Pickup location',
         iconSize: {
           width: 40,
           height: 40,
         },
-        iconUrl: 'assets/user.png',
+        iconUrl: ActiveOrderePage.PICKUP_MARKER_ICON,
       });
       this.userMarkerId = userMarkerResult;
 
@@ -1525,7 +1528,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       coordinate: destinationCoord,
       title: 'Destination',
       snippet: this.currentRide.dropoffAddress,
-      iconUrl: 'assets/current-location.png',
+      iconUrl: ActiveOrderePage.DROPOFF_MARKER_ICON,
       iconSize: {
         width: 40,
         height: 40,
@@ -1585,8 +1588,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         const polylineResult = await this.map.addPolylines([
           {
             path: route,
-            strokeColor: '#0984E3',
-            strokeOpacity: 0.8,
+            strokeColor: ActiveOrderePage.MAP_PRIMARY_COLOR,
+            strokeOpacity: 0.85,
             strokeWeight: 5,
           },
         ]);
@@ -1676,8 +1679,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       const polylineResult = await this.map.addPolylines([
         {
           path: [origin, destination],
-          strokeColor: '#0984E3',
-          strokeOpacity: 0.8,
+          strokeColor: ActiveOrderePage.MAP_PRIMARY_COLOR,
+          strokeOpacity: 0.85,
           strokeWeight: 5,
         },
       ]);
@@ -1767,15 +1770,25 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   navigateToDriverDetails() {
-    // Disabled - driver details navigation is no longer available
-    // Close modal first
-    // this.isDriverModalOpen = false;
-    // // Small delay to ensure modal closes before navigation
-    // setTimeout(() => {
-    //   if (this.realDriver) {
-    //     this.router.navigate(['/driver-details', this.realDriver._id]);
-    //   }
-    // }, 100);
+    const driver = this.realDriver || this.currentRide?.driver;
+    const driverId = driver?._id;
+    if (!driverId) {
+      return;
+    }
+
+    const rideId = this.currentRide?._id;
+    const returnTo = rideId ? `/active-ordere/${rideId}` : '/active-ordere';
+
+    this.isDriverModalOpen = false;
+    setTimeout(() => {
+      this.router.navigate(['/driver-details', driverId], {
+        state: {
+          driver,
+          ride: this.currentRide,
+          returnTo,
+        },
+      });
+    }, 100);
   }
 
   callDriver() {

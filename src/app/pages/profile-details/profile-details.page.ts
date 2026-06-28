@@ -6,6 +6,7 @@ import { UserService } from 'src/app/services/user.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { firstValueFrom } from 'rxjs';
+import { FcmService } from 'src/app/services/fcm.service';
 @Component({
   selector: 'app-profile-details',
   templateUrl: './profile-details.page.html',
@@ -24,7 +25,8 @@ export class ProfileDetailsPage implements OnInit {
       private loadingController: LoadingController,
       private router: Router,
       private userService: UserService,
-      private http: HttpClient
+      private http: HttpClient,
+      private fcmService: FcmService,
     ) {
     // Read route parameters
     this.phoneNumber = this.route.snapshot.paramMap.get('phoneNumber') || '';
@@ -208,11 +210,15 @@ export class ProfileDetailsPage implements OnInit {
           console.log('🆕 Updating new user profile with userId:', this.userId);
           
           // Update the user with profile details
-          const updateData = {
+          const updateData: Record<string, string> = {
             fullName: this.userForm.value.fullName,
-            email: this.userForm.value.email
+            email: this.userForm.value.email,
           };
-          
+          const cachedFcmToken = await this.fcmService.getCachedToken();
+          if (cachedFcmToken) {
+            updateData['fcmToken'] = cachedFcmToken;
+          }
+
           this.userService.updateUser(updateData).subscribe({
             next: async (res: any) => {
               console.log('✅ Profile updated successfully:', res);
@@ -257,13 +263,17 @@ export class ProfileDetailsPage implements OnInit {
         } else {
           // Fallback: if no userId, use setUser (creates new user)
           console.log('⚠️ No userId found - using setUser (fallback)');
-          const body = {
+          const body: Record<string, unknown> = {
             fullName: this.userForm.value.fullName,
             email: this.userForm.value.email,
             phoneNumber: this.phoneNumber,
-            lastLogin: new Date()
+            lastLogin: new Date(),
           };
-          
+          const cachedFcmToken = await this.fcmService.getCachedToken();
+          if (cachedFcmToken) {
+            body['fcmToken'] = cachedFcmToken;
+          }
+
           this.userService.setUser(body).subscribe({
             next: async (res: any) => {
               console.log('✅ User created:', res);
@@ -283,8 +293,12 @@ export class ProfileDetailsPage implements OnInit {
           });
         }
       } else {
-        // Existing user editing profile
-        this.userService.updateUser(this.userForm.value).subscribe({
+        const editPayload: Record<string, string> = { ...this.userForm.value };
+        const cachedFcmToken = await this.fcmService.getCachedToken();
+        if (cachedFcmToken) {
+          editPayload['fcmToken'] = cachedFcmToken;
+        }
+        this.userService.updateUser(editPayload).subscribe({
           next: async (res: any) => {
             console.log('✅ Profile updated:', res);
             await loading.dismiss();

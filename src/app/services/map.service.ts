@@ -25,10 +25,12 @@ export interface RouteAnimationOptions {
   providedIn: 'root'
 })
 export class MapService {
-  private readonly DEFAULT_BASE_COLOR = '#CCCCCC';
+  private readonly DEFAULT_BASE_COLOR = '#333652';
   private readonly DEFAULT_BASE_WEIGHT = 3;
-  private readonly DEFAULT_BASE_OPACITY = 0.6;
-  private readonly DEFAULT_ANIMATED_COLOR = '#333652'; // Brand primary color
+  private readonly DEFAULT_BASE_OPACITY = 0.45;
+  private readonly DEFAULT_ANIMATED_COLOR = '#333652';
+  private readonly PICKUP_MARKER_ICON = 'assets/map-marker-pickup.png';
+  private readonly DROPOFF_MARKER_ICON = 'assets/map-marker-dropoff.png';
   private readonly DEFAULT_ANIMATED_WEIGHT = 6;
   private readonly DEFAULT_ANIMATED_OPACITY = 1.0;
   private readonly DEFAULT_DURATION = 800;
@@ -796,7 +798,7 @@ export class MapService {
         coordinate: location,
         title: 'Pickup',
         snippet: address || 'Pickup location',
-        iconUrl: 'assets/icon/home.png',
+        iconUrl: this.PICKUP_MARKER_ICON,
         iconSize: {
           width: 32,
           height: 32,
@@ -804,7 +806,6 @@ export class MapService {
       });
       return markerId;
     } catch (error) {
-      // Fallback: use default marker (will be styled by platform)
       console.log('Using default marker for pickup (custom icon not found)');
       try {
         return await map.addMarker({
@@ -837,7 +838,7 @@ export class MapService {
         coordinate: location,
         title: 'Destination',
         snippet: address || 'Destination',
-        iconUrl: 'assets/icon/pin.png',
+        iconUrl: this.DROPOFF_MARKER_ICON,
         iconSize: {
           width: 32,
           height: 32,
@@ -845,7 +846,6 @@ export class MapService {
       });
       return markerId;
     } catch (error) {
-      // Fallback: use default marker (will be styled by platform)
       console.log('Using default marker for destination (custom icon not found)');
       try {
         return await map.addMarker({

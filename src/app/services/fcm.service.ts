@@ -16,27 +16,27 @@ import type {
 import { environment } from 'src/environments/environment';
 import { NotificationService } from './notification.service';
 
+const RETRY_DELAYS_MS = [500, 1000, 2000];
+
 /**
  * FcmService — owns the Firebase Cloud Messaging lifecycle for the rider app.
  *
  * Boundaries:
- * - Tied to the auth lifecycle: `initialize(userId)` is called when a user
- *   logs in, `dispose()` when they log out.
+ * - Tied to the auth lifecycle: `initialize(userId)` on login, `dispose()` on logout.
  * - Android-only for now (iOS APNs is deferred).
- * - When a push arrives in foreground we bridge to LocalNotifications so the
- *   user always sees something (FCM does not auto-display data-only payloads).
- * - On `registration` the token is persisted locally *and* PATCHed to the
- *   backend (`PATCH /users/:id/fcm-token`) so server-side push delivery works
- *   for users who logged in before the token was available.
+ * - Token is persisted locally and PATCHed to `PATCH /users/:id/fcm-token`.
+ * - `ensureSynced()` re-attempts registration/sync on resume and network recovery.
  */
 @Injectable({ providedIn: 'root' })
 export class FcmService {
   private readonly token$ = new BehaviorSubject<string | null>(null);
-  /** Latest FCM registration token (null when not registered or after logout). */
   readonly fcmToken$ = this.token$.asObservable();
 
   private listeners: PluginListenerHandle[] = [];
+  private listenersReady = false;
   private currentUserId: string | null = null;
+  private lastSyncError: string | null = null;
+  private ensureSyncedInFlight: Promise<void> | null = null;
 
   constructor(
     private platform: Platform,
@@ -46,47 +46,104 @@ export class FcmService {
     private notificationService: NotificationService,
   ) {}
 
+  /** Last backend sync error (for debugging). */
+  getLastSyncError(): string | null {
+    return this.lastSyncError;
+  }
+
+  /** Cached device token from memory or Ionic Storage. */
+  async getCachedToken(): Promise<string | null> {
+    await this.storage.create();
+    const inMemory = this.token$.value;
+    if (inMemory) return inMemory;
+    const stored = await this.storage.get('fcmToken');
+    return typeof stored === 'string' && stored.trim().length > 0 ? stored : null;
+  }
+
   /**
-   * Idempotent: safe to call multiple times for the same user; no-ops on web
-   * and on iOS (which is intentionally deferred).
+   * Idempotent: safe to call multiple times for the same user; no-ops on web/iOS.
    */
   async initialize(userId: string): Promise<void> {
-    if (!this.platform.is('capacitor')) return;
-    if (this.platform.is('ios')) return;
+    if (!this.isAndroidCapacitor()) return;
+
+    await this.storage.create();
+
     if (this.currentUserId === userId && this.token$.value) {
-      // Already registered; ensure backend has it (cheap, idempotent).
-      await this.syncTokenToBackend(this.token$.value).catch(() => undefined);
+      await this.syncTokenWithRetry(this.token$.value).catch(() => undefined);
       return;
     }
 
     this.currentUserId = userId;
 
+    const cached = await this.getCachedToken();
+    if (cached) {
+      this.token$.next(cached);
+      await this.syncTokenWithRetry(cached).catch((err) =>
+        console.warn('[FCM] cached token sync failed:', err),
+      );
+    }
+
     try {
-      const perm = await PushNotifications.checkPermissions();
-      let status = perm.receive;
-      if (status === 'prompt' || status === 'prompt-with-rationale') {
-        status = (await PushNotifications.requestPermissions()).receive;
-      }
-      if (status !== 'granted') {
-        console.warn('[FCM] Push permission not granted:', status);
+      const granted = await this.ensurePushPermission();
+      if (!granted) {
+        console.warn('[FCM] Push permission not granted');
         return;
       }
 
-      await this.attachListeners();
+      await this.attachListenersOnce();
       await PushNotifications.register();
     } catch (err) {
       console.error('[FCM] initialize failed:', err);
     }
   }
 
-  /** Tear down listeners and forget the token. Call on logout. */
+  /**
+   * Re-sync stored token and re-attempt registration when needed.
+   * Safe to call on app resume and network reconnect.
+   */
+  async ensureSynced(): Promise<void> {
+    if (!this.isAndroidCapacitor() || !this.currentUserId) return;
+
+    if (this.ensureSyncedInFlight) {
+      return this.ensureSyncedInFlight;
+    }
+
+    this.ensureSyncedInFlight = this.runEnsureSynced().finally(() => {
+      this.ensureSyncedInFlight = null;
+    });
+    return this.ensureSyncedInFlight;
+  }
+
+  private async runEnsureSynced(): Promise<void> {
+    await this.storage.create();
+    const userId = this.currentUserId;
+    if (!userId) return;
+
+    const cached = await this.getCachedToken();
+    if (cached) {
+      this.token$.next(cached);
+      await this.syncTokenWithRetry(cached).catch((err) =>
+        console.warn('[FCM] ensureSynced cached sync failed:', err),
+      );
+    }
+
+    if (!this.token$.value) {
+      await this.initialize(userId);
+    } else {
+      await this.syncTokenWithRetry(this.token$.value).catch((err) =>
+        console.warn('[FCM] ensureSynced retry sync failed:', err),
+      );
+    }
+  }
+
+  /** Tear down listeners and forget the token. Call on explicit logout only. */
   async dispose(): Promise<void> {
-    // Best-effort: tell backend to forget this device so we stop pushing to it.
     if (this.currentUserId && this.token$.value) {
       await this.clearTokenOnBackend(this.currentUserId).catch((err) =>
         console.warn('[FCM] failed to clear backend token:', err),
       );
     }
+
     for (const l of this.listeners) {
       try {
         await l.remove();
@@ -95,8 +152,11 @@ export class FcmService {
       }
     }
     this.listeners = [];
+    this.listenersReady = false;
     this.currentUserId = null;
     this.token$.next(null);
+    this.lastSyncError = null;
+
     try {
       await this.storage.remove('fcmToken');
     } catch (err) {
@@ -104,7 +164,22 @@ export class FcmService {
     }
   }
 
-  private async attachListeners(): Promise<void> {
+  private isAndroidCapacitor(): boolean {
+    return this.platform.is('capacitor') && !this.platform.is('ios');
+  }
+
+  private async ensurePushPermission(): Promise<boolean> {
+    const perm = await PushNotifications.checkPermissions();
+    let status = perm.receive;
+    if (status === 'prompt' || status === 'prompt-with-rationale') {
+      status = (await PushNotifications.requestPermissions()).receive;
+    }
+    return status === 'granted';
+  }
+
+  private async attachListenersOnce(): Promise<void> {
+    if (this.listenersReady) return;
+
     this.listeners.push(
       await PushNotifications.addListener('registration', async (t: Token) => {
         const token = t.value;
@@ -115,7 +190,7 @@ export class FcmService {
         } catch (err) {
           console.warn('[FCM] failed to persist token:', err);
         }
-        await this.syncTokenToBackend(token).catch((err) =>
+        await this.syncTokenWithRetry(token).catch((err) =>
           console.warn('[FCM] backend token sync failed:', err),
         );
       }),
@@ -124,6 +199,7 @@ export class FcmService {
     this.listeners.push(
       await PushNotifications.addListener('registrationError', (e) => {
         console.error('[FCM] registration error:', e);
+        this.lastSyncError = JSON.stringify(e);
       }),
     );
 
@@ -152,17 +228,10 @@ export class FcmService {
         },
       ),
     );
+
+    this.listenersReady = true;
   }
 
-  /**
-   * Decide where to navigate after a notification tap.
-   *
-   * Contract with the backend (see `Test_Main_Cerca_cabs/utils/riderFcmPayload.js`):
-   *   data.route   — explicit Angular route (always wins when present).
-   *   data.appType — primary high-level category emitted by the new payload helper.
-   *   data.type    — legacy field, still respected for tokens issued before rollout.
-   *   data.rideId  — required for chat_message deep link.
-   */
   private routeFromPayload(data: Record<string, any>): void {
     if (typeof data['route'] === 'string' && data['route'].startsWith('/')) {
       this.router.navigateByUrl(data['route']);
@@ -188,10 +257,7 @@ export class FcmService {
       case 'driver_cancel_payment':
       case 'trip_charge_due':
         if (data['rideId']) {
-          this.router.navigate([
-            '/driver-cancel-settlement',
-            data['rideId'],
-          ]);
+          this.router.navigate(['/driver-cancel-settlement', data['rideId']]);
         } else {
           this.router.navigate(['/pending-dues']);
         }
@@ -201,24 +267,54 @@ export class FcmService {
     }
   }
 
-  /** PATCH the rider's FCM token to the backend (auth via JWT). */
+  private async syncTokenWithRetry(
+    token: string,
+    maxAttempts = 3,
+  ): Promise<void> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await this.syncTokenToBackend(token);
+        this.lastSyncError = null;
+        return;
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : String(err ?? 'unknown error');
+        this.lastSyncError = message;
+        if (attempt < maxAttempts - 1) {
+          await this.delay(RETRY_DELAYS_MS[attempt] ?? 2000);
+        } else {
+          console.warn('[FCM] backend token sync failed after retries:', err);
+          throw err;
+        }
+      }
+    }
+  }
+
   private async syncTokenToBackend(token: string): Promise<void> {
     if (!this.currentUserId || !token) return;
+
+    await this.storage.create();
     const jwt = await this.storage.get('token');
     if (!jwt) {
-      console.warn('[FCM] no JWT in storage; skipping backend sync');
-      return;
+      const msg = 'no JWT in storage; skipping backend sync';
+      console.warn(`[FCM] ${msg}`);
+      throw new Error(msg);
     }
+
     const url = `${environment.apiUrl}/users/${this.currentUserId}/fcm-token`;
     const headers = new HttpHeaders({ Authorization: `Bearer ${jwt}` });
     await firstValueFrom(
-      this.http.patch(url, { fcmToken: token, platform: 'android' }, { headers }),
+      this.http.patch(
+        url,
+        { fcmToken: token, platform: 'android' },
+        { headers },
+      ),
     );
     console.log('[FCM] token synced to backend');
   }
 
-  /** Clear the rider's FCM token on logout so we stop targeting this device. */
   private async clearTokenOnBackend(userId: string): Promise<void> {
+    await this.storage.create();
     const jwt = await this.storage.get('token');
     if (!jwt) return;
     const url = `${environment.apiUrl}/users/${userId}/fcm-token`;
@@ -226,5 +322,9 @@ export class FcmService {
     await firstValueFrom(
       this.http.patch(url, { fcmToken: null }, { headers }),
     );
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

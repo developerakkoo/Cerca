@@ -113,7 +113,7 @@ export class SharedRidePage implements OnInit, OnDestroy {
         },
         title: 'Pickup',
         snippet: this.ride.pickupAddress,
-        iconUrl: 'assets/pickup-marker.png', // You may need to add this asset
+        iconUrl: 'assets/map-marker-pickup.png',
       });
 
       // Add dropoff marker
@@ -124,7 +124,7 @@ export class SharedRidePage implements OnInit, OnDestroy {
         },
         title: 'Destination',
         snippet: this.ride.dropoffAddress,
-        iconUrl: 'assets/dropoff-marker.png', // You may need to add this asset
+        iconUrl: 'assets/map-marker-dropoff.png',
       });
 
       // Fit bounds to show both markers

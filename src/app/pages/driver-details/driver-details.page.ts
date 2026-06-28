@@ -1,26 +1,46 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import {
+  AlertController,
+  ModalController,
+} from '@ionic/angular';
+import {
   RideService,
   Ride,
   DriverInfo,
   Location,
 } from 'src/app/services/ride.service';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { phoneForDial } from 'src/app/utils/phone-dial';
 
-interface DriverDetails {
+interface DriverDetailsView {
   name: string;
   photo: string;
   rating: number;
+  totalRatings: number;
   totalTrips: number;
-  experience: number;
-  membershipDuration: string;
+  experienceYears: number;
+  memberSinceYear: number | null;
   carType: string;
   carNumber: string;
 }
+
+type DriverApiRecord = DriverInfo & {
+  completedRidesCount?: number;
+  createdAt?: string | Date;
+  totalRatings?: number;
+  vehicleInfo?: DriverInfo['vehicleInfo'];
+  vehicles?: Array<{
+    make?: string;
+    model?: string;
+    color?: string;
+    licensePlate?: string;
+    vehicleType?: string;
+    isActive?: boolean;
+  }>;
+};
 
 @Component({
   selector: 'app-driver-details',
@@ -29,83 +49,115 @@ interface DriverDetails {
   standalone: false,
 })
 export class DriverDetailsPage implements OnInit, OnDestroy {
-  driverDetails: DriverDetails = {
+  driverDetails: DriverDetailsView = {
     name: 'Loading...',
     photo: 'assets/user.png',
     rating: 0,
+    totalRatings: 0,
     totalTrips: 0,
-    experience: 0,
-    membershipDuration: 'N/A',
-    carType: 'Loading...',
-    carNumber: 'Loading...',
+    experienceYears: 0,
+    memberSinceYear: null,
+    carType: '—',
+    carNumber: '—',
   };
 
-  // Real-time data
   currentRide: Ride | null = null;
   driver: DriverInfo | null = null;
   driverLocation: Location | null = null;
-  driverETA: number = 0;
-  isDriverArrived: boolean = false;
+  driverETA = 0;
+  isDriverArrived = false;
+  isLoading = true;
+  loadError: string | null = null;
+  returnTo: string | null = null;
 
   private rideSubscription?: Subscription;
   private rideStatusSubscription?: Subscription;
   private driverLocationSubscription?: Subscription;
   private driverETASubscription?: Subscription;
+  private isProfileDrillDown = false;
+  private routeDriverId: string | null = null;
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
     private rideService: RideService,
-    private http: HttpClient
-  ) {}
+    private http: HttpClient,
+    private modalController: ModalController,
+    private alertController: AlertController
+  ) {
+    const nav = this.router.getCurrentNavigation();
+    const state = nav?.extras?.state as {
+      driver?: DriverInfo;
+      ride?: Ride;
+      returnTo?: string;
+    } | undefined;
+
+    if (state?.returnTo) {
+      this.returnTo = state.returnTo;
+      this.isProfileDrillDown = true;
+    }
+    if (state?.ride) {
+      this.currentRide = state.ride;
+    }
+    if (state?.driver) {
+      this.driver = state.driver;
+      this.loadDriverDetails(state.driver);
+    }
+  }
 
   async ngOnInit() {
-    // Get driver ID from route params or current ride
-    const driverId = this.route.snapshot.paramMap.get('driverId');
-    
-    if (driverId) {
-      // Fetch driver details via API
-      await this.fetchDriverDetailsFromAPI(driverId);
-    }
+    this.routeDriverId =
+      this.route.snapshot.paramMap.get('driverId') ||
+      this.driver?._id ||
+      this.currentRide?.driver?._id ||
+      null;
 
-    // Subscribe to ride updates
-    this.rideSubscription = this.rideService
-      .getCurrentRide()
-      .subscribe((ride) => {
-        if (ride && ride.driver) {
-          console.log('📦 Driver details ride update:', ride);
-          this.currentRide = ride;
+    if (!this.currentRide) {
+      const ride = this.rideService.getCurrentRideValue();
+      if (ride) {
+        this.currentRide = ride;
+        if (!this.driver && ride.driver) {
           this.driver = ride.driver;
           this.loadDriverDetails(ride.driver);
-          
-          // If we don't have API details, fetch them
-          if (!driverId) {
-            this.fetchDriverDetailsFromAPI(ride.driver._id);
-          }
         }
-      });
+      }
+    }
 
-    // Subscribe to ride status
-    this.rideStatusSubscription = this.rideService
-      .getRideStatus()
-      .subscribe((status) => {
-        console.log('🔄 Ride status:', status);
-        if (status === 'arrived') {
-          this.isDriverArrived = true;
-        } else if (status === 'in_progress') {
-          // Navigate to active order page
-          this.router.navigate(['/active-ordere'], {
-            replaceUrl: true,
-          });
-        } else if (status === 'cancelled') {
-          // Navigate back to home
-          this.router.navigate(['/tabs/tabs/tab1'], {
-            replaceUrl: true,
-          });
-        }
-      });
+    if (this.routeDriverId) {
+      await this.fetchDriverDetailsFromAPI(this.routeDriverId);
+    } else {
+      this.isLoading = false;
+    }
 
-    // Subscribe to driver location
+    this.rideSubscription = this.rideService.getCurrentRide().subscribe((ride) => {
+      if (!ride?.driver) {
+        return;
+      }
+      this.currentRide = ride;
+      this.driver = ride.driver;
+      if (!this.routeDriverId) {
+        this.loadDriverDetails(ride.driver);
+        this.fetchDriverDetailsFromAPI(ride.driver._id);
+      }
+    });
+
+    this.rideStatusSubscription = this.rideService.getRideStatus().subscribe((status) => {
+      if (status === 'arrived') {
+        this.isDriverArrived = true;
+        return;
+      }
+
+      if (this.isProfileDrillDown) {
+        return;
+      }
+
+      if (status === 'in_progress') {
+        this.router.navigate(['/active-ordere'], { replaceUrl: true });
+      } else if (status === 'cancelled') {
+        this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+      }
+    });
+
     this.driverLocationSubscription = this.rideService
       .getDriverLocation()
       .subscribe((location) => {
@@ -114,48 +166,11 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
         }
       });
 
-    // Subscribe to driver ETA
-    this.driverETASubscription = this.rideService
-      .getDriverETA()
-      .subscribe((eta) => {
-        if (eta) {
-          this.driverETA = Math.ceil(eta);
-        }
-      });
-
-    // Load initial data
-    const ride = this.rideService.getCurrentRideValue();
-    if (ride && ride.driver) {
-      this.currentRide = ride;
-      this.driver = ride.driver;
-      this.loadDriverDetails(ride.driver);
-    }
-  }
-
-  /**
-   * Fetch driver details from API
-   */
-  private async fetchDriverDetailsFromAPI(driverId: string) {
-    try {
-      console.log('🔍 Fetching driver details via API for driver:', driverId);
-      
-      const response = await this.http.get(`${environment.apiUrl}/drivers/${driverId}`).toPromise();
-      
-      console.log('📦 ========================================');
-      console.log('📦 DRIVER API RESPONSE');
-      console.log('📦 ========================================');
-      console.log('📦 Response:', response);
-      console.log('========================================');
-      
-      // Map API response to driver info
-      if (response) {
-        this.driver = response as any;
-        this.loadDriverDetails(response as any);
+    this.driverETASubscription = this.rideService.getDriverETA().subscribe((eta) => {
+      if (eta) {
+        this.driverETA = Math.ceil(eta);
       }
-    } catch (error) {
-      console.error('❌ Error fetching driver details:', error);
-      console.error('📝 Error details:', error);
-    }
+    });
   }
 
   ngOnDestroy() {
@@ -165,40 +180,172 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
     this.driverETASubscription?.unsubscribe();
   }
 
-  private loadDriverDetails(driver: DriverInfo) {
-    const v = driver.vehicleInfo;
+  get backHref(): string {
+    return this.returnTo || '/tabs/tabs/tab1';
+  }
+
+  get showContactActions(): boolean {
+    if (!this.currentRide) {
+      return !!this.driver;
+    }
+    const status = this.currentRide.status;
+    if (status === 'completed' || status === 'cancelled') {
+      return false;
+    }
+    if (this.currentRide.rideFor === 'OTHER') {
+      return false;
+    }
+    return true;
+  }
+
+  private async fetchDriverDetailsFromAPI(driverId: string) {
+    this.isLoading = true;
+    this.loadError = null;
+    try {
+      const response = await firstValueFrom(
+        this.http.get<DriverApiRecord>(`${environment.apiUrl}/drivers/${driverId}`)
+      );
+      if (response) {
+        this.driver = response;
+        this.loadDriverDetails(response);
+      }
+    } catch (error) {
+      console.error('Error fetching driver details:', error);
+      this.loadError = 'Could not load full driver profile.';
+      if (this.driver) {
+        this.loadDriverDetails(this.driver);
+      }
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private resolveDriverPhotoUrl(profilePic?: string | null): string {
+    if (!profilePic) {
+      return 'assets/user.png';
+    }
+    const u = String(profilePic).trim();
+    if (!u) {
+      return 'assets/user.png';
+    }
+    if (/^https?:\/\//i.test(u)) {
+      return u;
+    }
+    const base = environment.apiUrl.replace(/\/$/, '');
+    return base + (u.startsWith('/') ? u : '/' + u);
+  }
+
+  private yearsSince(dateInput?: string | Date | null): number {
+    if (!dateInput) {
+      return 0;
+    }
+    const created = new Date(dateInput);
+    if (Number.isNaN(created.getTime())) {
+      return 0;
+    }
+    const now = new Date();
+    let years = now.getFullYear() - created.getFullYear();
+    const monthDiff = now.getMonth() - created.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < created.getDate())) {
+      years -= 1;
+    }
+    return Math.max(0, years);
+  }
+
+  private resolveVehicleInfo(driver: DriverApiRecord): DriverInfo['vehicleInfo'] | null {
+    if (driver.vehicleInfo?.licensePlate || driver.vehicleInfo?.make) {
+      return driver.vehicleInfo;
+    }
+    const vehicles = driver.vehicles;
+    if (!Array.isArray(vehicles) || vehicles.length === 0) {
+      return null;
+    }
+    const active = vehicles.find((v) => v.isActive) || vehicles[0];
+    return active
+      ? {
+          make: active.make,
+          model: active.model,
+          color: active.color,
+          licensePlate: active.licensePlate,
+          vehicleType: active.vehicleType,
+        }
+      : null;
+  }
+
+  private loadDriverDetails(driver: DriverApiRecord) {
+    const v = this.resolveVehicleInfo(driver);
     const carType = v
       ? v.color && v.make && v.model
         ? `${v.color} ${v.make} ${v.model}`
-        : (v.vehicleType || 'Vehicle')
-      : 'N/A';
-    const carNumber = v?.licensePlate || 'N/A';
+        : v.vehicleType || 'Vehicle'
+      : '—';
+    const carNumber = v?.licensePlate || '—';
+    const createdAt = driver.createdAt;
+    const memberSinceYear = createdAt
+      ? new Date(createdAt).getFullYear()
+      : null;
+
     this.driverDetails = {
-      name: driver.name,
-      photo: driver.profilePic || 'assets/user.png',
-      rating: driver.rating || 0,
-      totalTrips: driver.totalTrips || 0,
-      experience: 0,
-      membershipDuration: 'N/A',
+      name: driver.name || 'Driver',
+      photo: this.resolveDriverPhotoUrl(driver.profilePic),
+      rating: driver.rating ?? 0,
+      totalRatings: driver.totalRatings ?? 0,
+      totalTrips: driver.completedRidesCount ?? driver.totalTrips ?? 0,
+      experienceYears: this.yearsSince(createdAt),
+      memberSinceYear,
       carType,
       carNumber,
     };
   }
 
-  callDriver() {
+  formatRating(value: number): string {
+    return (value ?? 0).toFixed(1);
+  }
+
+  formatTrips(value: number): string {
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}k`;
+    }
+    return String(value ?? 0);
+  }
+
+  async callDriver() {
     const phoneNumber = phoneForDial(this.driver);
     if (phoneNumber) {
       window.location.href = `tel:${phoneNumber}`;
-    } else {
-      console.warn('Driver phone number not available');
+      return;
     }
+
+    const alert = await this.alertController.create({
+      header: 'Phone Number Not Available',
+      message: 'Driver phone number is not available.',
+      buttons: ['OK'],
+    });
+    await alert.present();
   }
 
-  chatWithDriver() {
-    // Navigate to driver chat page
-    this.router.navigate(['/driver-chat'], {
-      state: { driver: this.driver, ride: this.currentRide },
+  async chatWithDriver() {
+    if (!this.currentRide) {
+      return;
+    }
+    if (this.currentRide.rideFor === 'OTHER') {
+      return;
+    }
+
+    await this.rideService.markMessagesAsRead(this.currentRide._id);
+
+    const { DriverChatPage } = await import('../driver-chat/driver-chat.page');
+    const modal = await this.modalController.create({
+      component: DriverChatPage,
+      componentProps: {
+        ride: this.currentRide,
+      },
+      cssClass: 'chat-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
     });
+
+    await modal.present();
   }
 
   async cancelRide() {
@@ -211,13 +358,14 @@ export class DriverDetailsPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    // Go back to active-ordere if there's an active ride, otherwise tab1
-    if (this.currentRide) {
-      this.router.navigate(['/active-ordere']);
-    } else {
-      this.router.navigate(['/tabs/tabs/tab1'], {
-        replaceUrl: true,
-      });
+    if (this.returnTo) {
+      this.router.navigateByUrl(this.returnTo);
+      return;
     }
+    if (this.currentRide?._id) {
+      this.router.navigate(['/active-ordere', this.currentRide._id]);
+      return;
+    }
+    this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
   }
 }
