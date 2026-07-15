@@ -5,6 +5,8 @@ import {
   ElementRef,
   OnDestroy,
   NgZone,
+  AfterViewInit,
+  HostBinding,
 } from '@angular/core';
 import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 import { GoogleMap, LatLngBounds, MapType } from '@capacitor/google-maps';
@@ -29,8 +31,10 @@ import {
   computePickupWaitPreview,
   DEFAULT_PICKUP_WAIT_POLICY_PREVIEW,
 } from 'src/app/utils/pickup-wait-preview.util';
+import { createPreviewRide, PreviewRideStatus } from './active-ordere-preview.util';
 import { SearchPage, SearchModalResult } from '../search/search.page';
 import { formatInrWithSymbol } from 'src/app/utils/money-display.util';
+import { mapMarkerImage } from 'src/app/constants/map-marker-icons';
 
 @Component({
   selector: 'app-active-ordere',
@@ -38,8 +42,18 @@ import { formatInrWithSymbol } from 'src/app/utils/money-display.util';
   styleUrls: ['./active-ordere.page.scss'],
   standalone: false,
 })
-export class ActiveOrderePage implements OnInit, OnDestroy {
+export class ActiveOrderePage implements OnInit, OnDestroy, AfterViewInit {
+  @HostBinding('class.has-ui-preview')
+  get hasUiPreviewClass(): boolean {
+    return this.isUiPreview;
+  }
+
   @ViewChild('mapContainer') mapContainer!: ElementRef;
+  @ViewChild('cancelSlideTrack') cancelSlideTrack?: ElementRef<HTMLElement>;
+  @ViewChild('cancelSlideHandle') cancelSlideHandle?: ElementRef<HTMLElement>;
+  @ViewChild('rideContactFloat') rideContactFloat?: ElementRef<HTMLElement>;
+  @ViewChild('changeDestinationFab')
+  changeDestinationFab?: ElementRef<HTMLElement>;
   private map!: GoogleMap;
   private driverMarkerId?: string;
   private userMarkerId?: string;
@@ -62,6 +76,24 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private ratingTimeout?: any;
   private rateUsTimeout?: any;
   private hasShownRating = false; // Flag to prevent showing rating multiple times
+  // [DESIGN-PASS] view flag for arrival modal; no logic impact
+  arrivalAcknowledged = false;
+
+  // Slide-to-cancel gesture state
+  private cancelSlideSetupDone = false;
+  private cancelSlideIsSliding = false;
+  private cancelSlideStartX = 0;
+  private cancelSlideCurrentX = 0;
+  private cancelSlideThreshold = 200;
+  private cancelSlideSetupTimer?: ReturnType<typeof setTimeout>;
+  private cancelSlideTrackEl: HTMLElement | null = null;
+  private cancelSlideHandleEl: HTMLElement | null = null;
+  private cancelSlideEventListeners: {
+    element: HTMLElement | Document;
+    event: string;
+    handler: EventListener;
+    options?: boolean | AddEventListenerOptions;
+  }[] = [];
 
   // Current ride data
   currentRide: Ride | null = null;
@@ -107,8 +139,6 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   private lastTrailDrawAt = 0;
   private static readonly TRAIL_REDRAW_MIN_MS = 2000;
   private static readonly MAP_PRIMARY_COLOR = '#333652';
-  private static readonly PICKUP_MARKER_ICON = 'assets/map-marker-pickup.png';
-  private static readonly DROPOFF_MARKER_ICON = 'assets/map-marker-dropoff.png';
   // QA: poor GPS, tunnel, long ride (trail cap 200), background/resume, terminal ride (no broadcast)
 
   pickupLocation = '';
@@ -163,6 +193,21 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   // Navigation tracking
   fromBookings = false; // Track if navigated from Bookings tab
   isViewOnlyMode = false; // Track if viewing past ride (read-only)
+  // Hides the re-parented floating call/chat buttons while the page is not
+  // the active view (the element lives under <ion-app>, outside the page).
+  isPageActive = true;
+  // Hides the floating buttons while the chat modal is presented — the chat
+  // is an overlay on top of this page, so isPageActive stays true.
+  isChatOpen = false;
+  isUiPreview = false;
+  previewStatus: PreviewRideStatus = 'arrived';
+  readonly previewStatuses: { value: PreviewRideStatus; label: string }[] = [
+    { value: 'searching', label: 'Searching' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'arrived', label: 'Arrived' },
+    { value: 'in_progress', label: 'In progress' },
+    { value: 'completed', label: 'Completed' },
+  ];
 
   /**
    * Inline driver-cancel settlement modal feed (rendered by the host
@@ -204,7 +249,118 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
   }
 
+  private isUiPreviewMode(): boolean {
+    return (
+      !environment.production &&
+      this.route.snapshot.queryParamMap.get('uiPreview') === '1'
+    );
+  }
+
+  private async bootstrapUiPreview(status: PreviewRideStatus): Promise<void> {
+    this.isUiPreview = true;
+    this.isViewOnlyMode = false;
+    this.previewStatus = status;
+    this.hasShownRating = false;
+    this.arrivalAcknowledged = false;
+    this.showRating = false;
+
+    const mockRide = createPreviewRide(status);
+    this.currentRide = mockRide;
+    await this.rideService.applyServerRide(mockRide);
+    this.applyPreviewRideToView(mockRide);
+    await this.handleRideStatusChange(status);
+    this.isDriverModalOpen = status !== 'completed';
+    this.setupBackButtonHandler();
+    await this.initializeMapIfNeeded();
+  }
+
+  async setPreviewStatus(status: PreviewRideStatus): Promise<void> {
+    if (!this.isUiPreview) {
+      return;
+    }
+
+    if (status !== 'completed') {
+      this.arrivalAcknowledged = false;
+      this.showRating = false;
+      this.hasShownRating = false;
+    }
+
+    this.previewStatus = status;
+    const mockRide = createPreviewRide(status);
+    this.currentRide = mockRide;
+    await this.rideService.applyServerRide(mockRide);
+    this.applyPreviewRideToView(mockRide);
+    await this.handleRideStatusChange(status);
+
+    if (status !== 'completed') {
+      this.isDriverModalOpen = true;
+    }
+
+    await this.router.navigate([], {
+      queryParams: { uiPreview: '1', status },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  private applyPreviewRideToView(ride: Ride): void {
+    this.realDriver = ride.driver || null;
+    this.pickupLocation = ride.pickupAddress;
+    this.destinationLocation = ride.dropoffAddress;
+    this.userLocation = {
+      latitude: ride.pickupLocation.coordinates[1],
+      longitude: ride.pickupLocation.coordinates[0],
+    };
+
+    if (!ride.driver) {
+      this.driver = null;
+      return;
+    }
+
+    const vehicleInfo = ride.driver.vehicleInfo || {};
+    const otpToUse =
+      ride.status === 'in_progress'
+        ? ride.stopOtp || 'N/A'
+        : ride.startOtp || 'N/A';
+
+    this.driver = {
+      name: ride.driver.name || 'N/A',
+      rating: ride.driver.rating || 0,
+      carNumber: vehicleInfo.licensePlate || 'N/A',
+      carType:
+        vehicleInfo.color && vehicleInfo.make && vehicleInfo.model
+          ? `${vehicleInfo.color} ${vehicleInfo.make} ${vehicleInfo.model}`
+          : vehicleInfo.vehicleType || 'N/A',
+      otp: otpToUse,
+    };
+  }
+
+  private async showPreviewToast(message: string): Promise<void> {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'bottom',
+    });
+    await toast.present();
+  }
+
   async ngOnInit() {
+    if (this.isUiPreviewMode()) {
+      const validPreviewStatuses: PreviewRideStatus[] = [
+        'searching',
+        'accepted',
+        'arrived',
+        'in_progress',
+        'completed',
+      ];
+      const statusParam = this.route.snapshot.queryParamMap.get('status');
+      const status = validPreviewStatuses.includes(statusParam as PreviewRideStatus)
+        ? (statusParam as PreviewRideStatus)
+        : environment.devDesign?.defaultPreviewStatus ?? 'arrived';
+      await this.bootstrapUiPreview(status);
+      return;
+    }
+
     // Check navigation state to determine source
     const navigation = this.router.getCurrentNavigation();
     const state = navigation?.extras?.state as any || {};
@@ -356,6 +512,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           if (isNewRide) {
             console.log('🆕 New ride detected, resetting rating flag');
             this.hasShownRating = false;
+            this.arrivalAcknowledged = false;
             this.mapViewToken++;
             this.stopDriverSmoothingLoop();
             this.driverTrail = [];
@@ -597,6 +754,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
 
   async ionViewDidEnter() {
     console.log('🔄 [ActiveOrderPage] ionViewDidEnter - Re-establishing connections');
+    this.isPageActive = true;
+    this.moveContactFloatToApp();
     
     // Ensure map is initialized when view enters
     if (!this.isMapInitialized && this.userLocation.latitude && this.userLocation.longitude) {
@@ -608,6 +767,8 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     if (currentUrl.includes('/active-ordere') && this.currentRide && !this.isDriverModalOpen) {
       this.isDriverModalOpen = true;
     }
+
+    this.scheduleRideSlideCancelSetup();
     
     if (this.currentRide && !this.isViewOnlyMode) {
       await this.reconcileActiveRideView(
@@ -677,7 +838,209 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }, 280);
   }
 
+  ngAfterViewInit(): void {
+    this.scheduleRideSlideCancelSetup();
+    this.moveContactFloatToApp();
+  }
+
+  /**
+   * Re-parents the floating call/chat container under <ion-app> so it can
+   * paint above the presented sheet modal. The page lives in a stacking
+   * context capped at z-index ~101 while the modal (a direct child of
+   * <ion-app>) sits at ~20000+, so no z-index inside the page can win.
+   * Angular keeps updating bindings on the element after the move.
+   */
+  private moveContactFloatToApp(): void {
+    const app = document.querySelector('ion-app');
+    if (!app) {
+      return;
+    }
+    for (const ref of [this.rideContactFloat, this.changeDestinationFab]) {
+      const el = ref?.nativeElement;
+      if (el && el.parentElement !== app) {
+        app.appendChild(el);
+      }
+    }
+  }
+
+  private scheduleRideSlideCancelSetup(): void {
+    if (this.cancelSlideSetupTimer) {
+      clearTimeout(this.cancelSlideSetupTimer);
+    }
+    this.teardownRideSlideCancel();
+    this.cancelSlideSetupTimer = setTimeout(() => {
+      this.cancelSlideSetupTimer = undefined;
+      this.setupRideSlideCancel();
+    }, 300);
+  }
+
+  onDriverModalDidPresent(): void {
+    this.scheduleRideSlideCancelSetup();
+  }
+
+  private resolveCancelSlideElements(): {
+    track: HTMLElement | null;
+    handle: HTMLElement | null;
+  } {
+    let track = this.cancelSlideTrack?.nativeElement ?? null;
+    let handle = this.cancelSlideHandle?.nativeElement ?? null;
+    if (!track || !handle) {
+      track =
+        document.querySelector<HTMLElement>('ion-modal .slide-to-cancel-track');
+      handle =
+        document.querySelector<HTMLElement>('ion-modal .slide-to-cancel-thumb');
+    }
+    return { track, handle };
+  }
+
+  private teardownRideSlideCancel(): void {
+    this.cancelSlideEventListeners.forEach(
+      ({ element, event, handler, options }) => {
+        element.removeEventListener(event, handler, options);
+      }
+    );
+    this.cancelSlideEventListeners = [];
+    this.cancelSlideSetupDone = false;
+    this.cancelSlideIsSliding = false;
+    this.cancelSlideTrackEl = null;
+    this.cancelSlideHandleEl = null;
+    this.resetCancelSlideHandle();
+  }
+
+  private updateCancelSlideThreshold(): void {
+    const track = this.cancelSlideTrackEl;
+    const handle = this.cancelSlideHandleEl;
+    if (track && handle) {
+      this.cancelSlideThreshold = Math.max(
+        track.offsetWidth - handle.offsetWidth - 12,
+        120
+      );
+    }
+  }
+
+  private setCancelSlideHandleTranslateX(px: number): void {
+    if (this.cancelSlideHandleEl) {
+      this.cancelSlideHandleEl.style.transform = `translateX(${px}px)`;
+    }
+  }
+
+  private resetCancelSlideHandle(): void {
+    this.setCancelSlideHandleTranslateX(0);
+  }
+
+  private setupRideSlideCancel(): void {
+    const showCancelSlide =
+      !this.isViewOnlyMode &&
+      (this.currentRideStatus === 'searching' ||
+        this.currentRideStatus === 'accepted' ||
+        this.currentRideStatus === 'arrived');
+    if (!showCancelSlide || this.cancelSlideSetupDone) {
+      return;
+    }
+
+    const { track, handle } = this.resolveCancelSlideElements();
+    if (!track || !handle) {
+      return;
+    }
+
+    this.cancelSlideTrackEl = track;
+    this.cancelSlideHandleEl = handle;
+    this.updateCancelSlideThreshold();
+    this.cancelSlideSetupDone = true;
+
+    const addTrackedListener = (
+      element: HTMLElement | Document,
+      event: string,
+      handler: EventListener,
+      options?: boolean | AddEventListenerOptions
+    ) => {
+      element.addEventListener(event, handler, options);
+      this.cancelSlideEventListeners.push({ element, event, handler, options });
+    };
+
+    const onSlideMove = (clientX: number) => {
+      const diff = clientX - this.cancelSlideStartX;
+      if (diff > 0) {
+        this.setCancelSlideHandleTranslateX(
+          Math.min(diff, this.cancelSlideThreshold)
+        );
+      }
+    };
+
+    const onSlideEnd = () => {
+      if (!this.cancelSlideIsSliding) {
+        return;
+      }
+
+      const diff = this.cancelSlideCurrentX - this.cancelSlideStartX;
+      if (diff >= this.cancelSlideThreshold) {
+        this.resetCancelSlideHandle();
+        void this.onCancelRide();
+      } else {
+        this.resetCancelSlideHandle();
+      }
+
+      this.cancelSlideIsSliding = false;
+    };
+
+    addTrackedListener(track, 'touchstart', (e: Event) => {
+      const touchEvent = e as TouchEvent;
+      this.cancelSlideStartX = touchEvent.touches[0].clientX;
+      this.cancelSlideCurrentX = this.cancelSlideStartX;
+      this.cancelSlideIsSliding = true;
+    });
+
+    addTrackedListener(
+      track,
+      'touchmove',
+      (e: Event) => {
+        if (!this.cancelSlideIsSliding) {
+          return;
+        }
+        const touchEvent = e as TouchEvent;
+        touchEvent.preventDefault();
+        this.cancelSlideCurrentX = touchEvent.touches[0].clientX;
+        onSlideMove(this.cancelSlideCurrentX);
+      },
+      { passive: false }
+    );
+
+    addTrackedListener(track, 'touchend', () => onSlideEnd());
+    addTrackedListener(track, 'touchcancel', () => onSlideEnd());
+
+    const onDocumentMouseMove = (e: Event) => {
+      if (!this.cancelSlideIsSliding) {
+        return;
+      }
+      const mouseEvent = e as MouseEvent;
+      this.cancelSlideCurrentX = mouseEvent.clientX;
+      onSlideMove(this.cancelSlideCurrentX);
+    };
+
+    const onDocumentMouseUp = () => {
+      document.removeEventListener('mousemove', onDocumentMouseMove);
+      document.removeEventListener('mouseup', onDocumentMouseUp);
+      onSlideEnd();
+    };
+
+    addTrackedListener(track, 'mousedown', (e: Event) => {
+      const mouseEvent = e as MouseEvent;
+      mouseEvent.preventDefault();
+      this.cancelSlideStartX = mouseEvent.clientX;
+      this.cancelSlideCurrentX = this.cancelSlideStartX;
+      this.cancelSlideIsSliding = true;
+      document.addEventListener('mousemove', onDocumentMouseMove);
+      document.addEventListener('mouseup', onDocumentMouseUp);
+    });
+
+    addTrackedListener(track, 'dragstart', (e: Event) => {
+      (e as DragEvent).preventDefault();
+    });
+  }
+
   ionViewWillLeave() {
+    this.isPageActive = false;
+    this.teardownRideSlideCancel();
     // Close modal immediately
     this.isDriverModalOpen = false;
     
@@ -698,6 +1061,10 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   // }
 
   ngOnDestroy() {
+    // These elements were re-parented under <ion-app>; Angular won't remove
+    // them with the view, so do it explicitly.
+    this.rideContactFloat?.nativeElement.remove();
+    this.changeDestinationFab?.nativeElement.remove();
     this.mapViewToken++;
     this.stopDriverSmoothingLoop();
     // Always close modal when component is destroyed
@@ -720,6 +1087,12 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       this.resumeReconcileDebounce = null;
     }
     this.stopPickupWaitTicker();
+
+    if (this.cancelSlideSetupTimer) {
+      clearTimeout(this.cancelSlideSetupTimer);
+      this.cancelSlideSetupTimer = undefined;
+    }
+    this.teardownRideSlideCancel();
 
     // Clear all timeouts
     if (this.ratingTimeout) {
@@ -879,7 +1252,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         break;
       case 'accepted':
         this.stopPickupWaitTicker();
-        this.statusText = 'Driver is Coming';
+        this.statusText = 'Driver is arriving';
         this.isDriverArrived = false;
         break;
       case 'arrived':
@@ -913,8 +1286,13 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       case 'completed':
         this.stopPickupWaitTicker();
         this.statusText = 'Ride Completed';
-        // Close the driver modal first
         this.isDriverModalOpen = false;
+
+        if (this.isUiPreview) {
+          this.showRating = false;
+          this.hasShownRating = false;
+          break;
+        }
 
         if (this.currentRide) {
           void this.rideService.handleTerminalTrip(
@@ -1011,6 +1389,15 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     }
 
     console.log('📊 Status updated:', status, '| Text:', this.statusText);
+
+    const showCancelSlide =
+      !this.isViewOnlyMode &&
+      (status === 'searching' || status === 'accepted' || status === 'arrived');
+    if (showCancelSlide) {
+      this.scheduleRideSlideCancelSetup();
+    } else {
+      this.teardownRideSlideCancel();
+    }
   }
 
   private resetMapOverlayState(): void {
@@ -1159,26 +1546,6 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     } catch (e) {
       console.warn('Trail polyline draw failed', e);
     }
-  }
-
-  private cabIconForMovement(
-    from: { lat: number; lng: number } | null,
-    to: { lat: number; lng: number }
-  ): string {
-    if (!from) {
-      return 'assets/cab-east.png';
-    }
-    const φ1 = (from.lat * Math.PI) / 180;
-    const φ2 = (to.lat * Math.PI) / 180;
-    const Δλ = ((to.lng - from.lng) * Math.PI) / 180;
-    const y = Math.sin(Δλ) * Math.cos(φ2);
-    const x =
-      Math.cos(φ1) * Math.sin(φ2) -
-      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-    const br = (Math.atan2(y, x) * 180) / Math.PI;
-    void br;
-    // Replace with 8 directional assets (cab-n, cab-ne, …) when available; single art for now.
-    return 'assets/cab-east.png';
   }
 
   /** Whether the driver→target route polyline should be recomputed (Directions API). */
@@ -1336,21 +1703,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
           ? 'Your Ride'
           : 'Driver Location';
 
-      const prevForIcon =
-        this.lastDriverMarkerLat && this.lastDriverMarkerLng
-          ? { lat: this.lastDriverMarkerLat, lng: this.lastDriverMarkerLng }
-          : null;
-      const cabIcon = this.cabIconForMovement(prevForIcon, driverCoord);
-
       const driverMarkerResult = await this.map.addMarker({
         coordinate: driverCoord,
         title,
         snippet: this.realDriver?.name || 'Driver',
-        iconUrl: cabIcon,
-        iconSize: {
-          width: 40,
-          height: 40,
-        },
+        ...mapMarkerImage('driver'),
       });
       this.driverMarkerId = driverMarkerResult;
 
@@ -1476,11 +1833,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
         coordinate: mapCenter,
         title: 'Pickup',
         snippet: this.pickupLocation || 'Pickup location',
-        iconSize: {
-          width: 40,
-          height: 40,
-        },
-        iconUrl: ActiveOrderePage.PICKUP_MARKER_ICON,
+        ...mapMarkerImage('pickup'),
       });
       this.userMarkerId = userMarkerResult;
 
@@ -1528,11 +1881,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       coordinate: destinationCoord,
       title: 'Destination',
       snippet: this.currentRide.dropoffAddress,
-      iconUrl: ActiveOrderePage.DROPOFF_MARKER_ICON,
-      iconSize: {
-        width: 40,
-        height: 40,
-      },
+      ...mapMarkerImage('dropoff'),
     });
     this.destinationMarkerId = destinationMarkerResult;
 
@@ -1792,6 +2141,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   callDriver() {
+    if (this.isUiPreview) {
+      void this.showPreviewToast('Preview mode — call disabled');
+      return;
+    }
+
     const phoneNumber = phoneForDial(this.realDriver);
     
     if (!phoneNumber) {
@@ -1809,6 +2163,11 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
   }
 
   async chatWithDriver() {
+    if (this.isUiPreview) {
+      await this.showPreviewToast('Preview mode — chat disabled');
+      return;
+    }
+
     if (!this.currentRide) {
       return;
     }
@@ -1835,10 +2194,12 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
       backdropDismiss: true
     });
 
+    this.isChatOpen = true;
     await modal.present();
 
     // Re-join ride room when user dismisses chat so ride events (e.g. driver arrived) are received again
     modal.onDidDismiss().then(async () => {
+      this.isChatOpen = false;
       if (this.currentRide && !this.isViewOnlyMode) {
         const rideId = this.currentRide._id;
         try {
@@ -2008,8 +2369,16 @@ export class ActiveOrderePage implements OnInit, OnDestroy {
     await alert.present();
   }
 
-  async openChangeDestination() {
+  async openChangeDestination(event?: Event) {
+    event?.stopPropagation();
+    event?.preventDefault();
     if (!this.currentRide || !this.canChangeDestination) return;
+
+    try {
+      await this.map?.disableTouch();
+    } catch {
+      // Native map may already have touch disabled or be unavailable
+    }
 
     const modal = await this.modalController.create({
       component: SearchPage,

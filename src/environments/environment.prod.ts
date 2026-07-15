@@ -4,6 +4,10 @@ export const environment = {
   mapId: 'a51bf22c4d90e515e2bb6a5f',
   apiUrl: 'https://api.cercacars.online',
   // apiUrl: 'http://192.168.1.14:3000',
+  devDesign: {
+    startAtActiveRide: false,
+    defaultPreviewStatus: 'arrived' as const,
+  },
   legal: {
     termsUrl: 'https://cerca.app/terms',
     privacyUrl: 'https://cerca.app/privacy',

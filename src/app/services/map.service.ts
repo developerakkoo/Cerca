@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GoogleMap } from '@capacitor/google-maps';
 import { environment } from '../../environments/environment';
+import { mapMarkerImage } from '../constants/map-marker-icons';
 
 export interface LatLng {
   lat: number;
@@ -29,8 +30,6 @@ export class MapService {
   private readonly DEFAULT_BASE_WEIGHT = 3;
   private readonly DEFAULT_BASE_OPACITY = 0.45;
   private readonly DEFAULT_ANIMATED_COLOR = '#333652';
-  private readonly PICKUP_MARKER_ICON = 'assets/map-marker-pickup.png';
-  private readonly DROPOFF_MARKER_ICON = 'assets/map-marker-dropoff.png';
   private readonly DEFAULT_ANIMATED_WEIGHT = 6;
   private readonly DEFAULT_ANIMATED_OPACITY = 1.0;
   private readonly DEFAULT_DURATION = 800;
@@ -798,11 +797,7 @@ export class MapService {
         coordinate: location,
         title: 'Pickup',
         snippet: address || 'Pickup location',
-        iconUrl: this.PICKUP_MARKER_ICON,
-        iconSize: {
-          width: 32,
-          height: 32,
-        },
+        ...mapMarkerImage('pickup'),
       });
       return markerId;
     } catch (error) {
@@ -838,11 +833,7 @@ export class MapService {
         coordinate: location,
         title: 'Destination',
         snippet: address || 'Destination',
-        iconUrl: this.DROPOFF_MARKER_ICON,
-        iconSize: {
-          width: 32,
-          height: 32,
-        },
+        ...mapMarkerImage('dropoff'),
       });
       return markerId;
     } catch (error) {

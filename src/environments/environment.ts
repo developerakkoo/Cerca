@@ -15,6 +15,10 @@ export const environment = {
     termsUrl: 'https://cerca.app/terms',
     privacyUrl: 'https://cerca.app/privacy',
   },
+  devDesign: {
+    startAtActiveRide: false,
+    defaultPreviewStatus: 'accepted' as const,
+  },
   razorpay: {
     // Live keys
     key: 'rzp_live_S6q5OGF0WYChTn',

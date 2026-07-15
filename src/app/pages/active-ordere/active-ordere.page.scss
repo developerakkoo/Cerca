@@ -4,63 +4,113 @@
   width: 100%;
 }
 
-// Grab Handle for Driver Details Modal
-.modal-handle {
-  position: sticky;
+:host {
+  --ride-toolbar-height: 56px;
+  --ride-safe-area-top: env(safe-area-inset-top, 0px);
+  --ride-preview-strip-extra: 0px;
+  --ride-top-offset: calc(
+    var(--ride-toolbar-height) + var(--ride-safe-area-top) + var(--ride-preview-strip-extra)
+  );
+}
+
+:host.has-ui-preview {
+  --ride-preview-strip-extra: 58px;
+}
+
+.ui-preview-strip {
+  position: fixed;
   top: 0;
-  z-index: 10;
+  left: 0;
+  right: 0;
+  z-index: 10001;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 0 8px;
-  background: var(--ion-color-light);
-  border-top-left-radius: 24px;
-  border-top-right-radius: 24px;
-  cursor: grab;
-  user-select: none;
-  // pan-y: sheet drags and inner scroll; avoid touch-action none (fights scroll/breakpoint)
-  touch-action: pan-y;
-  // Parent ::part(content) may use pointer pass-through; handle must still receive drags
+  flex-direction: column;
+  gap: 4px;
+  padding: calc(var(--ride-safe-area-top) + var(--ride-toolbar-height)) 8px 8px;
+  background: rgba(255, 152, 0, 0.95);
   pointer-events: auto;
 
-  &:active {
-    cursor: grabbing;
+  .ui-preview-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.65);
+    padding-left: 4px;
   }
 
-  .handle-bar {
-    width: 40px;
-    height: 4px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 2px;
-    transition: background 0.2s ease;
+  ion-segment {
+    --background: rgba(255, 255, 255, 0.35);
+    min-height: 32px;
   }
 
-  &:active .handle-bar {
-    background: rgba(0, 0, 0, 0.3);
+  ion-segment-button {
+    --padding-start: 4px;
+    --padding-end: 4px;
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  ion-label {
+    font-size: 11px;
+    text-transform: none;
   }
 }
 
-:root.ion-palette-dark {
-  .modal-handle {
-    background: var(--ion-color-dark);
+// Driver sheet modal — use Ionic's built-in handle only (no duplicate custom bar)
+ion-modal.ride-driver-sheet {
+  --z-index: 10000;
+
+  --handle-width: 40px;
+  --handle-height: 4px;
+  --handle-background: rgba(0, 0, 0, 0.22);
+  --handle-border-radius: 2px;
+
+  &::part(handle) {
+    top: 8px;
+  }
+
+  &::part(content) {
+    margin-top: var(--ride-top-offset) !important;
+    top: var(--ride-top-offset) !important;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    background: var(--ion-color-light);
+    pointer-events: auto;
+    overflow: hidden;
+  }
+
+  ion-header.ride-sheet-header {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    z-index: 2 !important;
+    pointer-events: auto !important;
+    padding-top: 0 !important;
+  }
+
+  ion-header {
+    pointer-events: auto;
   }
 }
 
-// Fix header above modal - modal covers entire screen (z-index: 20005)
-// Header must be fixed with z-index higher than modal
-ion-header {
+// Fix page header above modal - must NOT apply to sheet header inside ion-modal
+:host > ion-header.active-ride-page-header {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  z-index: 99999 !important; // Must be higher than modal's 20005
-  pointer-events: none !important; // Allow clicks to pass through container
-  
+  z-index: 99999 !important;
+  pointer-events: none !important;
+  padding-top: var(--ride-safe-area-top);
+
   ion-toolbar {
     position: relative !important;
     z-index: 100000 !important;
-    pointer-events: auto !important; // Re-enable on toolbar
-    background: var(--ion-background-color, #fff) !important; // Ensure visible
+    pointer-events: auto !important;
+    background: var(--ion-background-color, #fff) !important;
     
     ion-button {
       position: relative !important;
@@ -98,36 +148,15 @@ ion-header {
   }
 }
 
-// Driver sheet: single hit-test layer so Ionic breakpoint drag + children work together
-ion-modal {
-  &::part(content) {
-    margin-top: 56px !important; // Page header offset
-    top: 56px !important;
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-    background: var(--ion-color-light);
-    // Whole card receives events; map remains usable above the sheet (margin-top) and in WebView
-    pointer-events: auto;
-  }
-
-  // Handle + in-sheet toolbar are outside modal ion-content; they need explicit hit targets
-  ion-header {
-    pointer-events: auto;
-  }
-}
-
-// Add a CSS overlay that sits above modal in header area to allow clicks through
-// This creates a "window" for the header
-ion-modal::after {
+ion-modal.ride-driver-sheet::after {
   content: '' !important;
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: 56px !important; // Header height
-  z-index: 99998 !important; // Between modal (20005) and header (99999)
-  pointer-events: none !important; // Allow clicks to pass through to header
+  height: var(--ride-top-offset) !important;
+  z-index: 99998 !important;
+  pointer-events: none !important;
   background: transparent !important;
 }
 capacitor-google-map {
@@ -135,11 +164,10 @@ capacitor-google-map {
     width: 100%;
     height: 100%;
   }
-ion-content{
-    --background: transparent;
-    // Add padding-top to account for fixed header
-    --padding-top: 56px;
-    padding-top: 56px !important;
+ion-content.map-content {
+  --background: transparent;
+  --padding-top: var(--ride-top-offset);
+  padding-top: var(--ride-top-offset) !important;
 }
 .map-container {
   width: 100%;
@@ -159,8 +187,230 @@ ion-content{
 }
 
 /* Make modal content interactive */
+ion-modal ion-content.ride-sheet-content {
+  pointer-events: auto;
+  --background: var(--ion-color-light);
+  --padding-top: 0;
+  --padding-bottom: 16px;
+}
+
+:root.ion-palette-dark {
+  ion-modal ion-content.ride-sheet-content {
+    --background: var(--ion-color-dark);
+  }
+}
+
+.driver-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 8px 16px 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ion-background-color, #fff);
+  border: 1px solid rgba(var(--ion-color-medium-rgb, 146, 148, 156), 0.22);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active {
+    opacity: 0.92;
+  }
+
+  ion-avatar {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    border: 2px solid var(--ion-color-primary);
+  }
+
+  &__details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 10px;
+    margin-bottom: 6px;
+
+    h2 {
+      flex: 1 1 auto;
+      min-width: 0;
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--ion-color-dark);
+      white-space: normal;
+      word-break: break-word;
+    }
+  }
+
+  &__plate {
+    flex: 0 0 auto;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ion-color-dark);
+    white-space: nowrap;
+  }
+
+  &__meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 10px;
+  }
+
+  &__rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--ion-color-medium);
+
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+
+  &__vehicle {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--ion-color-medium);
+    text-align: right;
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+:root.ion-palette-dark {
+  .driver-card {
+    background: rgba(var(--ion-color-dark-rgb, 30, 30, 30), 0.95);
+    border-color: rgba(var(--ion-color-light-rgb, 255, 255, 255), 0.12);
+
+    &__name-row h2,
+    &__plate {
+      color: var(--ion-color-light);
+    }
+  }
+}
+
+.ride-route-timeline {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin: 0 16px 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--ion-background-color, #fff);
+  border: 1px solid rgba(var(--ion-color-medium-rgb, 146, 148, 156), 0.22);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.ride-route-timeline__track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  padding-top: 4px;
+}
+
+.ride-route-timeline__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
+
+  &--pickup {
+    background: #4caf50;
+  }
+
+  &--dropoff {
+    background: #fff;
+    border: 2.5px solid #ef5350;
+    box-sizing: border-box;
+  }
+}
+
+.ride-route-timeline__line {
+  flex: 1;
+  width: 2px;
+  min-height: 28px;
+  margin: 6px 0;
+  border-radius: 1px;
+  background: linear-gradient(
+    180deg,
+    #4caf50 0%,
+    #b0bec5 45%,
+    #ef5350 100%
+  );
+}
+
+.ride-route-timeline__stops {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.ride-route-timeline__stop {
+  min-width: 0;
+}
+
+.ride-route-timeline__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ion-color-medium);
+}
+
+.ride-route-timeline__address {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ion-color-dark);
+  word-break: break-word;
+}
+
+:root.ion-palette-dark {
+  .ride-route-timeline {
+    background: rgba(var(--ion-color-dark-rgb, 30, 30, 30), 0.95);
+    border-color: rgba(var(--ion-color-light-rgb, 255, 255, 255), 0.12);
+  }
+
+  .ride-route-timeline__dot {
+    box-shadow: 0 0 0 3px rgba(var(--ion-color-dark-rgb, 30, 30, 30), 0.95);
+
+    &--dropoff {
+      background: var(--ion-color-dark, #1e1e1e);
+    }
+  }
+
+  .ride-route-timeline__address {
+    color: var(--ion-color-light);
+  }
+}
+
+/* Legacy modal ion-content selector */
 ion-modal ion-content {
-  pointer-events: auto; // But keep modal content interactive
+  pointer-events: auto;
   --background: var(--ion-color-light);
 }
 
@@ -310,24 +560,83 @@ ion-modal ion-content {
   }
 }
 
-.chat-button {
-  position: relative;
+// Floating call/chat pinned to the device screen bottom. The element is
+// re-parented under <ion-app> at runtime (sibling of the presented modal),
+// which is the only way to paint above the modal: the page's own stacking
+// context (z-index 101) always loses to the modal (z-index ~20004).
+// No :host prefix — the selector must still match after re-parenting
+// (Angular's _ngcontent scope attribute travels with the element).
+.ride-contact-float {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(20px + var(--ion-safe-area-bottom, 0px));
+  z-index: 100010;
+  display: none;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  pointer-events: none;
 
-  .chat-badge {
-    position: absolute;
-    top: -4px;
-    right: -4px;
-    min-width: 20px;
-    height: 20px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: bold;
+  &.ride-contact-float--visible {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 6px;
-    z-index: 10;
   }
+
+  .ride-contact-btn {
+    pointer-events: auto;
+  }
+}
+
+.ride-contact-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast, #fff);
+  box-shadow: 0 6px 20px rgba(var(--ion-color-primary-rgb), 0.45);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  pointer-events: auto;
+
+  ion-icon {
+    font-size: 24px;
+    pointer-events: none;
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.ride-contact-btn__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ion-color-danger);
+  color: var(--ion-color-danger-contrast, #fff);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .otp-section {
@@ -707,4 +1016,283 @@ ion-modal ion-content {
       background: rgba(var(--ion-color-light-rgb), 0.2);
     }
   }
+}
+
+// Slide to cancel
+.slide-to-cancel-wrap {
+  margin: 16px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.slide-to-cancel-track {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  border-radius: 24px;
+  background: rgba(var(--ion-color-danger-rgb), 0.08);
+  border: 1px solid rgba(var(--ion-color-danger-rgb), 0.25);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.slide-to-cancel-thumb {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 50%;
+  background: var(--ion-color-danger);
+  box-shadow: 0 2px 8px rgba(var(--ion-color-danger-rgb), 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  will-change: transform;
+
+  ion-icon {
+    font-size: 22px;
+    color: var(--ion-color-danger-contrast, #fff);
+    pointer-events: none;
+  }
+}
+
+.slide-to-cancel-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 52px;
+  padding-right: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ion-color-danger);
+  pointer-events: none;
+  z-index: 1;
+  mask-image: linear-gradient(to right, #000 60%, transparent 95%);
+  -webkit-mask-image: linear-gradient(to right, #000 60%, transparent 95%);
+}
+
+// Change destination FAB — re-parented under <ion-app> at runtime (sibling of
+// the presented modal) so it both paints and receives clicks above it.
+// No :host prefix: the selector must still match after re-parenting.
+.change-destination-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(50vh + 40px);
+  z-index: 100050;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 56px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 16px;
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast, #fff);
+  box-shadow: 0 4px 16px rgba(var(--ion-color-primary-rgb), 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+
+  &.change-destination-fab--visible {
+    display: flex;
+  }
+
+  ion-icon {
+    font-size: 24px;
+    pointer-events: none;
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.change-destination-fab-label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  max-width: 72px;
+  pointer-events: none;
+}
+
+// Sheet header: status + OTP/wait meta
+.ride-sheet-toolbar {
+  --background: var(--ion-color-light);
+  --padding-start: 0;
+  --padding-end: 0;
+  --min-height: 56px;
+}
+
+:root.ion-palette-dark {
+  .ride-sheet-toolbar {
+    --background: var(--ion-color-dark);
+  }
+}
+
+.ride-sheet-toolbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+
+.ride-sheet-toolbar__status {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ion-color-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root.ion-palette-dark {
+  .ride-sheet-toolbar__status {
+    color: var(--ion-color-light);
+  }
+}
+
+.ride-sheet-toolbar__meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  text-align: right;
+}
+
+.ride-sheet-toolbar__otp {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.15);
+}
+
+.ride-sheet-toolbar__otp-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ion-color-medium);
+  line-height: 1;
+}
+
+.ride-sheet-toolbar__otp-value {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ion-color-primary);
+  line-height: 1.1;
+}
+
+.ride-sheet-toolbar__wait {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+
+  &--success {
+    color: var(--ion-color-success);
+  }
+
+  &--warning {
+    color: var(--ion-color-warning);
+  }
+}
+
+// Arrival at destination — centered dialog (not bottom sheet)
+ion-modal.arrival-modal {
+  --width: 88%;
+  --max-width: 340px;
+  --height: auto;
+  --border-radius: 24px;
+  --background: #ffffff;
+  --box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22);
+  align-items: center;
+  justify-content: center;
+}
+
+ion-modal.arrival-modal::part(content) {
+  position: relative;
+  height: auto;
+  margin-top: 0 !important;
+  top: auto !important;
+  border-radius: 24px;
+}
+
+ion-modal.arrival-modal .arrival-modal__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 24px 24px;
+}
+
+.arrival-modal__icon {
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.arrival-modal__title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ion-color-primary, #333652);
+}
+
+.arrival-modal__subtitle {
+  margin: 0 0 24px;
+  font-size: 15px;
+  color: var(--ion-color-medium);
+  line-height: 1.4;
+}
+
+.arrival-modal__okay {
+  width: 100%;
+  margin: 0;
+  min-height: 48px;
+  --background: var(--ion-color-primary, #333652);
+  --color: #ffffff;
+  --border-radius: 12px;
+  text-transform: none;
+  font-weight: 600;
+  font-size: 16px;
 }

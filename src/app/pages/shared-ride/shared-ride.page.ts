@@ -6,6 +6,7 @@ import { environment } from 'src/environments/environment';
 import { SharedRideService, SharedRide } from 'src/app/services/shared-ride.service';
 import { SocketService } from 'src/app/services/socket.service';
 import { ToastController, LoadingController } from '@ionic/angular';
+import { mapMarkerImage } from 'src/app/constants/map-marker-icons';
 
 @Component({
   selector: 'app-shared-ride',
@@ -113,7 +114,7 @@ export class SharedRidePage implements OnInit, OnDestroy {
         },
         title: 'Pickup',
         snippet: this.ride.pickupAddress,
-        iconUrl: 'assets/map-marker-pickup.png',
+        ...mapMarkerImage('pickup'),
       });
 
       // Add dropoff marker
@@ -124,7 +125,7 @@ export class SharedRidePage implements OnInit, OnDestroy {
         },
         title: 'Destination',
         snippet: this.ride.dropoffAddress,
-        iconUrl: 'assets/map-marker-dropoff.png',
+        ...mapMarkerImage('dropoff'),
       });
 
       // Fit bounds to show both markers

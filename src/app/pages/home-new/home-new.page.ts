@@ -21,6 +21,7 @@ import { Subscription } from 'rxjs';
 import { Router } from '@angular/router';
 import { SearchPage, SearchModalResult } from '../search/search.page';
 import { environment } from '../../../environments/environment';
+import { mapMarkerImage } from '../../constants/map-marker-icons';
 
 @Component({
   selector: 'app-home-new',
@@ -677,11 +678,7 @@ export class HomeNewPage implements OnInit, OnDestroy {
         },
         title: 'Pickup',
         snippet: this.pickupAddress || 'Your location',
-        iconUrl: 'assets/map-marker-pickup.png',
-        iconSize: {
-          width: 32,
-          height: 32,
-        },
+        ...mapMarkerImage('pickup'),
       });
 
       this.pickupMarkerId = markerId;
@@ -718,11 +715,7 @@ export class HomeNewPage implements OnInit, OnDestroy {
         },
         title: 'Pickup',
         snippet: this.pickupAddress,
-        iconUrl: 'assets/map-marker-pickup.png',
-        iconSize: {
-          width: 32,
-          height: 32,
-        },
+        ...mapMarkerImage('pickup'),
       });
 
       this.pickupMarkerId = markerId;

@@ -14,6 +14,7 @@ import { AlertController } from '@ionic/angular';
 import { App } from '@capacitor/app';
 import { Network } from '@capacitor/network';
 import type { PluginListenerHandle } from '@capacitor/core';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -59,6 +60,18 @@ export class AppComponent implements OnDestroy {
 
     // Sync LanguageService.selected (translations load in APP_INITIALIZER before bootstrap)
     await this.languageService.initializeLanguage();
+
+    if (!environment.production && environment.devDesign?.startAtActiveRide) {
+      await this.router.navigate(['/active-ordere'], {
+        queryParams: {
+          uiPreview: '1',
+          status: environment.devDesign.defaultPreviewStatus ?? 'arrived',
+        },
+        replaceUrl: true,
+      });
+      this.setupBackButtonHandler();
+      return;
+    }
 
     // Simple check: if token and user data exist, restore session
     const hasCredentials = await this.userService.hasStoredCredentials();
