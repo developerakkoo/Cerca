@@ -199,9 +199,17 @@
     "otp": {
       "title": "Verify OTP",
       "subtitle": "Enter the OTP sent to your mobile",
+      "sentTo": "Enter the OTP sent to {{mobile}}",
+      "changeNumber": "Change number",
       "verify": "Verify",
       "resend": "Resend OTP",
-      "resendIn": "Resend in {{seconds}}s"
+      "resendIn": "Resend in {{seconds}}s",
+      "invalidOtp": "Invalid or expired OTP. Please try again.",
+      "expired": "OTP has expired. Please request a new one.",
+      "tooManyAttempts": "Too many OTP attempts. Please try again later.",
+      "deliveryFailed": "Could not deliver OTP. Please try again.",
+      "networkError": "Something went wrong. Please check your connection.",
+      "autofillHint": "Waiting for SMS..."
     },
     "register": {
       "title": "Create Account",

@@ -86,6 +86,7 @@ export class AppComponent implements OnDestroy {
         const currentUrl = this.router.url;
         const isOnAuthPage = currentUrl.includes('/mobile-login') || 
                              currentUrl.includes('/profile-details') ||
+                             currentUrl.includes('/otp') ||
                              currentUrl === '/' ||
                              currentUrl.includes('/splash') ||
                              currentUrl.includes('/welcome');

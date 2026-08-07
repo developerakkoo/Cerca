@@ -78,7 +78,7 @@ const routes: Routes = [
     loadChildren: () => import('./pages/auth/register/register.module').then( m => m.RegisterPageModule)
   },
   {
-    path: 'otp',
+    path: 'otp/:phoneNumber',
     loadChildren: () => import('./pages/auth/otp/otp.module').then( m => m.OtpPageModule)
   },
   {

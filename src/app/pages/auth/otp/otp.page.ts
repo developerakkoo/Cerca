@@ -1,6 +1,18 @@
-import { Component, OnInit, OnDestroy, ViewChildren, QueryList, ElementRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  ViewChild,
+  ElementRef,
+  AfterViewInit,
+} from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
+import { Subscription } from 'rxjs';
+import { UserService } from 'src/app/services/user.service';
+import { FcmService } from 'src/app/services/fcm.service';
+import { OtpAutofillService } from 'src/app/services/otp-autofill.service';
+import { ToastController } from '@ionic/angular';
+import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-otp',
@@ -8,132 +20,293 @@ import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms'
   styleUrls: ['./otp.page.scss'],
   standalone: false,
 })
-export class OtpPage implements OnInit, OnDestroy {
-  @ViewChildren('otpInput1, otpInput2, otpInput3, otpInput4') otpInputs!: QueryList<ElementRef>;
-  
-  otpForm: FormGroup;
-  digit1Control = new FormControl('', [Validators.required, Validators.pattern('[0-9]')]);
-  digit2Control = new FormControl('', [Validators.required, Validators.pattern('[0-9]')]);
-  digit3Control = new FormControl('', [Validators.required, Validators.pattern('[0-9]')]);
-  digit4Control = new FormControl('', [Validators.required, Validators.pattern('[0-9]')]);
+export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('otpInput') otpInputRef!: ElementRef<HTMLInputElement>;
 
+  otpValue = '';
+  digits: string[] = ['', '', '', ''];
   isVerifying = false;
   timeLeft = 30;
   canResend = false;
-  timerInterval: any;
-  maskedMobile = ''; // Replace with actual masked number
+  maskedMobile = '';
   phoneNumber = '';
+  errorMessage = '';
+  isRateLimited = false;
+  rateLimitSecondsLeft = 0;
+
+  private timerInterval: ReturnType<typeof setInterval> | null = null;
+  private rateLimitInterval: ReturnType<typeof setInterval> | null = null;
+  private autofillSub: Subscription | null = null;
+
   constructor(
     private router: Router,
-    private formBuilder: FormBuilder,
-    private route: ActivatedRoute
-  ) {
-this.phoneNumber = this.route.snapshot.paramMap.get('phoneNumber') || '';
-this.maskedMobile = this.maskPhoneNumber(this.phoneNumber);
-    this.otpForm = this.formBuilder.group({
-      digit1: this.digit1Control,
-      digit2: this.digit2Control,
-      digit3: this.digit3Control,
-      digit4: this.digit4Control
-    });
-  }
+    private route: ActivatedRoute,
+    private userService: UserService,
+    private fcmService: FcmService,
+    private otpAutofill: OtpAutofillService,
+    private toastController: ToastController,
+    private translate: TranslateService,
+  ) {}
 
   ngOnInit() {
-    this.startResendTimer();
-  }
-  maskPhoneNumber(phoneNumber: string): string {
-    if (!phoneNumber) return '';
-    // Ensure the phone number is at least 10 digits
-    if (phoneNumber.length < 10) return phoneNumber;
-    
-    // Get the last 4 digits
-    const lastFourDigits = phoneNumber.slice(-4);
-    // Create mask of 'X' characters for the first 6 digits
-    const mask = 'X'.repeat(6);
-    
-    return `${mask}${lastFourDigits}`;
-  }
-
-  ngOnDestroy() {
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-    }
-  }
-
-  goBack() {
-    this.router.navigate(['/mobile-login']);
-  }
-
-  onOtpInput(event: any, index: number) {
-    const input = event.target;
-    const value = input.value;
-
-    // Allow only numbers
-    if (!/^\d*$/.test(value)) {
-      input.value = '';
+    this.phoneNumber = this.route.snapshot.paramMap.get('phoneNumber') || '';
+    if (!this.phoneNumber || !/^\d{10}$/.test(this.phoneNumber)) {
+      this.router.navigate(['/mobile-login'], { replaceUrl: true });
       return;
     }
 
-    // Auto focus next input
-    if (value.length === 1 && index < 4) {
-      const inputs = this.otpInputs.toArray();
-      inputs[index].nativeElement.focus();
+    this.maskedMobile = this.maskPhoneNumber(this.phoneNumber);
+    this.startResendTimer();
+
+    const pendingCode = this.otpAutofill.consumePendingCode();
+    if (pendingCode) {
+      this.applyOtp(pendingCode);
     }
 
-    // Handle backspace
-    if (event.key === 'Backspace' && index > 0 && !value) {
-      const inputs = this.otpInputs.toArray();
-      inputs[index - 2].nativeElement.focus();
-    }
+    this.autofillSub = this.otpAutofill.code$.subscribe((code) => {
+      if (code && !this.isVerifying && !this.isRateLimited) {
+        this.applyOtp(code);
+      }
+    });
+  }
 
-    // Check if OTP is complete
-    if (this.otpForm.valid) {
-      this.verifyOtp();
+  ngAfterViewInit() {
+    setTimeout(() => this.focusOtpInput(), 300);
+  }
+
+  ngOnDestroy() {
+    this.clearResendTimer();
+    this.clearRateLimitTimer();
+    this.autofillSub?.unsubscribe();
+    void this.otpAutofill.disarm();
+  }
+
+  maskPhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      return phoneNumber || '';
     }
+    return `XXXXXX${phoneNumber.slice(-4)}`;
+  }
+
+  goBack() {
+    void this.otpAutofill.disarm();
+    this.router.navigate(['/mobile-login']);
+  }
+
+  focusOtpInput() {
+    if (this.isVerifying || this.isRateLimited) {
+      return;
+    }
+    this.otpInputRef?.nativeElement?.focus();
+  }
+
+  onOtpInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const cleaned = (input.value || '').replace(/\D/g, '').slice(0, 4);
+    this.applyOtp(cleaned, false);
   }
 
   onPaste(event: ClipboardEvent) {
     event.preventDefault();
-    const clipboardData = event.clipboardData?.getData('text');
-    if (clipboardData && /^\d{4}$/.test(clipboardData)) {
-      const digits = clipboardData.split('');
-      const controls = [this.digit1Control, this.digit2Control, this.digit3Control, this.digit4Control];
-      digits.forEach((digit, index) => {
-        controls[index].setValue(digit);
-      });
-      this.verifyOtp();
+    const clipboardData = event.clipboardData?.getData('text') || '';
+    const cleaned = clipboardData.replace(/\D/g, '').slice(0, 4);
+    if (cleaned) {
+      this.applyOtp(cleaned);
     }
   }
 
-  verifyOtp() {
-    this.isVerifying = true;
-    const otp = Object.values(this.otpForm.value).join('');
-    
-    // Simulate API call
-    setTimeout(() => {
-      this.isVerifying = false;
-      this.router.navigate(['/profile-details', this.phoneNumber, false, 1]); // Navigate to home after verification
-    }, 1500);
+  private applyOtp(value: string, autoSubmit = true) {
+    this.otpValue = value;
+    this.digits = [
+      value[0] || '',
+      value[1] || '',
+      value[2] || '',
+      value[3] || '',
+    ];
+    this.errorMessage = '';
+
+    if (this.otpInputRef?.nativeElement && this.otpInputRef.nativeElement.value !== value) {
+      this.otpInputRef.nativeElement.value = value;
+    }
+
+    if (autoSubmit && value.length === 4) {
+      void this.verifyOtp();
+    }
   }
 
-  startResendTimer() {
+  async verifyOtp() {
+    if (this.isVerifying || this.isRateLimited || this.otpValue.length !== 4) {
+      return;
+    }
+
+    this.isVerifying = true;
+    this.errorMessage = '';
+
+    const cachedFcmToken = await this.fcmService.getCachedToken();
+    const payload: { phoneNumber: string; otp: string; fcmToken?: string } = {
+      phoneNumber: this.phoneNumber,
+      otp: this.otpValue,
+    };
+    if (cachedFcmToken) {
+      payload.fcmToken = cachedFcmToken;
+    }
+
+    this.userService.verifyLoginOtp(payload).subscribe({
+      next: async (res: any) => {
+        this.isVerifying = false;
+        await this.otpAutofill.disarm();
+        await this.userService.completeLogin(res);
+
+        if (res.isNewUser) {
+          this.router.navigate([
+            '/profile-details',
+            this.phoneNumber,
+            'false',
+            res.userId,
+          ]);
+        } else {
+          this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+        }
+      },
+      error: async (err: any) => {
+        this.isVerifying = false;
+        await this.handleVerifyError(err);
+      },
+    });
+  }
+
+  private async handleVerifyError(err: any) {
+    const status = err?.status;
+    const code = err?.error?.code;
+    const isBlocked =
+      status === 403 &&
+      (code === 'USER_BLOCKED' ||
+        err?.error?.isBlocked ||
+        err?.error?.details?.isBlocked);
+
+    if (isBlocked) {
+      this.router.navigate(['/blocked'], { replaceUrl: true });
+      return;
+    }
+
+    if (code === 'INVALID_PHONE_NUMBER') {
+      this.router.navigate(['/mobile-login'], { replaceUrl: true });
+      return;
+    }
+
+    if (status === 429) {
+      const retryAfter = Number(err?.error?.retryAfter) || 900;
+      this.startRateLimitTimer(retryAfter);
+      this.errorMessage = this.translate.instant('AUTH.otp.tooManyAttempts');
+      this.clearOtp();
+      return;
+    }
+
+    if (code === 'OTP_VERIFICATION_FAILED' || code === 'INVALID_OTP') {
+      this.errorMessage = this.translate.instant('AUTH.otp.invalidOtp');
+    } else if (code === 'OTP_DELIVERY_FAILED' || code === 'OTP_RESEND_FAILED') {
+      this.errorMessage = this.translate.instant('AUTH.otp.deliveryFailed');
+    } else {
+      this.errorMessage =
+        err?.error?.message ||
+        this.translate.instant('AUTH.otp.networkError');
+    }
+
+    this.clearOtp();
+    setTimeout(() => this.focusOtpInput(), 100);
+  }
+
+  async resendOTP() {
+    if (!this.canResend || this.isVerifying || this.isRateLimited) {
+      return;
+    }
+
+    this.canResend = false;
+    this.errorMessage = '';
+    this.clearOtp();
+
+    void this.otpAutofill.arm();
+
+    this.userService.resendLoginOtp(this.phoneNumber).subscribe({
+      next: async () => {
+        this.startResendTimer();
+        const toast = await this.toastController.create({
+          message: this.translate.instant('AUTH.otp.subtitle'),
+          duration: 2000,
+          position: 'bottom',
+          color: 'success',
+        });
+        await toast.present();
+        setTimeout(() => this.focusOtpInput(), 100);
+      },
+      error: async (err: any) => {
+        this.canResend = true;
+
+        if (err?.status === 403 && (err?.error?.code === 'USER_BLOCKED' || err?.error?.details?.isBlocked)) {
+          this.router.navigate(['/blocked'], { replaceUrl: true });
+          return;
+        }
+
+        if (err?.status === 429) {
+          const retryAfter = Number(err?.error?.retryAfter) || 900;
+          this.startRateLimitTimer(retryAfter);
+          this.errorMessage = this.translate.instant('AUTH.otp.tooManyAttempts');
+          return;
+        }
+
+        this.errorMessage =
+          err?.error?.message ||
+          this.translate.instant('AUTH.otp.deliveryFailed');
+      },
+    });
+  }
+
+  private clearOtp() {
+    this.applyOtp('', false);
+  }
+
+  private startResendTimer() {
+    this.clearResendTimer();
     this.timeLeft = 30;
     this.canResend = false;
-    
+
     this.timerInterval = setInterval(() => {
       if (this.timeLeft > 0) {
         this.timeLeft--;
       } else {
         this.canResend = true;
-        clearInterval(this.timerInterval);
+        this.clearResendTimer();
       }
     }, 1000);
   }
 
-  resendOTP() {
-    if (this.canResend) {
-      // Implement resend logic here
-      this.startResendTimer();
+  private clearResendTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+  }
+
+  private startRateLimitTimer(seconds: number) {
+    this.clearRateLimitTimer();
+    this.isRateLimited = true;
+    this.rateLimitSecondsLeft = Math.max(1, seconds);
+
+    this.rateLimitInterval = setInterval(() => {
+      if (this.rateLimitSecondsLeft > 0) {
+        this.rateLimitSecondsLeft--;
+      } else {
+        this.isRateLimited = false;
+        this.clearRateLimitTimer();
+        setTimeout(() => this.focusOtpInput(), 100);
+      }
+    }, 1000);
+  }
+
+  private clearRateLimitTimer() {
+    if (this.rateLimitInterval) {
+      clearInterval(this.rateLimitInterval);
+      this.rateLimitInterval = null;
     }
   }
 }

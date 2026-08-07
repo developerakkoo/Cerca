@@ -2,9 +2,10 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { UserService } from 'src/app/services/user.service';
-import { LoadingController } from '@ionic/angular';
-import { StorageService } from 'src/app/services/storage.service';
-import { FcmService } from 'src/app/services/fcm.service';
+import { LoadingController, ToastController } from '@ionic/angular';
+import { OtpAutofillService } from 'src/app/services/otp-autofill.service';
+import { TranslateService } from '@ngx-translate/core';
+
 @Component({
   selector: 'app-mobile-login',
   templateUrl: './mobile-login.page.html',
@@ -14,14 +15,16 @@ import { FcmService } from 'src/app/services/fcm.service';
 export class MobileLoginPage implements OnInit, OnDestroy {
   mobileForm: FormGroup;
   isInputFocused = false;
+  private isSubmitting = false;
 
   constructor(
     private router: Router,
     private formBuilder: FormBuilder,
     private userService: UserService,
     private loadingController: LoadingController,
-    private storageService: StorageService,
-    private fcmService: FcmService,
+    private toastController: ToastController,
+    private otpAutofill: OtpAutofillService,
+    private translate: TranslateService,
   ) {
     this.mobileForm = this.formBuilder.group({
       phoneNumber: [
@@ -31,13 +34,9 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit() {
-    // Any initialization logic
-  }
+  ngOnInit() {}
 
-  ngOnDestroy() {
-    // Cleanup any subscriptions or timers if needed
-  }
+  ngOnDestroy() {}
 
   openTerms(): void {
     this.router.navigate(['/legal-webview', 'terms']);
@@ -48,106 +47,53 @@ export class MobileLoginPage implements OnInit, OnDestroy {
   }
 
   async onSubmit() {
-    if (this.mobileForm.valid) {
-      const loading = await this.loadingController.create({
-        message: 'Logging in...',
-        duration: 3000,
-      });
-      await loading.present();
-      console.log(this.mobileForm.value);
-      const cachedFcmToken = await this.fcmService.getCachedToken();
-      const loginPayload: Record<string, unknown> = {
-        ...this.mobileForm.value,
-        privacyPolicyAccepted: true,
-      };
-      if (cachedFcmToken) {
-        loginPayload['fcmToken'] = cachedFcmToken;
-      }
-
-      this.userService.login(loginPayload).subscribe({
-        next: async (res: any) => {
-          await loading.dismiss();
-          console.log(res['message']);
-          console.log(res);
-
-          let isNewUser = res['isNewUser'];
-          
-          console.log('✅ ========================================');
-          console.log('✅ LOGIN SUCCESSFUL - UPDATING USER STATE');
-          console.log('✅ ========================================');
-          console.log('isNewUser:', isNewUser);
-          console.log('Response:', res);
-
-          // Store credentials
-          await this.storageService.set('userId', res['userId']);
-          await this.storageService.set('token', res['token']);
-          
-          // Store token expiry if provided
-          if (res['expiresIn']) {
-            const expiryTime = new Date(Date.now() + res['expiresIn'] * 1000);
-            await this.storageService.set('tokenExpiry', expiryTime.toISOString());
-          } else if (res['tokenExpiry']) {
-            await this.storageService.set('tokenExpiry', res['tokenExpiry']);
-          }
-          
-          // Store last login time
-          await this.storageService.set('lastLoginTime', new Date().toISOString());
-
-          // **CRITICAL: Update UserService to trigger socket initialization**
-          const userData = {
-            _id: res['userId'],
-            id: res['userId'],
-            userId: res['userId'],
-            phoneNumber: res['phoneNumber'],
-            token: res['token'],
-            isLoggedIn: true,
-            lastLogin: new Date(),
-          };
-
-          console.log('📤 Updating UserService with user data:', userData);
-
-          // Save to UserService (this triggers app.component.ts socket initialization)
-          await this.userService.saveUserToStorage(userData);
-          this.userService['userSubject'].next(userData);
-
-          console.log('✅ User state updated - socket should initialize now');
-          console.log('========================================');
-
-          await this.fcmService.initialize(res['userId']);
-
-          // Navigate based on isNewUser flag
-          if (isNewUser) {
-            // New user: Navigate to profile-details to complete profile
-            console.log('🆕 New user - Navigating to profile-details');
-            this.router.navigate([
-              '/profile-details',
-              this.mobileForm.value.phoneNumber,
-              'false', // isEdit = false for new users
-              res['userId']
-            ]);
-          } else {
-            // Existing user: Navigate directly to tab1
-            console.log('👤 Existing user - Navigating to tab1');
-            this.router.navigate(['/tabs/tabs/tab1']);
-          }
-        },
-        error: async (err: any) => {
-          await loading.dismiss();
-          
-          // Check if user is blocked
-          if (err.status === 403 && err.error?.isBlocked) {
-            console.log('🚫 User is blocked');
-            // Navigate to blocked screen
-            this.router.navigate(['/blocked'], { replaceUrl: true });
-          } else {
-            console.log(err.message?.message || err.error?.message || 'Login failed');
-            console.log(err.status);
-            // Handle other errors as before
-          }
-        },
-      });
-
-      // this.router.navigate(['/otp']);
+    if (!this.mobileForm.valid || this.isSubmitting) {
+      return;
     }
+
+    this.isSubmitting = true;
+    const phoneNumber = this.mobileForm.value.phoneNumber as string;
+
+    const loading = await this.loadingController.create({
+      message: this.translate.instant('AUTH.mobileLogin.continue') + '...',
+    });
+    await loading.present();
+
+    // Arm SMS User Consent before the OTP SMS can arrive.
+    void this.otpAutofill.arm();
+
+    this.userService.sendLoginOtp(phoneNumber).subscribe({
+      next: async () => {
+        await loading.dismiss();
+        this.isSubmitting = false;
+        this.router.navigate(['/otp', phoneNumber]);
+      },
+      error: async (err: any) => {
+        await loading.dismiss();
+        this.isSubmitting = false;
+        void this.otpAutofill.disarm();
+
+        if (err.status === 403 && (err.error?.isBlocked || err.error?.details?.isBlocked || err.error?.code === 'USER_BLOCKED')) {
+          this.router.navigate(['/blocked'], { replaceUrl: true });
+          return;
+        }
+
+        const message =
+          err.error?.message ||
+          err.message ||
+          this.translate.instant('AUTH.otp.networkError');
+        await this.showToast(message);
+      },
+    });
+  }
+
+  private async showToast(message: string) {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      position: 'bottom',
+      color: 'danger',
+    });
+    await toast.present();
   }
 }

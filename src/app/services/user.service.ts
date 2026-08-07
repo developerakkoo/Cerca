@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Storage } from '@ionic/storage-angular';
 import { BehaviorSubject, Observable, tap, of, switchMap, map, catchError } from 'rxjs';
@@ -7,6 +7,7 @@ import { WalletService } from './wallet.service';
 import { Router } from '@angular/router';
 import { SocketService } from './socket.service';
 import { StorageService } from './storage.service';
+import { FcmService } from './fcm.service';
 
 export interface User {
   id?: string;
@@ -72,7 +73,8 @@ export class UserService {
     private walletService: WalletService,
     private router: Router,
     private socketService: SocketService,
-    private storageService: StorageService
+    private storageService: StorageService,
+    private fcmService: FcmService,
   ) {
     this.storage.create();
     // Load user data from storage on service initialization
@@ -212,21 +214,68 @@ export class UserService {
     this.updateUser({ preferences: updatedPreferences as any['preferences'] });
   }
 
-  // Login user
-  login(userData: any) {
-    // const updatedUser = {
-    //   ...this.userSubject.value,
-    //   ...userData,
-    //   isLoggedIn: true,
-    //   lastLogin: new Date(),
-    //   updatedAt: new Date()
-    // };
-    // this.userSubject.next(updatedUser);
-    // this.saveUserToStorage(updatedUser);
-    return this.http.post(`${environment.apiUrl}/users/login`, {
-      ...userData,
+  /** Request a login OTP via MSG91 (does not issue a JWT). */
+  sendLoginOtp(phoneNumber: string) {
+    return this.http.post(`${environment.apiUrl}/users/login`, { phoneNumber });
+  }
+
+  /** Resend login OTP. Backend expects phoneNumber as a query param on GET. */
+  resendLoginOtp(phoneNumber: string) {
+    return this.http.get(`${environment.apiUrl}/users/login/resend-otp`, {
+      params: new HttpParams().set('phoneNumber', phoneNumber),
+    });
+  }
+
+  /** Verify OTP and receive JWT + user identity. */
+  verifyLoginOtp(payload: {
+    phoneNumber: string;
+    otp: string;
+    fcmToken?: string;
+  }) {
+    return this.http.post(`${environment.apiUrl}/users/login/verify`, {
+      ...payload,
       privacyPolicyAccepted: true,
     });
+  }
+
+  /**
+   * Persist credentials and update in-memory user state after a successful
+   * OTP verification. Also initialises FCM for the authenticated user.
+   */
+  async completeLogin(res: {
+    token: string;
+    userId: string;
+    phoneNumber?: string;
+    expiresIn?: number;
+    tokenExpiry?: string;
+    isNewUser?: boolean;
+  }): Promise<void> {
+    await this.storageService.set('userId', res.userId);
+    await this.storageService.set('token', res.token);
+
+    if (res.expiresIn) {
+      const expiryTime = new Date(Date.now() + res.expiresIn * 1000);
+      await this.storageService.set('tokenExpiry', expiryTime.toISOString());
+    } else if (res.tokenExpiry) {
+      await this.storageService.set('tokenExpiry', res.tokenExpiry);
+    }
+
+    await this.storageService.set('lastLoginTime', new Date().toISOString());
+
+    const userData = {
+      _id: res.userId,
+      id: res.userId,
+      userId: res.userId,
+      phoneNumber: res.phoneNumber,
+      token: res.token,
+      isLoggedIn: true,
+      lastLogin: new Date(),
+    };
+
+    await this.saveUserToStorage(userData);
+    this.userSubject.next(userData);
+
+    await this.fcmService.initialize(String(res.userId));
   }
 
   // Logout user

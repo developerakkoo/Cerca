@@ -10,50 +10,43 @@
     <!-- Header Section -->
     <div class="header-section">
       <h1 class="title">{{ 'AUTH.otp.title' | translate }}</h1>
-      <p class="subtitle">{{ 'AUTH.otp.subtitle' | translate }}</p>
+      <p class="subtitle">
+        {{ 'AUTH.otp.sentTo' | translate: { mobile: maskedMobile } }}
+      </p>
+      <button type="button" class="change-number" (click)="goBack()">
+        {{ 'AUTH.otp.changeNumber' | translate }}
+      </button>
     </div>
 
     <!-- OTP Input Section -->
     <div class="otp-input-section">
-      <div class="otp-inputs">
+      <div class="otp-inputs" (click)="focusOtpInput()">
+        <div
+          class="otp-cell"
+          *ngFor="let digit of digits; let i = index"
+          [class.filled]="digit !== ''"
+          [class.active]="otpValue.length === i && !isRateLimited"
+        >
+          {{ digit }}
+        </div>
+
+        <!-- Single real input for iOS autocomplete + Android autofill + paste -->
         <input
-          #otpInput1
-          type="text"
-          maxlength="1"
-          [formControl]="digit1Control"
-          (keyup)="onOtpInput($event, 1)"
+          #otpInput
+          class="otp-hidden-input"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="4"
+          [value]="otpValue"
+          [disabled]="isVerifying || isRateLimited"
+          (input)="onOtpInput($event)"
           (paste)="onPaste($event)"
-          inputmode="numeric"
-          pattern="[0-9]*"
-        >
-        <input
-          #otpInput2
-          type="text"
-          maxlength="1"
-          [formControl]="digit2Control"
-          (keyup)="onOtpInput($event, 2)"
-          inputmode="numeric"
-          pattern="[0-9]*"
-        >
-        <input
-          #otpInput3
-          type="text"
-          maxlength="1"
-          [formControl]="digit3Control"
-          (keyup)="onOtpInput($event, 3)"
-          inputmode="numeric"
-          pattern="[0-9]*"
-        >
-        <input
-          #otpInput4
-          type="text"
-          maxlength="1"
-          [formControl]="digit4Control"
-          (keyup)="onOtpInput($event, 4)"
-          inputmode="numeric"
-          pattern="[0-9]*"
+          aria-label="OTP"
         >
       </div>
+
+      <p class="error-text" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <!-- Verification Status -->
       <div class="verification-status" *ngIf="isVerifying">
@@ -63,9 +56,26 @@
 
       <!-- Timer Section -->
       <div class="timer-section" *ngIf="!isVerifying">
-        <p>{{ 'AUTH.otp.resend' | translate }}? <span class="resend" [class.active]="canResend" (click)="resendOTP()">
-          {{ canResend ? ('AUTH.otp.resend' | translate) : ('AUTH.otp.resendIn' | translate: {seconds: timeLeft}) }}
-        </span></p>
+        <p *ngIf="isRateLimited">
+          {{ 'AUTH.otp.tooManyAttempts' | translate }}
+          <span *ngIf="rateLimitSecondsLeft > 0">
+            ({{ rateLimitSecondsLeft }}s)
+          </span>
+        </p>
+        <p *ngIf="!isRateLimited">
+          {{ 'AUTH.otp.resend' | translate }}?
+          <span
+            class="resend"
+            [class.active]="canResend"
+            (click)="resendOTP()"
+          >
+            {{
+              canResend
+                ? ('AUTH.otp.resend' | translate)
+                : ('AUTH.otp.resendIn' | translate: { seconds: timeLeft })
+            }}
+          </span>
+        </p>
       </div>
     </div>
   </div>

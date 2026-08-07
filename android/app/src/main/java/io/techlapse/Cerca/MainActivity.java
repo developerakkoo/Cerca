@@ -18,6 +18,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Local plugins must be registered before BridgeActivity.onCreate.
+        registerPlugin(SmsUserConsentPlugin.class);
         super.onCreate(savedInstanceState);
         createCercaNotificationChannel();
     }

@@ -73,6 +73,17 @@
       color: rgba(var(--ion-color-light-rgb), 0.7);
     }
   }
+
+  .change-number {
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--ion-color-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
 }
 
 // OTP Input Section
@@ -84,11 +95,12 @@
 }
 
 .otp-inputs {
+  position: relative;
   display: flex;
   gap: 12px;
   justify-content: center;
 
-  input {
+  .otp-cell {
     width: 60px;
     height: 60px;
     border-radius: 12px;
@@ -96,10 +108,13 @@
     background: var(--ion-color-light);
     font-size: 24px;
     font-weight: 600;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: var(--ion-color-dark);
     transition: all 0.3s ease;
     animation: scaleIn 0.3s ease-out backwards;
+    pointer-events: none;
 
     :root.ion-palette-dark & {
       background: rgba(255, 255, 255, 0.1);
@@ -107,20 +122,37 @@
       color: var(--ion-color-light);
     }
 
-    &:focus {
-      border-color: var(--ion-color-primary);
-      outline: none;
-      box-shadow: 0 0 0 2px var(--ion-color-primary-tint);
+    &.filled {
+      border-color: var(--ion-color-success);
     }
 
-    &:not(:placeholder-shown) {
-      border-color: var(--ion-color-success);
-      
-      :root.ion-palette-dark & {
-        border-color: var(--ion-color-success);
-      }
+    &.active {
+      border-color: var(--ion-color-primary);
+      box-shadow: 0 0 0 2px var(--ion-color-primary-tint);
     }
   }
+
+  .otp-hidden-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.02;
+    border: none;
+    background: transparent;
+    color: transparent;
+    caret-color: transparent;
+    font-size: 16px;
+    letter-spacing: 40px;
+    z-index: 2;
+  }
+}
+
+.error-text {
+  margin: 0;
+  text-align: center;
+  color: var(--ion-color-danger);
+  font-size: 0.9rem;
 }
 
 // Verification Status
