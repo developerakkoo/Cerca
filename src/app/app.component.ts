@@ -82,29 +82,30 @@ export class AppComponent implements OnDestroy {
       if (restored) {
         // Load user from storage to update UI
         await this.userService.loadUserFromStorage();
-        // Navigate to tab1 if not already on auth pages
+        // Cold start lands on '' / mobile-login (auth). If we already have a
+        // session, skip login and go to the main app — unless the user is
+        // already mid profile setup or already inside tabs.
         const currentUrl = this.router.url;
-        const isOnAuthPage = currentUrl.includes('/mobile-login') || 
-                             currentUrl.includes('/profile-details') ||
-                             currentUrl.includes('/otp') ||
-                             currentUrl === '/' ||
-                             currentUrl.includes('/splash') ||
-                             currentUrl.includes('/welcome');
-        if (!isOnAuthPage) {
-          this.router.navigate(['/tabs/tabs/tab1']);
+        const stayOnCurrent =
+          currentUrl.includes('/profile-details') ||
+          currentUrl.includes('/tabs') ||
+          currentUrl.includes('/blocked') ||
+          currentUrl.includes('/active-ordere');
+        if (!stayOnCurrent) {
+          this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
         }
       } else {
         // Failed to restore, go to login
         await this.userService.loadUserFromStorage();
         if (this.router.url !== '/mobile-login' && this.router.url !== '/') {
-          this.router.navigate(['/mobile-login']);
+          this.router.navigate(['/mobile-login'], { replaceUrl: true });
         }
       }
     } else {
       // No credentials, go to login page
       await this.userService.loadUserFromStorage();
       if (this.router.url !== '/mobile-login' && this.router.url !== '/') {
-        this.router.navigate(['/mobile-login']);
+        this.router.navigate(['/mobile-login'], { replaceUrl: true });
       }
     }
 

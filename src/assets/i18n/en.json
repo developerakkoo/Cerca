@@ -204,7 +204,7 @@
       "verify": "Verify",
       "resend": "Resend OTP",
       "resendIn": "Resend in {{seconds}}s",
-      "invalidOtp": "Invalid or expired OTP. Please try again.",
+      "invalidOtp": "Incorrect OTP. Please try again.",
       "expired": "OTP has expired. Please request a new one.",
       "tooManyAttempts": "Too many OTP attempts. Please try again later.",
       "deliveryFailed": "Could not deliver OTP. Please try again.",

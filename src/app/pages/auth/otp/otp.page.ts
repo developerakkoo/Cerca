@@ -37,6 +37,7 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
   private timerInterval: ReturnType<typeof setInterval> | null = null;
   private rateLimitInterval: ReturnType<typeof setInterval> | null = null;
   private autofillSub: Subscription | null = null;
+  private declinedSub: Subscription | null = null;
 
   constructor(
     private router: Router,
@@ -68,6 +69,11 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
         this.applyOtp(code);
       }
     });
+
+    this.declinedSub = this.otpAutofill.declined$.subscribe(() => {
+      // Consent Activity closed — restore focus so manual entry works.
+      setTimeout(() => this.focusOtpInput(), 250);
+    });
   }
 
   ngAfterViewInit() {
@@ -78,6 +84,7 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
     this.clearResendTimer();
     this.clearRateLimitTimer();
     this.autofillSub?.unsubscribe();
+    this.declinedSub?.unsubscribe();
     void this.otpAutofill.disarm();
   }
 
@@ -103,7 +110,12 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
   onOtpInput(event: Event) {
     const input = event.target as HTMLInputElement;
     const cleaned = (input.value || '').replace(/\D/g, '').slice(0, 4);
-    this.applyOtp(cleaned, false);
+    // Clear previous error as soon as the user starts typing again.
+    if (this.errorMessage) {
+      this.errorMessage = '';
+    }
+    // Auto-submit when the 4th digit is entered (applyOtp guards on length).
+    this.applyOtp(cleaned);
   }
 
   onPaste(event: ClipboardEvent) {
@@ -123,13 +135,13 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
       value[2] || '',
       value[3] || '',
     ];
-    this.errorMessage = '';
 
     if (this.otpInputRef?.nativeElement && this.otpInputRef.nativeElement.value !== value) {
       this.otpInputRef.nativeElement.value = value;
     }
 
     if (autoSubmit && value.length === 4) {
+      this.errorMessage = '';
       void this.verifyOtp();
     }
   }
@@ -158,12 +170,10 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
         await this.userService.completeLogin(res);
 
         if (res.isNewUser) {
-          this.router.navigate([
-            '/profile-details',
-            this.phoneNumber,
-            'false',
-            res.userId,
-          ]);
+          this.router.navigate(
+            ['/profile-details', this.phoneNumber, 'false', res.userId],
+            { replaceUrl: true },
+          );
         } else {
           this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
         }
@@ -178,6 +188,7 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
   private async handleVerifyError(err: any) {
     const status = err?.status;
     const code = err?.error?.code;
+    const backendMessage = String(err?.error?.message || '').toLowerCase();
     const isBlocked =
       status === 403 &&
       (code === 'USER_BLOCKED' ||
@@ -194,15 +205,23 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Clear digits first — must not wipe errorMessage (applyOtp no longer clears it).
+    this.clearOtp();
+
     if (status === 429) {
       const retryAfter = Number(err?.error?.retryAfter) || 900;
       this.startRateLimitTimer(retryAfter);
       this.errorMessage = this.translate.instant('AUTH.otp.tooManyAttempts');
-      this.clearOtp();
       return;
     }
 
-    if (code === 'OTP_VERIFICATION_FAILED' || code === 'INVALID_OTP') {
+    const isInvalidOtp =
+      code === 'OTP_VERIFICATION_FAILED' ||
+      code === 'INVALID_OTP' ||
+      status === 400 ||
+      backendMessage.includes('otp');
+
+    if (isInvalidOtp) {
       this.errorMessage = this.translate.instant('AUTH.otp.invalidOtp');
     } else if (code === 'OTP_DELIVERY_FAILED' || code === 'OTP_RESEND_FAILED') {
       this.errorMessage = this.translate.instant('AUTH.otp.deliveryFailed');
@@ -212,7 +231,13 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
         this.translate.instant('AUTH.otp.networkError');
     }
 
-    this.clearOtp();
+    const toast = await this.toastController.create({
+      message: this.errorMessage,
+      duration: 3000,
+      position: 'bottom',
+      color: 'danger',
+    });
+    await toast.present();
     setTimeout(() => this.focusOtpInput(), 100);
   }
 

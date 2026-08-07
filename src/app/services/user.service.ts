@@ -250,24 +250,37 @@ export class UserService {
     tokenExpiry?: string;
     isNewUser?: boolean;
   }): Promise<void> {
-    await this.storageService.set('userId', res.userId);
-    await this.storageService.set('token', res.token);
+    await this.storage.create();
+
+    const userId = String(res.userId);
+    const token = res.token;
+
+    // Write to both Storage entry points so hasStoredCredentials / restoreSession
+    // (which read via this.storage) always find token + userId after OTP login.
+    await this.storage.set('userId', userId);
+    await this.storage.set('token', token);
+    await this.storageService.set('userId', userId);
+    await this.storageService.set('token', token);
 
     if (res.expiresIn) {
-      const expiryTime = new Date(Date.now() + res.expiresIn * 1000);
-      await this.storageService.set('tokenExpiry', expiryTime.toISOString());
+      const expiryTime = new Date(Date.now() + res.expiresIn * 1000).toISOString();
+      await this.storage.set('tokenExpiry', expiryTime);
+      await this.storageService.set('tokenExpiry', expiryTime);
     } else if (res.tokenExpiry) {
+      await this.storage.set('tokenExpiry', res.tokenExpiry);
       await this.storageService.set('tokenExpiry', res.tokenExpiry);
     }
 
-    await this.storageService.set('lastLoginTime', new Date().toISOString());
+    const lastLogin = new Date().toISOString();
+    await this.storage.set('lastLoginTime', lastLogin);
+    await this.storageService.set('lastLoginTime', lastLogin);
 
     const userData = {
-      _id: res.userId,
-      id: res.userId,
-      userId: res.userId,
+      _id: userId,
+      id: userId,
+      userId,
       phoneNumber: res.phoneNumber,
-      token: res.token,
+      token,
       isLoggedIn: true,
       lastLogin: new Date(),
     };
@@ -275,7 +288,7 @@ export class UserService {
     await this.saveUserToStorage(userData);
     this.userSubject.next(userData);
 
-    await this.fcmService.initialize(String(res.userId));
+    await this.fcmService.initialize(userId);
   }
 
   // Logout user
@@ -311,10 +324,17 @@ export class UserService {
    */
   async hasStoredCredentials(): Promise<boolean> {
     try {
-      const userData = await this.storage.get('user');
-      const token = await this.storage.get('token');
-      const userId = await this.storage.get('userId');
-      
+      await this.storage.create();
+      const userData =
+        (await this.storage.get('user')) ||
+        (await this.storageService.get('user'));
+      const token =
+        (await this.storage.get('token')) ||
+        (await this.storageService.get('token'));
+      const userId =
+        (await this.storage.get('userId')) ||
+        (await this.storageService.get('userId'));
+
       return !!(userData && token && userId);
     } catch (error) {
       console.error('Error checking stored credentials:', error);
@@ -327,14 +347,21 @@ export class UserService {
    */
   async restoreSession(): Promise<boolean> {
     try {
-      const userData = await this.storage.get('user');
-      const token = await this.storage.get('token');
-      const userId = await this.storage.get('userId');
-      
+      await this.storage.create();
+      const userData =
+        (await this.storage.get('user')) ||
+        (await this.storageService.get('user'));
+      const token =
+        (await this.storage.get('token')) ||
+        (await this.storageService.get('token'));
+      const userId =
+        (await this.storage.get('userId')) ||
+        (await this.storageService.get('userId'));
+
       if (!userData || !token || !userId) {
         return false;
       }
-      
+
       // Parse user data
       let user;
       try {
@@ -343,11 +370,12 @@ export class UserService {
         console.error('Error parsing user data:', e);
         return false;
       }
-      
+
       // Restore user session
       user.isLoggedIn = true;
+      user.token = user.token || token;
       this.userSubject.next(user);
-      
+
       return true;
     } catch (error) {
       console.error('Error restoring session:', error);

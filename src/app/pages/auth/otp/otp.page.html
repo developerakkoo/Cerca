@@ -48,6 +48,16 @@
 
       <p class="error-text" *ngIf="errorMessage">{{ errorMessage }}</p>
 
+      <button
+        type="button"
+        class="verify-button"
+        [class.enabled]="otpValue.length === 4 && !isVerifying && !isRateLimited"
+        [disabled]="otpValue.length !== 4 || isVerifying || isRateLimited"
+        (click)="verifyOtp()"
+      >
+        {{ 'AUTH.otp.verify' | translate }}
+      </button>
+
       <!-- Verification Status -->
       <div class="verification-status" *ngIf="isVerifying">
         <div class="loading-spinner"></div>

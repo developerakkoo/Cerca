@@ -20,6 +20,10 @@ export class OtpAutofillService implements OnDestroy {
   private readonly codeSubject = new Subject<string>();
   readonly code$: Observable<string> = this.codeSubject.asObservable();
 
+  private readonly declinedSubject = new Subject<void>();
+  /** Emits when the user dismisses the Android SMS consent dialog. */
+  readonly declined$: Observable<void> = this.declinedSubject.asObservable();
+
   private listening = false;
   private listenGeneration = 0;
   private pendingCode: string | null = null;
@@ -59,9 +63,10 @@ export class OtpAutofillService implements OnDestroy {
     } catch (err: any) {
       // TIMEOUT / USER_DECLINED / CANCELLED are expected; manual entry remains available.
       const message = String(err?.message || err || '');
-      if (
+      if (message.includes('USER_DECLINED')) {
+        this.declinedSubject.next();
+      } else if (
         !message.includes('TIMEOUT') &&
-        !message.includes('USER_DECLINED') &&
         !message.includes('CANCELLED')
       ) {
         console.warn('SMS User Consent failed:', message);
@@ -107,5 +112,6 @@ export class OtpAutofillService implements OnDestroy {
   ngOnDestroy(): void {
     void this.disarm();
     this.codeSubject.complete();
+    this.declinedSubject.complete();
   }
 }
