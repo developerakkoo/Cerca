@@ -71,7 +71,8 @@ const routes: Routes = [
   },
   {
     path: '',
-    loadChildren: () => import('./pages/auth/mobile-login/mobile-login.module').then( m => m.MobileLoginPageModule)
+    loadChildren: () =>
+      import('./pages/bootstrap/bootstrap.module').then((m) => m.BootstrapPageModule),
   },
   {
     path: 'register',

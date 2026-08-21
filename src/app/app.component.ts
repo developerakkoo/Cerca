@@ -47,18 +47,8 @@ export class AppComponent implements OnDestroy {
   async ngOnInit() {
     await this.platform.ready();
 
-    // CRITICAL: Check system settings FIRST before any other initialization
-    const systemCheckResult = await this.checkSystemSettings();
-    if (systemCheckResult.shouldBlock) {
-      // Navigate to blocking screen and return early
-      this.router.navigate([systemCheckResult.route], { replaceUrl: true });
-      return;
-    }
-
-    // Initialize theme service (must be early to apply theme before UI renders)
+    // Theme + language are local — keep them early for correct first paint.
     await this.themeService.initializeTheme();
-
-    // Sync LanguageService.selected (translations load in APP_INITIALIZER before bootstrap)
     await this.languageService.initializeLanguage();
 
     if (!environment.production && environment.devDesign?.startAtActiveRide) {
@@ -73,40 +63,42 @@ export class AppComponent implements OnDestroy {
       return;
     }
 
-    // Simple check: if token and user data exist, restore session
+    // Restore session from storage BEFORE network system-settings checks so
+    // returning users are not stuck on Login for seconds.
     const hasCredentials = await this.userService.hasStoredCredentials();
-    
     if (hasCredentials) {
-      // Restore user session from storage
       const restored = await this.userService.restoreSession();
       if (restored) {
-        // Load user from storage to update UI
         await this.userService.loadUserFromStorage();
-        // Cold start lands on '' / mobile-login (auth). If we already have a
-        // session, skip login and go to the main app — unless the user is
-        // already mid profile setup or already inside tabs.
         const currentUrl = this.router.url;
         const stayOnCurrent =
           currentUrl.includes('/profile-details') ||
           currentUrl.includes('/tabs') ||
           currentUrl.includes('/blocked') ||
           currentUrl.includes('/active-ordere');
-        if (!stayOnCurrent) {
-          this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+        // Bootstrap owns initial routing; only nudge if still on auth/bootstrap.
+        const onAuthGate =
+          currentUrl === '/' ||
+          currentUrl === '' ||
+          currentUrl.includes('/mobile-login') ||
+          currentUrl.includes('/otp');
+        if (!stayOnCurrent && onAuthGate) {
+          // OTP with existing credentials = already logged in; skip OTP.
+          await this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
         }
       } else {
-        // Failed to restore, go to login
         await this.userService.loadUserFromStorage();
-        if (this.router.url !== '/mobile-login' && this.router.url !== '/') {
-          this.router.navigate(['/mobile-login'], { replaceUrl: true });
-        }
       }
     } else {
-      // No credentials, go to login page
       await this.userService.loadUserFromStorage();
-      if (this.router.url !== '/mobile-login' && this.router.url !== '/') {
-        this.router.navigate(['/mobile-login'], { replaceUrl: true });
-      }
+    }
+
+    // System settings (maintenance / force-update) after session restore so
+    // they do not delay the first authenticated home paint.
+    const systemCheckResult = await this.checkSystemSettings();
+    if (systemCheckResult.shouldBlock) {
+      this.router.navigate([systemCheckResult.route], { replaceUrl: true });
+      return;
     }
 
     // Setup Android back button handler
@@ -211,7 +203,11 @@ export class AppComponent implements OnDestroy {
 
         // Navigate to login page if not already there
         const currentUrl = this.router.url;
-        if (currentUrl !== '/mobile-login' && currentUrl !== '/') {
+        if (
+          currentUrl !== '/mobile-login' &&
+          currentUrl !== '/' &&
+          !currentUrl.includes('/otp')
+        ) {
           console.log('🧭 Navigating to /mobile-login');
           this.router.navigate(['/mobile-login']);
         }

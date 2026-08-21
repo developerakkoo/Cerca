@@ -56,6 +56,19 @@ export class OtpPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Already signed in — do not sit on OTP or send/verify again.
+    if (this.userService.isUserLoggedIn()) {
+      void this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+      return;
+    }
+    void this.userService.hasStoredCredentials().then(async (has) => {
+      if (!has) return;
+      const restored = await this.userService.restoreSession();
+      if (restored) {
+        await this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+      }
+    });
+
     this.maskedMobile = this.maskPhoneNumber(this.phoneNumber);
     this.startResendTimer();
 

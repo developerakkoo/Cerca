@@ -9,8 +9,8 @@ export const environment = {
     defaultPreviewStatus: 'arrived' as const,
   },
   legal: {
-    termsUrl: 'https://cerca.app/terms',
-    privacyUrl: 'https://cerca.app/privacy',
+    termsUrl: 'https://cercacars.online/terms',
+    privacyUrl: 'https://cercacars.online/privacy',
   },
   razorpay: {
     key: 'rzp_live_S6q5OGF0WYChTn',

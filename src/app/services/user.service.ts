@@ -1,7 +1,17 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Storage } from '@ionic/storage-angular';
-import { BehaviorSubject, Observable, tap, of, switchMap, map, catchError } from 'rxjs';
+import {
+  BehaviorSubject,
+  Observable,
+  tap,
+  of,
+  switchMap,
+  map,
+  catchError,
+  from,
+  throwError,
+} from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { WalletService } from './wallet.service';
 import { Router } from '@angular/router';
@@ -216,7 +226,22 @@ export class UserService {
 
   /** Request a login OTP via MSG91 (does not issue a JWT). */
   sendLoginOtp(phoneNumber: string) {
-    return this.http.post(`${environment.apiUrl}/users/login`, { phoneNumber });
+    return from(this.hasStoredCredentials()).pipe(
+      switchMap((hasCredentials) => {
+        if (hasCredentials || this.isUserLoggedIn()) {
+          return throwError(() => ({
+            status: 409,
+            error: {
+              code: 'SESSION_ALREADY_ACTIVE',
+              message: 'Already signed in',
+            },
+          }));
+        }
+        return this.http.post(`${environment.apiUrl}/users/login`, {
+          phoneNumber,
+        });
+      }),
+    );
   }
 
   /** Resend login OTP. Backend expects phoneNumber as a query param on GET. */
