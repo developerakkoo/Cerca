@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Storage } from '@ionic/storage-angular';
 import {
@@ -11,6 +11,7 @@ import {
   catchError,
   from,
   throwError,
+  firstValueFrom,
 } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { WalletService } from './wallet.service';
@@ -341,6 +342,30 @@ export class UserService {
     
     // Reset user state
     this.userSubject.next(initialUserState);
+  }
+
+  /**
+   * Permanently delete the signed-in rider. Requires DELETE /users/:id.
+   * Does not clear the local session; the caller logs out after success.
+   */
+  async deleteAccount(): Promise<void> {
+    await this.storage.create();
+    const current = this.getCurrentUser();
+    const userId =
+      current?.id ||
+      current?._id ||
+      (await this.storage.get('userId')) ||
+      (await this.storageService.get('userId'));
+    const jwt =
+      (await this.storage.get('token')) ||
+      (await this.storageService.get('token'));
+    if (!userId || !jwt) {
+      throw new Error('Not signed in');
+    }
+    const headers = new HttpHeaders({ Authorization: `Bearer ${jwt}` });
+    await firstValueFrom(
+      this.http.delete(`${environment.apiUrl}/users/${userId}`, { headers }),
+    );
   }
   
   /**

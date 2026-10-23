@@ -2098,7 +2098,7 @@ export class ActiveOrderePage implements OnInit, OnDestroy, AfterViewInit {
   rateOnStore() {
     // Here you would typically open the app store
     const storeUrl = this.isIOS()
-      ? 'https://apps.apple.com/app/your-app-id'
+      ? 'https://www.cercacars.in'
       : 'https://play.google.com/store/apps/details?id=your.app.id';
 
     window.open(storeUrl, '_blank');

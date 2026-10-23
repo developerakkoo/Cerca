@@ -12,6 +12,7 @@ import type {
   ActionPerformed,
   Token,
 } from '@capacitor/push-notifications';
+import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 
 import { environment } from 'src/environments/environment';
 import { NotificationService } from './notification.service';
@@ -23,7 +24,8 @@ const RETRY_DELAYS_MS = [500, 1000, 2000];
  *
  * Boundaries:
  * - Tied to the auth lifecycle: `initialize(userId)` on login, `dispose()` on logout.
- * - Android-only for now (iOS APNs is deferred).
+ * - Android registers with @capacitor/push-notifications (FCM token).
+ * - iOS registers with @capacitor-firebase/messaging so the token is FCM, not raw APNs.
  * - Token is persisted locally and PATCHed to `PATCH /users/:id/fcm-token`.
  * - `ensureSynced()` re-attempts registration/sync on resume and network recovery.
  */
@@ -34,6 +36,7 @@ export class FcmService {
 
   private listeners: PluginListenerHandle[] = [];
   private listenersReady = false;
+  private iosListenersReady = false;
   private currentUserId: string | null = null;
   private lastSyncError: string | null = null;
   private ensureSyncedInFlight: Promise<void> | null = null;
@@ -61,10 +64,10 @@ export class FcmService {
   }
 
   /**
-   * Idempotent: safe to call multiple times for the same user; no-ops on web/iOS.
+   * Idempotent: safe to call multiple times for the same user; no-ops on web.
    */
   async initialize(userId: string): Promise<void> {
-    if (!this.isAndroidCapacitor()) return;
+    if (!this.isNativeCapacitor()) return;
 
     await this.storage.create();
 
@@ -84,14 +87,11 @@ export class FcmService {
     }
 
     try {
-      const granted = await this.ensurePushPermission();
-      if (!granted) {
-        console.warn('[FCM] Push permission not granted');
-        return;
+      if (this.isIosCapacitor()) {
+        await this.registerIos();
+      } else {
+        await this.registerAndroid();
       }
-
-      await this.attachListenersOnce();
-      await PushNotifications.register();
     } catch (err) {
       console.error('[FCM] initialize failed:', err);
     }
@@ -102,7 +102,7 @@ export class FcmService {
    * Safe to call on app resume and network reconnect.
    */
   async ensureSynced(): Promise<void> {
-    if (!this.isAndroidCapacitor() || !this.currentUserId) return;
+    if (!this.isNativeCapacitor() || !this.currentUserId) return;
 
     if (this.ensureSyncedInFlight) {
       return this.ensureSyncedInFlight;
@@ -144,6 +144,14 @@ export class FcmService {
       );
     }
 
+    if (this.isIosCapacitor()) {
+      try {
+        await FirebaseMessaging.deleteToken();
+      } catch (err) {
+        console.warn('[FCM] failed to delete iOS token:', err);
+      }
+    }
+
     for (const l of this.listeners) {
       try {
         await l.remove();
@@ -153,6 +161,7 @@ export class FcmService {
     }
     this.listeners = [];
     this.listenersReady = false;
+    this.iosListenersReady = false;
     this.currentUserId = null;
     this.token$.next(null);
     this.lastSyncError = null;
@@ -164,8 +173,103 @@ export class FcmService {
     }
   }
 
-  private isAndroidCapacitor(): boolean {
-    return this.platform.is('capacitor') && !this.platform.is('ios');
+  private isNativeCapacitor(): boolean {
+    return (
+      this.platform.is('capacitor') &&
+      (this.platform.is('ios') || this.platform.is('android'))
+    );
+  }
+
+  private isIosCapacitor(): boolean {
+    return this.platform.is('capacitor') && this.platform.is('ios');
+  }
+
+  private async registerAndroid(): Promise<void> {
+    const granted = await this.ensurePushPermission();
+    if (!granted) {
+      console.warn('[FCM] Push permission not granted');
+      return;
+    }
+
+    await this.attachListenersOnce();
+    await PushNotifications.register();
+  }
+
+  private async registerIos(): Promise<void> {
+    const granted = await this.ensureIosPushPermission();
+    if (!granted) {
+      console.warn('[FCM] Push permission not granted');
+      return;
+    }
+
+    await this.attachIosListenersOnce();
+    const { token } = await FirebaseMessaging.getToken();
+    if (token) {
+      await this.persistToken(token);
+    }
+  }
+
+  private async ensureIosPushPermission(): Promise<boolean> {
+    const perm = await FirebaseMessaging.checkPermissions();
+    let status = perm.receive;
+    if (status === 'prompt' || status === 'prompt-with-rationale') {
+      status = (await FirebaseMessaging.requestPermissions()).receive;
+    }
+    return status === 'granted';
+  }
+
+  private async attachIosListenersOnce(): Promise<void> {
+    if (this.iosListenersReady) return;
+
+    this.listeners.push(
+      await FirebaseMessaging.addListener('tokenReceived', async (event) => {
+        await this.persistToken(event.token);
+      }),
+    );
+
+    this.listeners.push(
+      await FirebaseMessaging.addListener('notificationReceived', async (event) => {
+        const data = this.notificationData(event.notification.data);
+        console.log('[FCM] received (foreground):', event.notification);
+        await this.notificationService.scheduleNotification({
+          title: event.notification.title || data['title'] || 'Cerca',
+          body: event.notification.body || data['body'] || '',
+          extra: data,
+        });
+      }),
+    );
+
+    this.listeners.push(
+      await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
+        if (event.actionId === 'dismiss') return;
+        const data = this.notificationData(event.notification.data);
+        console.log('[FCM] tapped:', data);
+        this.routeFromPayload(data);
+      }),
+    );
+
+    this.iosListenersReady = true;
+  }
+
+  private notificationData(data: unknown): Record<string, any> {
+    if (data && typeof data === 'object') {
+      return data as Record<string, any>;
+    }
+    return {};
+  }
+
+  private async persistToken(token: string): Promise<void> {
+    if (!token) return;
+    console.log('[FCM] token:', token);
+    this.token$.next(token);
+    try {
+      await this.storage.set('fcmToken', token);
+    } catch (err) {
+      console.warn('[FCM] failed to persist token:', err);
+    }
+    await this.syncTokenWithRetry(token).catch((err) =>
+      console.warn('[FCM] backend token sync failed:', err),
+    );
   }
 
   private async ensurePushPermission(): Promise<boolean> {
@@ -306,7 +410,7 @@ export class FcmService {
     await firstValueFrom(
       this.http.patch(
         url,
-        { fcmToken: token, platform: 'android' },
+        { fcmToken: token, platform: this.isIosCapacitor() ? 'ios' : 'android' },
         { headers },
       ),
     );

@@ -100,6 +100,15 @@
       </div>
     </div>
 
+    <div class="settings-card settings-card--logout" (click)="confirmDeleteAccount()">
+      <div class="settings-row settings-row--last settings-row--logout">
+        <div class="settings-icon-box settings-icon-box--danger">
+          <ion-icon name="trash-outline"></ion-icon>
+        </div>
+        <span class="settings-row-label settings-row-label--danger">{{ 'SETTINGS.items.DeleteAccount' | translate }}</span>
+      </div>
+    </div>
+
     <!-- Logout -->
     <div class="settings-card settings-card--logout" (click)="logout()">
       <div class="settings-row settings-row--last settings-row--logout">

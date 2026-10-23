@@ -39,8 +39,14 @@
       "Support": "Support",
       "Faq": "FAQ",
       "Theme": "Dark Mode",
-      "Logout": "Logout"
+      "Logout": "Logout",
+      "DeleteAccount": "Delete account"
     },
+    "deleteTitle": "Delete account",
+    "deleteMessage": "This permanently removes your profile, rides, and wallet. This cannot be undone.",
+    "deleteConfirm": "Delete",
+    "deleteCancel": "Cancel",
+    "deleteFailed": "Could not delete your account. Try again.",
     "TABS": {
       "tab1": "Home",
       "tab2": "Bookings",

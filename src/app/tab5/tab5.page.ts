@@ -1,11 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { AnimationController, Platform } from '@ionic/angular';
+import { AlertController, AnimationController, Platform } from '@ionic/angular';
 import { UserService, User } from '../services/user.service';
 import { Router } from '@angular/router';
 import { LanguageService } from '../service/language.service';
 import { SupportService, SupportIssue } from '../services/support.service';
 import { SocketService } from '../services/socket.service';
 import { Subscription } from 'rxjs';
+import { TranslateService } from '@ngx-translate/core';
 interface Language {
   code: string;
   name: string;
@@ -24,6 +25,7 @@ export class Tab5Page implements OnInit, OnDestroy {
   user: any;
   activeSupportCount: number = 0;
   isLoading: boolean = true;
+  private deletingAccount = false;
   private subscriptions: Subscription[] = [];
   private supportIssuesSub?: Subscription;
   languages: Language[] = [
@@ -51,7 +53,9 @@ export class Tab5Page implements OnInit, OnDestroy {
     private router: Router,
     private languageService: LanguageService,
     private supportService: SupportService,
-    private socketService: SocketService
+    private socketService: SocketService,
+    private alertController: AlertController,
+    private translate: TranslateService,
   ) {}
 
   ngOnInit() {
@@ -128,6 +132,48 @@ export class Tab5Page implements OnInit, OnDestroy {
   logout() {
     this.userService.logout();
     this.router.navigate(['/']);
+  }
+
+  async confirmDeleteAccount() {
+    if (this.deletingAccount) return;
+    const alert = await this.alertController.create({
+      header: this.translate.instant('SETTINGS.deleteTitle'),
+      message: this.translate.instant('SETTINGS.deleteMessage'),
+      buttons: [
+        {
+          text: this.translate.instant('SETTINGS.deleteCancel'),
+          role: 'cancel',
+        },
+        {
+          text: this.translate.instant('SETTINGS.deleteConfirm'),
+          role: 'destructive',
+          handler: () => {
+            void this.deleteAccount();
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async deleteAccount() {
+    if (this.deletingAccount) return;
+    this.deletingAccount = true;
+    try {
+      await this.userService.deleteAccount();
+      await this.userService.logout();
+      this.router.navigate(['/']);
+    } catch (error) {
+      console.error('Delete account failed:', error);
+      const failed = await this.alertController.create({
+        header: this.translate.instant('SETTINGS.deleteTitle'),
+        message: this.translate.instant('SETTINGS.deleteFailed'),
+        buttons: [this.translate.instant('SETTINGS.deleteCancel')],
+      });
+      await failed.present();
+    } finally {
+      this.deletingAccount = false;
+    }
   }
 
   openSupport() {

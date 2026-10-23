@@ -12,8 +12,8 @@ export const environment = {
   // apiUrl: 'http://192.168.1.14:3000',
   // Razorpay configuration
   legal: {
-    termsUrl: 'https://cercacars.online/terms',
-    privacyUrl: 'https://cercacars.online/privacy',
+    termsUrl: 'https://www.cercacars.in/terms',
+    privacyUrl: 'https://www.cercacars.in/privacy',
   },
   devDesign: {
     startAtActiveRide: false,
