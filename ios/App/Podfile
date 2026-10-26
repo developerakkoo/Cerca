@@ -1,6 +1,6 @@
 require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
 
-platform :ios, '14.0'
+platform :ios, '15.0'
 use_frameworks!
 
 # workaround to avoid Xcode caching of Pods that requires
@@ -33,4 +33,19 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+    config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+    config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+  end
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      config.build_settings['OTHER_CFLAGS'] = '$(inherited) -Wno-quoted-include-in-framework-header -Wno-error=quoted-include-in-framework-header'
+    end
+  end
 end
