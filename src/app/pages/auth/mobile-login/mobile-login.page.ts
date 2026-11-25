@@ -98,9 +98,18 @@ export class MobileLoginPage implements OnInit, OnDestroy {
     void this.otpAutofill.arm();
 
     this.userService.sendLoginOtp(phoneNumber).subscribe({
-      next: async () => {
+      next: async (res: any) => {
         await loading.dismiss();
         this.isSubmitting = false;
+
+        // Server whitelist (iOS review numbers) returns a session and skips OTP.
+        if (res?.directLogin === true && res?.token) {
+          await this.otpAutofill.disarm();
+          await this.userService.completeLogin(res);
+          await this.router.navigate(['/tabs/tabs/tab1'], { replaceUrl: true });
+          return;
+        }
+
         this.router.navigate(['/otp', phoneNumber]);
       },
       error: async (err: any) => {

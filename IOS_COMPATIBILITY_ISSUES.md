@@ -11,42 +11,30 @@ This document catalogs all iOS compatibility issues found in the Cerca app, orga
 
 ## 🔴 Critical Issues (Must Fix)
 
-### 1. UIScene Lifecycle Deprecation Warning
+### 1. UIScene Lifecycle Required (Launch Failure)
 
 **Severity:** 🔴 Critical  
-**Status:** ⚠️ Warning in logs  
-**Location:** `ios/App/App/AppDelegate.swift`
+**Status:** ✅ Fixed  
+**Location:** `ios/App/App/AppDelegate.swift`, `ios/App/App/SceneDelegate.swift`, `ios/App/App/Info.plist`
 
 **Issue:**
 ```
-UIScene lifecycle will soon be required. Failure to adopt will result in an assert in the future.
+Application failed to launch: UIScene life cycle is required for apps built with this SDK.
 ```
 
-The app uses deprecated `@UIApplicationMain` instead of the modern UIScene-based lifecycle. This will cause app crashes in future iOS versions.
+Apps built with the latest Xcode / iOS SDK must adopt the UIKit scene-based lifecycle or they fail to launch.
 
-**Impact:**
-- App will fail to launch on future iOS versions (likely iOS 18+)
-- Current warning indicates Apple is preparing to enforce this requirement
-- May cause App Store rejection in future submissions
+**Fix applied:**
+1. Added `SceneDelegate.swift` (window from `Main.storyboard` + deep-link forwarding via `ApplicationDelegateProxy`)
+2. Added `UIApplicationSceneManifest` to `Info.plist` (removed root `UIMainStoryboardFile`)
+3. Switched AppDelegate to `@main` and added `application(_:configurationForConnecting:options:)`
+4. Registered `SceneDelegate.swift` in the Xcode project
 
-**Current Code:**
-```swift
-@UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
-    // ...
-}
-```
-
-**Recommended Fix:**
-1. Migrate to UIScene-based lifecycle
-2. Create `SceneDelegate.swift` for scene management
-3. Update `Info.plist` to include `UIApplicationSceneManifest` key
-4. Remove `@UIApplicationMain` and use `@main` with scene configuration
+**Note:** Official Capacitor `SceneDelegateProxy` ships in Capacitor 8.5+. This project is on Capacitor 7.2, so deep links are forwarded through `ApplicationDelegateProxy` instead. When upgrading to Capacitor ≥ 8.5, prefer the official scene template.
 
 **References:**
-- [Apple UIScene Documentation](https://developer.apple.com/documentation/uikit/app_and_environment/scenes)
-- [Capacitor iOS Migration Guide](https://capacitorjs.com/docs/ios/configuration)
+- [Apple: Transitioning to the UIKit scene-based life cycle](https://developer.apple.com/documentation/uikit/transitioning-to-the-uikit-scene-based-life-cycle)
+- [Capacitor 8.5 UIScene update](https://capacitorjs.com/docs/updating/8-5)
 
 ---
 
